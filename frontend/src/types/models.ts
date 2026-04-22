@@ -93,6 +93,7 @@ export interface Recipe {
   isFreezerFriendly: boolean;
   isCookFreshOnly: boolean;
   baseYieldServings: number;
+  mealTypeTags: MealType[];
   imageUrl?: string | null;
   sourceUrl?: string | null;
   foodGroupServings: Record<string, number>;

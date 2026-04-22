@@ -95,6 +95,17 @@ public class AppDbContext : DbContext
         // Recipe
         modelBuilder.Entity<Recipe>(b =>
         {
+            b.Property(r => r.MealTypeTags)
+                .HasColumnType("jsonb")
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v.Select(t => t.ToString()).ToList(), JsonOptions),
+                    v => string.IsNullOrEmpty(v)
+                        ? new List<MealType>()
+                        : (JsonSerializer.Deserialize<List<string>>(v, JsonOptions) ?? new List<string>())
+                            .Select(s => Enum.TryParse<MealType>(s, out var parsed) ? parsed : (MealType?)null)
+                            .Where(t => t.HasValue)
+                            .Select(t => t!.Value)
+                            .ToList());
             b.Property(r => r.FoodGroupServings).HasColumnType("jsonb").HasConversion(dictDecimalConverter);
             b.Property(r => r.ScalabilityTag).HasConversion<string>();
             b.Property(r => r.TimeTag).HasConversion<string>();

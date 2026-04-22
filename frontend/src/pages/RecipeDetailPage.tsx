@@ -29,6 +29,9 @@ export function RecipeDetailPage() {
             <TagPill tone="warm">{recipe.cuisine}</TagPill>
             <TagPill tone="accent">{recipe.timeTag}</TagPill>
             <TagPill>{recipe.scalabilityTag}</TagPill>
+            {recipe.mealTypeTags.map((mealType) => (
+              <TagPill key={mealType}>{mealType}</TagPill>
+            ))}
           </div>
           <div className="flex gap-2 rounded-2xl bg-nourish-bg p-1">
             {(["Prep ahead", "Day of"] as const).map((entry) => (

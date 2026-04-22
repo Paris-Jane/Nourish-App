@@ -1,6 +1,6 @@
 import { addDays, format, parseISO, startOfWeek } from "date-fns";
 import { clsx } from "clsx";
-import type { MealType, WeekDay } from "types/models";
+import type { MealType, Recipe, WeekMealSlot, WeekDay } from "types/models";
 
 export function cn(...inputs: Array<string | false | null | undefined>) {
   return clsx(inputs);
@@ -36,4 +36,82 @@ export function daysUntil(dateString?: string | null) {
   if (!dateString) return null;
   const diff = Math.ceil((parseISO(dateString).getTime() - Date.now()) / 86_400_000);
   return diff;
+}
+
+export function sortSlotsByMealType(slots: WeekMealSlot[]) {
+  return [...slots].sort((a, b) => mealTypes.indexOf(a.mealType) - mealTypes.indexOf(b.mealType));
+}
+
+export function createBlankWeekSlots(weekId: number, visibleMealTypes: MealType[]): WeekMealSlot[] {
+  return weekDays.flatMap((day, dayIndex) =>
+    visibleMealTypes.map((mealType, mealIndex) => ({
+      id: 10_000 + dayIndex * 10 + mealIndex + 1,
+      weekId,
+      recipeId: null,
+      recipeName: null,
+      dayOfWeek: day,
+      mealType,
+      isEatingOut: false,
+      isSkipped: false,
+      isLocked: false,
+      servingsPlanned: 2,
+      assumedCompleted: false,
+      markedSkippedAt: null,
+    })),
+  );
+}
+
+export function createAutoWeekSlots({
+  baseSlots,
+  weekId,
+  visibleMealTypes,
+}: {
+  baseSlots: WeekMealSlot[];
+  weekId: number;
+  visibleMealTypes: MealType[];
+}) {
+  return sortSlotsByMealType(
+    baseSlots
+      .filter((slot) => visibleMealTypes.includes(slot.mealType))
+      .map((slot, index) => ({
+        ...slot,
+        id: weekId * 100 + index + 1,
+        weekId,
+      })),
+  );
+}
+
+export function createSavedWeekSlots({
+  weekId,
+  visibleMealTypes,
+  recipes,
+  seed,
+}: {
+  weekId: number;
+  visibleMealTypes: MealType[];
+  recipes: Recipe[];
+  seed: number;
+}) {
+  return weekDays.flatMap((day, dayIndex) =>
+    visibleMealTypes.map((mealType, mealIndex) => {
+      const eligible = recipes.filter((recipe) => recipe.mealTypeTags.includes(mealType));
+      const pool = eligible.length > 0 ? eligible : recipes;
+      const recipe = pool[(seed + dayIndex + mealIndex) % pool.length];
+
+      return {
+        id: weekId * 100 + dayIndex * 10 + mealIndex + 1,
+        weekId,
+        recipeId: recipe?.id ?? null,
+        recipeName: recipe?.name ?? null,
+        dayOfWeek: day,
+        mealType,
+        isEatingOut: false,
+        isSkipped: false,
+        isLocked: false,
+        servingsPlanned: 2,
+        assumedCompleted: false,
+        markedSkippedAt: null,
+      };
+    }),
+  );
 }

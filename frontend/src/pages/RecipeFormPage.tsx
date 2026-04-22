@@ -5,6 +5,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useIngredients, useRecipes } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
 import { recipeFormSchema, type RecipeFormValues } from "types/forms";
+import type { MealType } from "types/models";
+
+const mealTypeOptions: MealType[] = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
 export function RecipeFormPage() {
   const { id } = useParams();
@@ -26,6 +29,7 @@ export function RecipeFormPage() {
       isFreezerFriendly: existing?.isFreezerFriendly ?? false,
       isCookFreshOnly: existing?.isCookFreshOnly ?? false,
       baseYieldServings: existing?.baseYieldServings ?? 4,
+      mealTypeTags: existing?.mealTypeTags ?? ["Dinner"],
       ingredients:
         existing?.ingredients.map((ingredient) => ({
           ingredientId: ingredient.ingredientId,
@@ -80,6 +84,33 @@ export function RecipeFormPage() {
               <option value="FreezerFriendly">Freezer-friendly</option>
             </select>
             <input className="input" type="number" {...form.register("baseYieldServings", { valueAsNumber: true })} />
+          </div>
+          <div className="mt-4">
+            <p className="mb-3 text-sm text-nourish-muted">Best fit meal types</p>
+            <div className="flex flex-wrap gap-2">
+              {mealTypeOptions.map((mealType) => {
+                const selected = form.watch("mealTypeTags").includes(mealType);
+                return (
+                  <button
+                    key={mealType}
+                    type="button"
+                    className={`rounded-full px-4 py-2 text-sm transition ${selected ? "bg-nourish-sage text-white" : "border border-nourish-border bg-white text-nourish-muted"}`}
+                    onClick={() => {
+                      const current = form.getValues("mealTypeTags");
+                      const next = current.includes(mealType)
+                        ? current.filter((entry) => entry !== mealType)
+                        : [...current, mealType];
+                      form.setValue("mealTypeTags", next, { shouldValidate: true, shouldDirty: true });
+                    }}
+                  >
+                    {mealType}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-nourish-muted">
+              These guide recommendations for breakfast, lunch, dinner, and snack slots without locking the recipe to one use.
+            </p>
           </div>
           <div className="mt-4 flex gap-6 text-sm text-nourish-muted">
             <label className="flex items-center gap-2">

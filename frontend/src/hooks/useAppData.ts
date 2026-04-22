@@ -23,13 +23,14 @@ export function useCurrentWeek(): { week: Week; isLoading: boolean } {
 
 export function useWeekSlots(): { slots: WeekMealSlot[]; isLoading: boolean } {
   const activeWeekId = useWeekStore((state) => state.activeWeekId) ?? 1;
+  const slotOverrides = useWeekStore((state) => state.slotOverrides);
   const query = usePreviewQuery({
     queryKey: ["week-slots", activeWeekId],
     queryFn: () => getWeekSlots(activeWeekId),
     fallbackData: mockSlots,
   });
 
-  return { slots: query.data ?? mockSlots, isLoading: query.isLoading };
+  return { slots: slotOverrides ?? query.data ?? mockSlots, isLoading: query.isLoading };
 }
 
 export function useRecipes(): { recipes: Recipe[]; isLoading: boolean } {
@@ -85,15 +86,18 @@ export function useSavedWeeks() {
 
 export function useGroupedSlots() {
   const { slots, isLoading } = useWeekSlots();
+  const visibleMealTypes = useWeekStore((state) => state.visibleMealTypes);
 
   const grouped = useMemo(
     () =>
-      slots.reduce<Record<string, WeekMealSlot[]>>((acc, slot) => {
+      slots
+        .filter((slot) => visibleMealTypes.includes(slot.mealType))
+        .reduce<Record<string, WeekMealSlot[]>>((acc, slot) => {
         acc[slot.dayOfWeek] ??= [];
         acc[slot.dayOfWeek].push(slot);
         return acc;
       }, {}),
-    [slots],
+    [slots, visibleMealTypes],
   );
 
   return { grouped, isLoading };

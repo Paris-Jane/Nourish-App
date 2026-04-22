@@ -12,6 +12,7 @@ public class Recipe
     public bool IsFreezerFriendly { get; set; }
     public bool IsCookFreshOnly { get; set; }
     public int BaseYieldServings { get; set; }
+    public List<MealType> MealTypeTags { get; set; } = new();
     public string? ImageUrl { get; set; }
     public string? SourceUrl { get; set; }
     public Dictionary<string, decimal> FoodGroupServings { get; set; } = new();

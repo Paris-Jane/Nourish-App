@@ -115,6 +115,7 @@ public static class RecipeEndpoints
             IsFreezerFriendly = req.IsFreezerFriendly,
             IsCookFreshOnly = req.IsCookFreshOnly,
             BaseYieldServings = req.BaseYieldServings,
+            MealTypeTags = req.MealTypeTags,
             ImageUrl = req.ImageUrl,
             SourceUrl = req.SourceUrl,
             FoodGroupServings = req.FoodGroupServings,
@@ -163,6 +164,7 @@ public static class RecipeEndpoints
         recipe.IsFreezerFriendly = req.IsFreezerFriendly;
         recipe.IsCookFreshOnly = req.IsCookFreshOnly;
         recipe.BaseYieldServings = req.BaseYieldServings;
+        recipe.MealTypeTags = req.MealTypeTags;
         recipe.ImageUrl = req.ImageUrl;
         recipe.SourceUrl = req.SourceUrl;
         recipe.FoodGroupServings = req.FoodGroupServings;
@@ -269,7 +271,7 @@ public static class RecipeEndpoints
 
     private static RecipeResponse ToDto(Recipe r) => new(
         r.Id, r.HouseholdId, r.Name, r.Cuisine, r.ScalabilityTag, r.TimeTag, r.PrepStyleTag,
-        r.IsFreezerFriendly, r.IsCookFreshOnly, r.BaseYieldServings, r.ImageUrl, r.SourceUrl,
+        r.IsFreezerFriendly, r.IsCookFreshOnly, r.BaseYieldServings, r.MealTypeTags, r.ImageUrl, r.SourceUrl,
         r.FoodGroupServings, r.CreatedAt,
         r.Ingredients.Select(i => new RecipeIngredientResponse(
             i.Id, i.IngredientId, i.Ingredient?.Name ?? string.Empty,

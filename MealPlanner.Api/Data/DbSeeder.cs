@@ -119,6 +119,7 @@ public static class DbSeeder
             IsFreezerFriendly = true,
             IsCookFreshOnly = false,
             BaseYieldServings = 4,
+            MealTypeTags = new List<MealType> { MealType.Lunch, MealType.Dinner },
             FoodGroupServings = new Dictionary<string, decimal>
             {
                 ["grains"] = 2,
@@ -153,6 +154,7 @@ public static class DbSeeder
             IsFreezerFriendly = false,
             IsCookFreshOnly = true,
             BaseYieldServings = 2,
+            MealTypeTags = new List<MealType> { MealType.Breakfast, MealType.Snack },
             FoodGroupServings = new Dictionary<string, decimal>
             {
                 ["protein"] = 2,
@@ -183,6 +185,7 @@ public static class DbSeeder
             IsFreezerFriendly = false,
             IsCookFreshOnly = false,
             BaseYieldServings = 4,
+            MealTypeTags = new List<MealType> { MealType.Lunch, MealType.Dinner },
             FoodGroupServings = new Dictionary<string, decimal>
             {
                 ["grains"] = 2,

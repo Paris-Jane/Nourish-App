@@ -95,17 +95,22 @@ Instead:
 
 ### Planning mode decision
 
-There should **not** be a big “Auto vs Manual” mode selection upfront.
+There should **not** be a big “Auto vs Manual” mode selection before a user has seen the app work.
 
 Instead:
 
-- the app auto-generates by default
-- every slot is editable
-- users can replace any meal
-- users can fill individual slots themselves
-- users can partially build a week and use “fill the rest for me”
+- the first experience can still be autopilot-first
+- when starting a **new week**, the user can choose how to begin:
+  - auto plan
+  - manual plan
+  - use a saved week
+- once a week exists, the experience should stay hybrid:
+  - every slot is editable
+  - users can replace any meal
+  - users can fill individual slots themselves
+  - users can partially build a week and use “fill the rest for me”
 
-This keeps the product consistent with autopilot positioning.
+This keeps the product consistent with autopilot positioning while still supporting planners who want a blank canvas or a saved template.
 
 ### Nutrition decision
 
@@ -197,7 +202,7 @@ The app should not feel like:
 ### 7.2 Weekly planning flow
 
 1. User opens the current week.
-2. User sees an auto-generated plan by default.
+2. User sees the current week as the main working surface.
 3. User can:
    - approve the week
    - swap individual meals
@@ -208,6 +213,32 @@ The app should not feel like:
    - grocery list is generated
    - prep sheets can be generated
    - fridge logic can use assumed completion behavior
+
+### 7.2A New week start flow
+
+When a user opens a new week, they can choose one of three starting paths:
+
+#### Auto plan
+
+- app generates a week using stored preferences and current weekly inputs
+- user can inspect meals and swap anything before approving
+
+#### Manual plan
+
+- app starts with a blank week
+- user fills slots one by one
+- recommendations are shown in context from categories like:
+  - expiring soon
+  - in your fridge
+  - ingredient overlap
+  - favorites
+  - recent
+- user can search existing recipes or add a new one from the slot flow
+
+#### Use a saved week
+
+- app starts from a previously saved week
+- user can adapt that saved week for the current week before approving
 
 ### 7.3 Manual/hybrid planning flow
 
@@ -308,7 +339,10 @@ Generate a full week of meals with minimal user effort.
 
 ### Behavior
 
-- app generates by default
+- a new week can start from:
+  - auto generation
+  - a blank manual planner
+  - a saved week
 - week contains meal slots across Monday–Sunday
 - meal slots include at least breakfast, lunch, dinner, and snack
 - slots can be:
@@ -347,6 +381,7 @@ Manual planning is part of the same experience, not a separate product mode.
 
 ### Requirements
 
+- user can intentionally start from a blank week
 - user can tap any slot to fill it
 - app surfaces context-aware recommendations
 - after selecting a recipe, user can apply it to multiple days
@@ -462,6 +497,7 @@ Recipe entry is one of the most important foundational systems because nearly ev
 
 - name
 - cuisine
+- meal type tags
 - time tag
 - prep style tag
 - scalability tag
@@ -475,6 +511,7 @@ Recipe entry is one of the most important foundational systems because nearly ev
 
 AI should assist with:
 
+- meal type tag suggestion
 - step categorization into prep-ahead / day-of active / day-of passive
 - ingredient standardization
 - purchase-unit suggestion
@@ -672,7 +709,40 @@ Examples:
 
 These are separate from scalability and can overlap.
 
-## 12.3 Step timing tags
+## 12.3 Meal type tags
+
+Recipes should support one or more recommended meal types:
+
+- Breakfast
+- Lunch
+- Dinner
+- Snack
+
+These tags are **soft metadata**, not hard rules.
+
+### Purpose
+
+- improve auto-generated slot recommendations
+- improve swap quality
+- improve manual slot-filling suggestions
+- improve recipe browsing and filtering later
+
+### Important behavior
+
+- a lunch recipe can still be used for dinner
+- a breakfast recipe can still be used as a snack
+- lunch/dinner crossover should be common
+- the planner should score matching meal-type tags higher, not enforce them rigidly
+
+### Examples
+
+- avocado toast: Breakfast, Lunch
+- chili: Lunch, Dinner
+- yogurt bowl: Breakfast, Snack
+- burrito bowl: Lunch, Dinner
+- hard boiled eggs with fruit: Breakfast, Snack
+
+## 12.4 Step timing tags
 
 - PrepAhead
 - DayOfActive
@@ -680,7 +750,7 @@ These are separate from scalability and can overlap.
 
 These are required to generate useful prep sheets and to decide whether a recipe fits the selected weekly prep style.
 
-## 12.4 Core ingredients vs modifiers
+## 12.5 Core ingredients vs modifiers
 
 ### Core ingredients
 
@@ -874,6 +944,7 @@ This is the schema discussed as the target model.
 - IsFreezerFriendly
 - IsCookFreshOnly
 - BaseYieldServings
+- MealTypeTags
 - ImageUrl
 - SourceUrl
 - FoodGroupServings

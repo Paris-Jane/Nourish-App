@@ -1,5 +1,5 @@
 import { apiClient, unwrap } from "./client";
-import type { Recipe, RecipeCandidate, UserRecipePref } from "types/models";
+import type { MealType, Recipe, RecipeCandidate, UserRecipePref } from "types/models";
 
 export interface RecipeRequest {
   name: string;
@@ -10,6 +10,7 @@ export interface RecipeRequest {
   isFreezerFriendly: boolean;
   isCookFreshOnly: boolean;
   baseYieldServings: number;
+  mealTypeTags: MealType[];
   foodGroupServings: Record<string, number>;
   ingredients: Array<{
     ingredientId: number;

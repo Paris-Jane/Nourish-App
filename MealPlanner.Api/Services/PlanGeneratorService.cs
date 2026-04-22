@@ -101,7 +101,7 @@ public class PlanGeneratorService : IPlanGeneratorService
 
             var scored = recipes
                 .Select(r => (Recipe: r, Score: Score(r, slot.DayOfWeek, expiringIngredientIds,
-                    recentlyUsedRecipeIds, favoriteRecipeIds, usedIngredientIds, nutritionGaps)
+                    recentlyUsedRecipeIds, favoriteRecipeIds, usedIngredientIds, nutritionGaps, slot.MealType)
                     + rng.Next(0, 3))) // small random to prevent identical weeks
                 .OrderByDescending(x => x.Score)
                 .ToList();
@@ -133,10 +133,18 @@ public class PlanGeneratorService : IPlanGeneratorService
         List<int> recentlyUsedIds,
         List<int> favoriteIds,
         HashSet<int> usedIngredientIds,
-        Dictionary<WeekDay, List<string>> nutritionGaps)
+        Dictionary<WeekDay, List<string>> nutritionGaps,
+        MealType slotMealType)
     {
         var score = 0;
         var recipeIngredientIds = recipe.Ingredients.Select(i => i.IngredientId).ToList();
+
+        // Prefer recipes tagged for this slot's meal type, but don't require it.
+        if (recipe.MealTypeTags.Contains(slotMealType)) score += 6;
+        if (slotMealType == MealType.Dinner && recipe.MealTypeTags.Contains(MealType.Lunch)) score += 2;
+        if (slotMealType == MealType.Lunch && recipe.MealTypeTags.Contains(MealType.Dinner)) score += 2;
+        if (slotMealType == MealType.Snack && recipe.MealTypeTags.Contains(MealType.Breakfast)) score += 1;
+        if (slotMealType == MealType.Breakfast && recipe.MealTypeTags.Contains(MealType.Snack)) score += 1;
 
         // Prefer recipes that use expiring fridge items
         score += recipeIngredientIds.Count(id => expiringIds.Contains(id)) * 5;

@@ -22,6 +22,7 @@ export const recipeFormSchema = z.object({
   isFreezerFriendly: z.boolean(),
   isCookFreshOnly: z.boolean(),
   baseYieldServings: z.number().min(1).max(12),
+  mealTypeTags: z.array(z.enum(["Breakfast", "Lunch", "Dinner", "Snack"])).min(1),
   ingredients: z.array(
     z.object({
       ingredientId: z.number().min(1),
