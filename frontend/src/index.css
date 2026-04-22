@@ -1,0 +1,61 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=DM+Serif+Display:ital@0;1&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color: #2c2416;
+    background: #faf8f5;
+    font-family: "DM Sans", sans-serif;
+  }
+
+  * {
+    @apply border-nourish-border;
+  }
+
+  body {
+    @apply m-0 min-h-screen bg-nourish-bg font-body text-nourish-ink antialiased;
+    background-image:
+      radial-gradient(circle at top left, rgba(196, 113, 79, 0.1), transparent 28%),
+      radial-gradient(circle at top right, rgba(124, 158, 135, 0.12), transparent 30%);
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    @apply font-body;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-nourish-border bg-nourish-card shadow-sm;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-nourish-border bg-white px-4 py-3 text-sm text-nourish-ink outline-none transition focus:border-nourish-sage focus:ring-2 focus:ring-nourish-sage/20;
+  }
+
+  .button-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-nourish-sage px-5 py-3 text-sm font-medium text-white transition hover:bg-[#6e8f79] disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .button-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border border-nourish-border bg-white px-4 py-3 text-sm font-medium text-nourish-ink transition hover:bg-nourish-bg;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded-2xl bg-gradient-to-r from-[#f3eee8] via-[#fbf8f5] to-[#f3eee8];
+    background-size: 200% 100%;
+  }
+}
