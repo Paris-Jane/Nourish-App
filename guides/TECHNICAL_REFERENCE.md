@@ -1,6 +1,6 @@
 # Technical Reference
 
-This guide captures the technical stack, deployment direction, and current implementation state.
+This guide captures the technical stack, deployment structure, and current implementation state.
 
 ## Preferred Stack
 
@@ -32,47 +32,48 @@ This guide captures the technical stack, deployment direction, and current imple
 - LLM API for AI-assisted recipe entry
 - OCR service later for receipt scanning
 
-## Deployment Direction
+## Deployment Structure
 
-### Original low-cost deployment idea
+### Frontend
 
-The original early-stage deployment recommendation was:
+- Vercel
+- React + TypeScript + Vite application
 
-- Vercel for frontend
-- Railway for .NET API
-- Railway Postgres for database
+### Backend
 
-Why:
+- Azure App Service
+- .NET 8 Web API
 
-- close to existing familiarity
-- cheap or free for early testing
-- avoids needing Supabase unless specifically desired
-- keeps backend in .NET
+### Database
 
-### Current deployment direction
+- Azure Database for PostgreSQL Flexible Server
+- PostgreSQL application database
 
-The frontend has been deployed to Vercel.
+### Optional supporting services
 
-The likely full-stack production path now is:
+- Cloudflare R2 for image storage later if needed
+- LLM API for AI-assisted recipe entry later
+- OCR service later for receipt scanning
 
-- Vercel for frontend
-- Azure App Service for the .NET API
-- Azure Database for PostgreSQL Flexible Server for the database
+## Deployment Status
 
-This fits the current stack and the Azure student plan.
+- frontend deployed on Vercel
+- backend not yet deployed
+- production PostgreSQL not yet provisioned
+- frontend API configuration still needs to move fully off localhost for production use
 
 ## Frontend Development Approach
 
-The frontend does not need to wait for the backend to be complete.
+The frontend can be developed independently of the backend.
 
-### Recommended approach
+### Current approach
 
 - define API interfaces early
 - create mock API responses
 - use realistic seed/mock data
 - switch to real API later with an env flag
 
-This allows parallel frontend and backend development.
+This supports parallel frontend and backend development.
 
 ## Current Build Direction
 
@@ -83,7 +84,7 @@ As of the latest development decisions in this repo:
 - frontend is currently set up to be testable without forcing real auth every session
 - real auth/login is deferred until later
 
-This is aligned with the current testing goal and should be treated as an intentional staging choice, not a permanent product behavior.
+This is an intentional staging choice for the current testing phase.
 
 ## Near-Term Technical Priorities
 

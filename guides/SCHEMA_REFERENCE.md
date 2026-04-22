@@ -1,15 +1,6 @@
 # Schema Reference
 
-This guide is the implementation-ready schema reference for Nourish.
-
-It is meant to answer:
-
-- what tables/entities exist
-- what each field stores
-- which fields are required
-- what the keys and relationships are
-- which fields are enums or JSON
-- which constraints and indexes matter
+This guide documents the target Nourish schema, including entities, fields, data types, keys, relationships, constraints, and storage notes.
 
 ## Conventions
 
@@ -148,74 +139,6 @@ Enums are intended to be stored as strings in PostgreSQL for readability and sta
 - `DayOfActive`
 - `DayOfPassive`
 
-## MyPlate Serving Reference Design
-
-### Short answer
-
-For the current design, **you do not need a separate table just to store “food type = one MyPlate serving”**.
-
-The current intended source of truth is the `Ingredient` table itself.
-
-### Why
-
-Each ingredient already carries the fields needed for the first version of serving lookup:
-
-- `FoodGroup`
-- `ServingSize`
-- `ServingUnit`
-- `IsFlexibleGroup`
-
-That means the ingredient row is doing two jobs:
-
-1. ingredient master data
-2. MyPlate serving reference data
-
-### Current recommended approach
-
-Use `Ingredient` as the serving reference source.
-
-Example:
-
-- `Avocado`
-  - `FoodGroup = Vegetable`
-  - `ServingSize = 1`
-  - `ServingUnit = whole`
-
-- `Brown Rice`
-  - `FoodGroup = Grains`
-  - `ServingSize = 0.5`
-  - `ServingUnit = cup cooked`
-
-- `Black Beans`
-  - `FoodGroup = Legume`
-  - `ServingSize = 0.5`
-  - `ServingUnit = cup`
-  - `IsFlexibleGroup = true`
-
-### When a separate table would help later
-
-A separate table becomes useful if you want:
-
-- multiple serving conversions per ingredient
-- multiple acceptable units per ingredient
-- USDA-source traceability
-- more advanced conversions like raw vs cooked
-- category-level defaults separate from ingredient-level overrides
-
-If that becomes necessary later, a future table might look like:
-
-- `IngredientServingReference`
-  - `Id`
-  - `IngredientId`
-  - `FoodGroup`
-  - `ServingSize`
-  - `ServingUnit`
-  - `PreparationState`
-  - `Priority`
-  - `Source`
-
-But for the current phase, that is extra complexity you do not need yet.
-
 ## Core Entities
 
 ## Household
@@ -242,10 +165,6 @@ Relationships:
 - one-to-many with `Week`
 - one-to-many with `FridgeItem`
 - one-to-many with `GroceryList`
-
-Notes:
-
-- `Size` is the base household serving multiplier unless overridden by week/slot behavior later
 
 ## User
 
@@ -308,12 +227,6 @@ Fields:
 
 ## Ingredient
 
-Purpose:
-
-- ingredient master list
-- MyPlate serving reference source
-- purchase-unit and shelf-life reference source
-
 Fields:
 
 - `Id: int` — PK
@@ -332,10 +245,9 @@ Relationships:
 - one-to-many with `FridgeItem`
 - one-to-many with `GroceryListItem`
 
-Recommended future indexes:
+Indexes:
 
 - non-unique index on `Name`
-- optionally unique index on normalized `Name` if the ingredient list becomes curated and controlled
 
 ## Recipe
 
@@ -367,14 +279,13 @@ Relationships:
 
 Storage notes:
 
-- `FoodGroupServings` is a denormalized serving summary used by planning logic
-- `MealTypeTags` is soft metadata for recommendation quality, not a hard constraint
+- `FoodGroupServings` is stored as `jsonb`
+- `MealTypeTags` is stored as `jsonb`
 
-Recommended future indexes:
+Indexes:
 
 - non-unique index on `HouseholdId`
 - non-unique index on `Cuisine`
-- optionally composite indexes if search/filter grows significantly
 
 ## RecipeIngredient
 
@@ -395,10 +306,6 @@ Relationships:
 - many-to-one with `Recipe`
 - many-to-one with `Ingredient`
 
-Notes:
-
-- this is where core-vs-modifier behavior lives at the ingredient level
-
 ## RecipeStep
 
 Fields:
@@ -415,9 +322,9 @@ Relationships:
 
 - many-to-one with `Recipe`
 
-Recommended future indexes:
+Indexes:
 
-- composite index on `(RecipeId, StepNumber)` if step ordering queries become frequent
+- composite index on `(RecipeId, StepNumber)`
 
 ## UserRecipePref
 
@@ -464,10 +371,6 @@ Relationships:
 - one-to-one with `GroceryList`
 - one-to-many with `PrepSheet`
 
-Notes:
-
-- this table acts as both a live week and a saved template source
-
 ## WeekMealSlot
 
 Fields:
@@ -492,11 +395,11 @@ Relationships:
 
 Deletion behavior:
 
-- `RecipeId` should be set null if the referenced recipe is deleted
+- `RecipeId` uses set-null behavior if the referenced recipe is deleted
 
-Recommended future constraints:
+Constraints:
 
-- ideally unique on `(WeekId, DayOfWeek, MealType)` if every slot should appear only once per week
+- unique on `(WeekId, DayOfWeek, MealType)` when each week contains one slot per meal type per day
 
 ## SnackSuggestion
 
@@ -559,10 +462,6 @@ Relationships:
 - many-to-one with `GroceryList`
 - many-to-one with `Ingredient`
 
-Notes:
-
-- `RecipeIds` is a denormalized convenience field showing which recipes drove the item
-
 ## Fridge Entities
 
 ## FridgeItem
@@ -588,7 +487,7 @@ Relationships:
 - optional relationship to `Recipe`
 - one-to-many with `FridgeDepletionLog`
 
-Recommended future indexes:
+Indexes:
 
 - non-unique index on `(HouseholdId, ExpiresAt)`
 - non-unique index on `(HouseholdId, Location)`
@@ -612,7 +511,7 @@ Relationships:
 
 Deletion behavior:
 
-- `WeekMealSlotId` should use restricted delete behavior so depletion history is not silently broken
+- `WeekMealSlotId` uses restricted delete behavior
 
 ## Prep Sheet Entities
 
@@ -649,9 +548,9 @@ Relationships:
 - many-to-one with `PrepSheet`
 - many-to-one with `RecipeStep`
 
-## High-Value Constraints and Indexes Summary
+## Constraints and Indexes Summary
 
-These are the most important schema-level constraints to keep.
+These are the main schema-level constraints and indexes.
 
 ### Must-have unique constraints
 
@@ -660,29 +559,13 @@ These are the most important schema-level constraints to keep.
 - `GroceryList.WeekId`
 - `HouseholdPreferences.HouseholdId`
 
-### Strongly recommended future uniqueness
+### Additional uniqueness
 
 - `WeekMealSlot(WeekId, DayOfWeek, MealType)`
 
-### Helpful performance indexes later
+### Additional indexes
 
 - `Recipe(HouseholdId)`
 - `FridgeItem(HouseholdId, ExpiresAt)`
 - `FridgeItem(HouseholdId, Location)`
-- optionally `Ingredient(Name)` or normalized ingredient-name search
-
-## Final Recommendation on Serving Reference Table
-
-For the current phase:
-
-- **do not add a separate table yet**
-- use `Ingredient` as the serving reference source
-
-That keeps the system simple and matches the actual backend model already being built.
-
-Revisit a dedicated serving-reference table only when:
-
-- unit conversion gets more advanced
-- the ingredient catalog becomes much larger
-- you need multiple serving definitions per ingredient
-- you need source attribution or auditability beyond the current design
+- `Ingredient(Name)`

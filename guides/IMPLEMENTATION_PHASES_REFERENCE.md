@@ -1,5 +1,7 @@
 # Implementation Phases Reference
 
+This guide breaks the Nourish roadmap into implementation phases.
+
 ### Phase 1: Foundations
 
 - set up backend project structure

@@ -1,6 +1,8 @@
-## Feature Specification
+# Feature Reference
 
-## 1. Weekly meal plan
+This guide documents intended feature behavior for Nourish.
+
+## Weekly Meal Plan
 
 ### Purpose
 
@@ -26,7 +28,7 @@ Generate a full week of meals with minimal user effort.
 - swapping should be easy and in-context
 - empty slots should still feel supported, not broken
 
-## 2. Meal swapping
+## Meal Swapping
 
 ### Swap recommendations should prioritize
 
@@ -44,7 +46,7 @@ Generate a full week of meals with minimal user effort.
 - Favorites
 - Recent
 
-## 3. Manual planning
+## Manual Planning
 
 Manual planning is part of the same experience, not a separate product mode.
 
@@ -56,7 +58,7 @@ Manual planning is part of the same experience, not a separate product mode.
 - after selecting a recipe, user can apply it to multiple days
 - app can fill only the remaining slots afterward
 
-## 4. Snack suggestions
+## Snack Suggestions
 
 ### Purpose
 
@@ -81,7 +83,7 @@ Avoid:
 - subtle suggestions can appear as the week/day is being built
 - final pass can happen at confirmation time
 
-## 5. Grocery list
+## Grocery List
 
 ### Requirements
 
@@ -106,7 +108,7 @@ Avoid:
 - list should think in purchase units, not only recipe units
 - partial overlap across recipes should reduce waste
 
-## 6. Fridge / pantry / freezer
+## Fridge / Pantry / Freezer
 
 ### Requirements
 
@@ -127,7 +129,7 @@ Fridge, pantry, and freezer must be distinct because timing and recipe logic dif
 - users can edit when needed
 - app highlights expiring items
 
-## 7. What can I make?
+## What Can I Make?
 
 This should be a top-level, highly visible fridge feature.
 
@@ -137,7 +139,7 @@ This should be a top-level, highly visible fridge feature.
 - reduce waste
 - give immediate value even outside weekly planning
 
-## 8. Recipe index
+## Recipe Index
 
 ### Requirements
 
@@ -148,7 +150,7 @@ This should be a top-level, highly visible fridge feature.
 - filter by “in my fridge” or available ingredients later
 - favorite/dislike signals
 
-## 9. Recipe detail
+## Recipe Detail
 
 Recipe detail should clearly separate:
 
@@ -158,7 +160,7 @@ Recipe detail should clearly separate:
 - core ingredients
 - optional modifiers
 
-## 10. Add/edit recipe
+## Add / Edit Recipe
 
 Recipe entry is one of the most important foundational systems because nearly everything depends on recipe quality.
 
@@ -189,7 +191,7 @@ AI should assist with:
 
 Human review is still required before save.
 
-## 11. Saved weeks
+## Saved Weeks
 
 Saved weeks should act like reusable templates.
 
@@ -204,7 +206,7 @@ Saved weeks should act like reusable templates.
 
 Loading a saved week should create a new current-week instance, not overwrite the template itself.
 
-## 12. Rotation
+## Rotation
 
 Rotation is a natural extension of saved weeks.
 
@@ -218,7 +220,7 @@ Rotation is a natural extension of saved weeks.
   - changed preferences
 - app should suggest swaps when a rotation week no longer cleanly fits
 
-## 13. Eating out / skip support
+## Eating Out / Skip Support
 
 Meal slots should support explicit “no meal generated here” behavior.
 
@@ -228,7 +230,7 @@ Meal slots should support explicit “no meal generated here” behavior.
 - removes that slot from grocery generation
 - removes that slot from nutrition-gap logic for that meal
 
-## 14. Leftovers and freezing
+## Leftovers and Freezing
 
 This is a major planned differentiator.
 
@@ -238,6 +240,6 @@ This is a major planned differentiator.
 - app should proactively suggest freezing leftovers
 - frozen leftovers should become candidates for future planning
 
-## 15. Receipt scanning
+## Receipt Scanning
 
 Receipt scanning is useful but should be treated as a later-phase feature.
