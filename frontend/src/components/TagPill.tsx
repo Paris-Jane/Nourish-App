@@ -10,19 +10,25 @@ interface TagPillProps {
 }
 
 export function TagPill({ children, active, tone = "default", onClick }: TagPillProps) {
+  const inactive =
+    tone === "accent"
+      ? "border-transparent bg-nourish-sage/12 text-nourish-sage hover:bg-nourish-sage/20 hover:text-nourish-sage"
+      : tone === "warm"
+        ? "border-transparent bg-nourish-terracotta/12 text-nourish-terracotta hover:bg-nourish-terracotta/20 hover:text-nourish-terracotta"
+        : "border-nourish-border bg-white text-nourish-muted hover:border-nourish-sage/35 hover:bg-nourish-bg/80 hover:text-nourish-ink";
+
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition",
-        tone === "default" && "border-nourish-border bg-white text-nourish-muted",
-        tone === "accent" && "border-transparent bg-nourish-sage/10 text-nourish-sage",
-        tone === "warm" && "border-transparent bg-nourish-terracotta/10 text-nourish-terracotta",
-        active && "border-transparent bg-nourish-sage text-white",
+        "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+        active
+          ? "border-nourish-sage bg-nourish-sage text-white shadow-sm ring-2 ring-nourish-sage/35 [&_svg]:text-white"
+          : inactive,
       )}
     >
-      {active ? <Check size={12} className="shrink-0 stroke-[3]" aria-hidden /> : null}
+      {active ? <Check size={12} className="shrink-0 stroke-[2.5]" aria-hidden /> : null}
       {children}
     </button>
   );

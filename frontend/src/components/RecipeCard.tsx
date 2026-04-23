@@ -19,49 +19,56 @@ export function RecipeCard({ recipe, compact }: RecipeCardProps) {
   const toggleDisliked = useRecipePrefsStore((s) => s.toggleDisliked);
 
   return (
-    <div className="card group relative overflow-hidden p-3 transition hover:-translate-y-0.5 hover:shadow-card">
-      {!compact ? (
-        <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
-          <button
-            type="button"
-            className={cn(
-              "rounded-full p-2 transition hover:bg-nourish-bg",
-              favorited ? "text-nourish-terracotta" : "text-nourish-muted hover:text-nourish-ink",
-            )}
-            aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              toggleFavorite(recipe.id);
-              const now = useRecipePrefsStore.getState().isFavorite(recipe.id);
-              pushToast(now ? "Saved to favorites." : "Removed from favorites.");
-            }}
-          >
-            <Heart size={17} className={cn(favorited && "fill-current")} />
-          </button>
-          <button
-            type="button"
-            className={cn(
-              "rounded-full p-2 transition hover:bg-nourish-bg",
-              disliked ? "text-nourish-terracotta" : "text-nourish-muted hover:text-nourish-ink",
-            )}
-            aria-label={disliked ? "Remove not-for-me flag" : "Not for me"}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              toggleDisliked(recipe.id);
-              const now = useRecipePrefsStore.getState().isDisliked(recipe.id);
-              pushToast(now ? "We’ll show fewer picks like this (preview)." : "Cleared not-for-me for this recipe.");
-            }}
-          >
-            <ThumbsDown size={17} className={cn(disliked && "fill-current")} />
-          </button>
-        </div>
-      ) : null}
+    <div className="card group overflow-hidden p-3 transition hover:-translate-y-0.5 hover:shadow-card">
+      <Link to={`/recipes/${recipe.id}`} className="block">
+        <div className="mb-2 h-14 rounded-2xl bg-gradient-to-br from-nourish-sage/20 via-[#f8efe7] to-nourish-terracotta/20 sm:h-[4.25rem]" />
+      </Link>
 
-      <Link to={`/recipes/${recipe.id}`} className={cn("block", !compact && "pr-14")}>
-        <div className="mb-2 h-11 rounded-2xl bg-gradient-to-br from-nourish-sage/20 via-[#f8efe7] to-nourish-terracotta/20 sm:h-12" />
-        <h3 className="mb-2 text-lg leading-tight text-nourish-ink">{recipe.name}</h3>
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <Link to={`/recipes/${recipe.id}`} className="min-w-0 flex-1">
+          <h3 className="text-lg leading-snug text-nourish-ink">{recipe.name}</h3>
+        </Link>
+        {!compact ? (
+          <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
+            <button
+              type="button"
+              className={cn(
+                "rounded-full p-1.5 transition hover:bg-nourish-bg",
+                favorited ? "text-nourish-terracotta" : "text-nourish-muted hover:text-nourish-ink",
+              )}
+              aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleFavorite(recipe.id);
+                const now = useRecipePrefsStore.getState().isFavorite(recipe.id);
+                pushToast(now ? "Saved to favorites." : "Removed from favorites.");
+              }}
+            >
+              <Heart size={17} className={cn(favorited && "fill-current")} />
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "rounded-full p-1.5 transition hover:bg-nourish-bg",
+                disliked ? "text-nourish-terracotta" : "text-nourish-muted hover:text-nourish-ink",
+              )}
+              aria-label={disliked ? "Remove not-for-me flag" : "Not for me"}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleDisliked(recipe.id);
+                const now = useRecipePrefsStore.getState().isDisliked(recipe.id);
+                pushToast(now ? "We’ll show fewer picks like this (preview)." : "Cleared not-for-me for this recipe.");
+              }}
+            >
+              <ThumbsDown size={17} className={cn(disliked && "fill-current")} />
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      <Link to={`/recipes/${recipe.id}`} className="block">
         <div className="flex flex-wrap gap-2">
           <TagPill tone="warm">{recipe.cuisine}</TagPill>
           <TagPill tone="accent">{recipe.timeTag}</TagPill>

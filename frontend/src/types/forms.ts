@@ -42,7 +42,7 @@ export const recipeFormSchema = z.object({
 });
 
 export const fridgeItemSchema = z.object({
-  ingredientId: z.number().min(1),
+  ingredientId: z.coerce.number().refine((id) => Number.isFinite(id) && id >= 1, { message: "Choose an ingredient" }),
   quantity: z.number().positive(),
   unit: z.string().min(1),
   location: z.enum(["Fridge", "Pantry", "Freezer"]),

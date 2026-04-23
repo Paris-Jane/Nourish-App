@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { RecipeCard } from "components/RecipeCard";
 import { TagPill } from "components/TagPill";
+import { recipeMatchesSearch } from "lib/recipeSearch";
 import { useRecipes } from "hooks/useAppData";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
 import type { MealType, Recipe } from "types/models";
@@ -48,9 +49,7 @@ export function RecipesPage() {
   const filtered = useMemo(
     () =>
       recipes.filter((recipe) => {
-        const q = query.trim().toLowerCase();
-        const matchesQuery =
-          !q || recipe.name.toLowerCase().includes(q) || recipe.cuisine.toLowerCase().includes(q) || recipe.timeTag.toLowerCase().includes(q);
+        const matchesQuery = recipeMatchesSearch(recipe, query);
         const matchesMeal = mealFilter === "All" || recipe.mealTypeTags.includes(mealFilter as MealType);
         const matchesExtra = matchesExtraFilter(recipe, extraFilter, isFavorite);
         return matchesQuery && matchesMeal && matchesExtra;
@@ -73,47 +72,54 @@ export function RecipesPage() {
 
   return (
     <div className="space-y-6 pb-24">
-      <div className="flex flex-col gap-1 pr-16 lg:pr-0">
+      <Link
+        to="/recipes/new"
+        className="fixed right-4 top-[max(5.25rem,env(safe-area-inset-top,0px))] z-30 inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-nourish-sage px-4 py-2.5 text-sm font-semibold text-white shadow-lg ring-2 ring-white/90 transition hover:bg-nourish-sage/90 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nourish-sage lg:right-8 lg:top-28"
+      >
+        <Plus size={18} aria-hidden />
+        Add recipes
+      </Link>
+
+      <div className="pr-[11.5rem] sm:pr-[12.5rem] lg:pr-0">
         <h1 className="text-2xl font-semibold tracking-tight text-nourish-ink sm:text-3xl md:text-4xl">Recipe Index</h1>
-        <p className="text-sm text-nourish-muted">
+        <p className="mt-1 text-sm text-nourish-muted">
           {shown === total ? `${total} ${total === 1 ? "recipe" : "recipes"}` : `Showing ${shown} of ${total} ${total === 1 ? "recipe" : "recipes"}`}
         </p>
       </div>
 
-      <Link
-        to="/recipes/new"
-        className="fixed right-4 top-[max(5.25rem,env(safe-area-inset-top,0px))] z-30 flex h-12 w-12 items-center justify-center rounded-full bg-nourish-sage text-white shadow-lg ring-2 ring-white/90 transition hover:bg-nourish-sage/90 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nourish-sage lg:right-8 lg:top-28 lg:h-14 lg:w-14"
-        aria-label="Add recipe"
-      >
-        <Plus size={24} strokeWidth={2.25} />
-      </Link>
+      <div className="sticky top-0 z-10 -mx-1 rounded-2xl border border-transparent bg-[#fbf7f2]/95 px-1 py-2 backdrop-blur-sm lg:static lg:z-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+        <div className="card p-4 shadow-sm lg:shadow-none">
+          <div className="relative">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-nourish-muted" />
+            <input
+              className="input pl-11"
+              placeholder="Search titles, ingredients, meals, tags…"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
 
-      <div className="card p-4">
-        <div className="relative">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-nourish-muted" />
-          <input className="input pl-11" placeholder="Search recipes" value={query} onChange={(event) => setQuery(event.target.value)} />
-        </div>
+          <p className="mt-4 text-xs font-medium uppercase tracking-wide text-nourish-muted">Meal</p>
+          <div className="-mx-1 mt-2 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+            {mealFilters.map((option) => (
+              <div key={`meal-${option}`} className="shrink-0">
+                <TagPill active={mealFilter === option} onClick={() => setMealFilter(option)}>
+                  {option}
+                </TagPill>
+              </div>
+            ))}
+          </div>
 
-        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-nourish-muted">Meal</p>
-        <div className="-mx-1 mt-2 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
-          {mealFilters.map((option) => (
-            <div key={option} className="shrink-0">
-              <TagPill active={mealFilter === option} onClick={() => setMealFilter(option)}>
-                {option}
-              </TagPill>
-            </div>
-          ))}
-        </div>
-
-        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-nourish-muted">Filters</p>
-        <div className="-mx-1 mt-2 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
-          {extraFilters.map((option) => (
-            <div key={option} className="shrink-0">
-              <TagPill active={extraFilter === option} onClick={() => setExtraFilter(option)}>
-                {option}
-              </TagPill>
-            </div>
-          ))}
+          <p className="mt-4 text-xs font-medium uppercase tracking-wide text-nourish-muted">Filters</p>
+          <div className="-mx-1 mt-2 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+            {extraFilters.map((option) => (
+              <div key={`extra-${option}`} className="shrink-0">
+                <TagPill active={extraFilter === option} onClick={() => setExtraFilter(option)}>
+                  {option}
+                </TagPill>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

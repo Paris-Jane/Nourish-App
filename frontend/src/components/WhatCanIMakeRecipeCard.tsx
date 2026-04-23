@@ -6,14 +6,16 @@ import type { Recipe } from "types/models";
 interface WhatCanIMakeRecipeCardProps {
   recipe: Recipe;
   matchedIngredientNames: string[];
+  onBeforeNavigate?: () => void;
 }
 
-export function WhatCanIMakeRecipeCard({ recipe, matchedIngredientNames }: WhatCanIMakeRecipeCardProps) {
+export function WhatCanIMakeRecipeCard({ recipe, matchedIngredientNames, onBeforeNavigate }: WhatCanIMakeRecipeCardProps) {
   return (
     <Link
       to={`/recipes/${recipe.id}`}
+      onClick={() => onBeforeNavigate?.()}
       className={cn(
-        "flex gap-3 rounded-2xl border border-nourish-border bg-white p-2.5 pr-3 text-left shadow-sm transition",
+        "relative z-10 flex gap-3 rounded-2xl border border-nourish-border bg-white p-2.5 pr-3 text-left shadow-sm transition touch-manipulation",
         "hover:border-nourish-sage/40 hover:shadow-md active:scale-[0.99]",
       )}
     >
