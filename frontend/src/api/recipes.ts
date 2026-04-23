@@ -19,6 +19,13 @@ export interface RecipeRequest {
     isModifier?: boolean;
     isOptional?: boolean;
   }>;
+  steps: Array<{
+    stepNumber: number;
+    instruction: string;
+    timingTag: Recipe["steps"][number]["timingTag"];
+    durationMinutes: number;
+    isPassive?: boolean;
+  }>;
 }
 
 export function getRecipes() {

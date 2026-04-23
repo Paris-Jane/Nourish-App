@@ -1,11 +1,14 @@
+import { addDays, formatISO } from "date-fns";
 import { useMemo, useState } from "react";
 import { BookCopy, ChevronRight, Sparkles, SquarePen } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { approveWeek, createWeek, generateWeek, getWeekSlots, swapSlot } from "api/weeks";
 import { BottomSheet } from "components/BottomSheet";
 import { DayColumn } from "components/DayColumn";
 import { ErrorBoundary } from "components/ErrorBoundary";
 import { SwapDrawer } from "components/SwapDrawer";
 import { useCurrentWeek, useFridgeItems, useGroupedSlots, useRecipes, useSavedWeeks, useWeekSlots } from "hooks/useAppData";
-import { createAutoWeekSlots, createBlankWeekSlots, createSavedWeekSlots, formatWeekRange, mealTypes, weekDays } from "lib/utils";
+import { createAutoWeekSlots, createBlankWeekSlots, createSavedWeekSlots, formatWeekRange, getCurrentWeekStart, mealTypes, weekDays } from "lib/utils";
 import { isWeekColumnToday } from "lib/weekCalendar";
 import { useToast } from "hooks/useToast";
 import { useWeekStore } from "store/weekStore";
@@ -24,6 +27,7 @@ const planningModes = [
 ] as const;
 
 export function HomePage() {
+  const queryClient = useQueryClient();
   const { week } = useCurrentWeek();
   const { slots } = useWeekSlots();
   const { grouped } = useGroupedSlots();
@@ -44,6 +48,7 @@ export function HomePage() {
   const setSlotOverrides = useWeekStore((state) => state.setSlotOverrides);
   const activeWeekLabel = useWeekStore((state) => state.activeWeekLabel);
   const setActiveWeekLabel = useWeekStore((state) => state.setActiveWeekLabel);
+  const setActiveWeekId = useWeekStore((state) => state.setActiveWeekId);
   const [selectedPrepStyle, setSelectedPrepStyle] = useState("OnePrepDay");
   const [selectedTime, setSelectedTime] = useState("Under45");
   const [savedWeekSelection, setSavedWeekSelection] = useState<number | null>(savedWeeks[0]?.id ?? null);
@@ -52,6 +57,119 @@ export function HomePage() {
     () => Object.values(grouped).flat().find((slot) => slot.id === selectedSlotId),
     [grouped, selectedSlotId],
   );
+
+  const startWeekMutation = useMutation({
+    mutationFn: async () => {
+      const baseWeekStart = getCurrentWeekStart();
+      const nextWeekStart = addDays(baseWeekStart, 7);
+      const createdWeek = await createWeek({
+        weekStartDate: formatISO(nextWeekStart, { representation: "date" }),
+        prepStyle: selectedPrepStyle as (typeof week)["prepStyle"],
+        maxCookTime: selectedTime as (typeof week)["maxCookTime"],
+      });
+
+      if (planningMode === "auto") {
+        await generateWeek(createdWeek.id);
+      } else if (planningMode === "saved") {
+        const savedWeek = savedWeeks.find((entry) => entry.id === savedWeekSelection) ?? savedWeeks[0];
+        if (savedWeek) {
+          const [templateSlots, newSlots] = await Promise.all([getWeekSlots(savedWeek.id), getWeekSlots(createdWeek.id)]);
+          const visibleTemplateSlots = templateSlots.filter((slot) => visibleMealTypes.includes(slot.mealType));
+          const slotMap = new Map(
+            newSlots.map((slot) => [`${slot.dayOfWeek}-${slot.mealType}`, slot] as const),
+          );
+
+          for (const templateSlot of visibleTemplateSlots) {
+            const targetSlot = slotMap.get(`${templateSlot.dayOfWeek}-${templateSlot.mealType}`);
+            if (!targetSlot) continue;
+            await swapSlot(createdWeek.id, targetSlot.id, {
+              recipeId: templateSlot.recipeId ?? null,
+              isEatingOut: templateSlot.isEatingOut,
+              isSkipped: templateSlot.isSkipped,
+              isLocked: templateSlot.isLocked,
+              servingsPlanned: templateSlot.servingsPlanned,
+            });
+          }
+        }
+      }
+
+      const freshSlots = await getWeekSlots(createdWeek.id);
+      return { createdWeek, freshSlots };
+    },
+    onSuccess: async ({ createdWeek, freshSlots }) => {
+      setActiveWeekId(createdWeek.id);
+      setSlotOverrides(null);
+      setPrepStyleOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["week", createdWeek.id] });
+      await queryClient.invalidateQueries({ queryKey: ["week-slots", createdWeek.id] });
+      await queryClient.invalidateQueries({ queryKey: ["saved-weeks"] });
+      queryClient.setQueryData(["week", createdWeek.id], createdWeek);
+      queryClient.setQueryData(["week-slots", createdWeek.id], freshSlots);
+
+      if (planningMode === "manual") {
+        setActiveWeekLabel("Manual week");
+        pushToast("Blank week created. Tap any slot to start adding meals.");
+      } else if (planningMode === "saved") {
+        const savedWeek = savedWeeks.find((entry) => entry.id === savedWeekSelection) ?? savedWeeks[0];
+        setActiveWeekLabel(savedWeek?.templateName ?? "Saved week");
+        pushToast("Saved week loaded into a new planner.");
+      } else {
+        setActiveWeekLabel("Auto-planned week");
+        pushToast("New week created and auto-planned.");
+      }
+    },
+    onError: () => {
+      const nextWeekId = (week.id ?? 1) + 1;
+
+      if (planningMode === "manual") {
+        setSlotOverrides(createBlankWeekSlots(nextWeekId, visibleMealTypes));
+        setActiveWeekLabel("Manual week");
+        setPrepStyleOpen(false);
+        pushToast("Blank week ready in preview mode. Tap any slot and we’ll recommend recipes by context.");
+        return;
+      }
+
+      if (planningMode === "saved") {
+        const savedWeek = savedWeeks.find((entry) => entry.id === savedWeekSelection) ?? savedWeeks[0];
+        if (savedWeek) {
+          setSlotOverrides(
+            createSavedWeekSlots({
+              weekId: nextWeekId,
+              visibleMealTypes,
+              recipes,
+              seed: savedWeek.id,
+            }),
+          );
+          setActiveWeekLabel(savedWeek.templateName ?? "Saved week");
+        }
+        setPrepStyleOpen(false);
+        pushToast("Saved week loaded in preview mode.");
+        return;
+      }
+
+      setSlotOverrides(
+        createAutoWeekSlots({
+          baseSlots: slots,
+          weekId: nextWeekId,
+          visibleMealTypes,
+        }),
+      );
+      setActiveWeekLabel("Auto-planned week");
+      setPrepStyleOpen(false);
+      pushToast("New auto-planned week ready in preview mode.");
+    },
+  });
+
+  const approveWeekMutation = useMutation({
+    mutationFn: () => approveWeek(week.id),
+    onSuccess: (approvedWeek) => {
+      queryClient.setQueryData(["week", approvedWeek.id], approvedWeek);
+      pushToast("Week approved.");
+    },
+    onError: () => {
+      pushToast("Week approved in preview mode.");
+    },
+  });
 
   function toggleMealType(mealType: MealType) {
     const next = visibleMealTypes.includes(mealType)
@@ -64,44 +182,7 @@ export function HomePage() {
   }
 
   function startWeek() {
-    const nextWeekId = (week.id ?? 1) + 1;
-
-    if (planningMode === "manual") {
-      setSlotOverrides(createBlankWeekSlots(nextWeekId, visibleMealTypes));
-      setActiveWeekLabel("Manual week");
-      setPrepStyleOpen(false);
-      pushToast("Blank week ready. Tap any slot and we’ll recommend recipes by context.");
-      return;
-    }
-
-    if (planningMode === "saved") {
-      const savedWeek = savedWeeks.find((entry) => entry.id === savedWeekSelection) ?? savedWeeks[0];
-      if (savedWeek) {
-        setSlotOverrides(
-          createSavedWeekSlots({
-            weekId: nextWeekId,
-            visibleMealTypes,
-            recipes,
-            seed: savedWeek.id,
-          }),
-        );
-        setActiveWeekLabel(savedWeek.templateName ?? "Saved week");
-      }
-      setPrepStyleOpen(false);
-      pushToast("Saved week loaded into the planner with room to adjust anything.");
-      return;
-    }
-
-    setSlotOverrides(
-      createAutoWeekSlots({
-        baseSlots: slots,
-        weekId: nextWeekId,
-        visibleMealTypes,
-      }),
-    );
-    setActiveWeekLabel("Auto-planned week");
-    setPrepStyleOpen(false);
-    pushToast("New auto-planned week ready. You can swap anything before approving.");
+    startWeekMutation.mutate();
   }
 
   return (
@@ -151,7 +232,7 @@ export function HomePage() {
             <button
               type="button"
               className="button-primary flex-1"
-              onClick={() => pushToast("Week approved in preview. We can wire the real mutation when auth is on.")}
+              onClick={() => approveWeekMutation.mutate()}
             >
               Approve this week →
             </button>
@@ -268,7 +349,7 @@ export function HomePage() {
               </div>
             )}
 
-            <button type="button" className="button-primary w-full" onClick={startWeek}>
+            <button type="button" className="button-primary w-full" onClick={startWeek} disabled={startWeekMutation.isPending}>
               {planningMode === "auto" ? "Generate my plan →" : planningMode === "manual" ? "Start blank week →" : "Load saved week →"}
             </button>
           </div>

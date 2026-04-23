@@ -1,17 +1,21 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFieldArray, useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
+import { createRecipe, updateRecipe } from "api/recipes";
 import { useIngredients, useRecipes } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
+import { estimateFoodGroupServings } from "lib/foodGroupMath";
 import { recipeFormSchema, type RecipeFormValues } from "types/forms";
-import type { MealType } from "types/models";
+import type { MealType, Recipe } from "types/models";
 
 const mealTypeOptions: MealType[] = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
 export function RecipeFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { ingredients } = useIngredients();
   const { recipes } = useRecipes();
   const { pushToast } = useToast();
@@ -50,6 +54,123 @@ export function RecipeFormPage() {
   const ingredientFields = useFieldArray({ control: form.control, name: "ingredients" });
   const stepFields = useFieldArray({ control: form.control, name: "steps" });
 
+  const fallbackFoodGroupServings = useMemo(
+    () =>
+      existing?.foodGroupServings &&
+      Object.keys(existing.foodGroupServings).length > 0
+        ? existing.foodGroupServings
+        : undefined,
+    [existing],
+  );
+
+  const saveRecipeMutation = useMutation({
+    mutationFn: async (values: RecipeFormValues) => {
+      const payload = {
+        name: values.name,
+        cuisine: values.cuisine,
+        scalabilityTag: values.scalabilityTag,
+        timeTag: values.timeTag,
+        prepStyleTag: values.prepStyleTag,
+        isFreezerFriendly: values.isFreezerFriendly,
+        isCookFreshOnly: values.isCookFreshOnly,
+        baseYieldServings: values.baseYieldServings,
+        mealTypeTags: values.mealTypeTags,
+        foodGroupServings:
+          Object.keys(estimateFoodGroupServings(values, ingredients)).length > 0
+            ? estimateFoodGroupServings(values, ingredients)
+            : fallbackFoodGroupServings ?? {},
+        ingredients: values.ingredients.map((ingredient) => ({
+          ingredientId: ingredient.ingredientId,
+          quantity: ingredient.quantity,
+          unit: ingredient.unit,
+          isOptional: ingredient.isOptional,
+          isModifier: ingredient.isModifier,
+        })),
+        steps: values.steps.map((step, index) => ({
+          stepNumber: index + 1,
+          instruction: step.instruction,
+          timingTag: step.timingTag,
+          durationMinutes: step.durationMinutes,
+          isPassive: step.timingTag === "PrepAhead" || step.timingTag === "DayOfPassive",
+        })),
+      };
+
+      if (existing) {
+        return updateRecipe(String(existing.id), payload);
+      }
+
+      return createRecipe(payload);
+    },
+    onSuccess: (savedRecipe, values) => {
+      queryClient.setQueryData<Recipe[]>(["recipes"], (current) => {
+        const next = current ? [...current] : [...recipes];
+        const index = next.findIndex((recipe) => recipe.id === savedRecipe.id);
+        if (index >= 0) next[index] = savedRecipe;
+        else next.unshift(savedRecipe);
+        return next;
+      });
+
+      pushToast(existing ? "Recipe updated." : "Recipe created.");
+      navigate(`/recipes/${savedRecipe.id}`);
+    },
+    onError: (_error, values) => {
+      const tempId = existing?.id ?? Math.max(0, ...recipes.map((recipe) => recipe.id)) + 1;
+      const optimisticRecipe: Recipe = {
+        id: tempId,
+        householdId: existing?.householdId ?? 1,
+        name: values.name,
+        cuisine: values.cuisine,
+        scalabilityTag: values.scalabilityTag,
+        timeTag: values.timeTag,
+        prepStyleTag: values.prepStyleTag,
+        isFreezerFriendly: values.isFreezerFriendly,
+        isCookFreshOnly: values.isCookFreshOnly,
+        baseYieldServings: values.baseYieldServings,
+        mealTypeTags: values.mealTypeTags,
+        imageUrl: existing?.imageUrl ?? null,
+        sourceUrl: existing?.sourceUrl ?? null,
+        foodGroupServings:
+          Object.keys(estimateFoodGroupServings(values, ingredients)).length > 0
+            ? estimateFoodGroupServings(values, ingredients)
+            : fallbackFoodGroupServings ?? {},
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
+        ingredients: values.ingredients.map((ingredient, index) => {
+          const ingredientMeta = ingredients.find((item) => item.id === ingredient.ingredientId);
+          return {
+            id: existing?.ingredients[index]?.id ?? tempId * 100 + index + 1,
+            ingredientId: ingredient.ingredientId,
+            ingredientName: ingredientMeta?.name ?? "Unknown ingredient",
+            quantity: ingredient.quantity,
+            unit: ingredient.unit,
+            isModifier: ingredient.isModifier,
+            isOptional: ingredient.isOptional,
+            substituteIngredientIds: [],
+            notes: null,
+          };
+        }),
+        steps: values.steps.map((step, index) => ({
+          id: existing?.steps[index]?.id ?? tempId * 1000 + index + 1,
+          stepNumber: index + 1,
+          instruction: step.instruction,
+          timingTag: step.timingTag,
+          durationMinutes: step.durationMinutes,
+          isPassive: step.timingTag === "PrepAhead" || step.timingTag === "DayOfPassive",
+        })),
+      };
+
+      queryClient.setQueryData<Recipe[]>(["recipes"], (current) => {
+        const next = current ? [...current] : [...recipes];
+        const index = next.findIndex((recipe) => recipe.id === optimisticRecipe.id);
+        if (index >= 0) next[index] = optimisticRecipe;
+        else next.unshift(optimisticRecipe);
+        return next;
+      });
+
+      pushToast(existing ? "Recipe updated in preview mode." : "Recipe created in preview mode.");
+      navigate(`/recipes/${optimisticRecipe.id}`);
+    },
+  });
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
@@ -59,10 +180,7 @@ export function RecipeFormPage() {
 
       <form
         className="space-y-6"
-        onSubmit={form.handleSubmit(() => {
-          pushToast(existing ? "Recipe edits are staged in the UI." : "Recipe form is ready for the create mutation.");
-          navigate("/recipes");
-        })}
+        onSubmit={form.handleSubmit((values) => saveRecipeMutation.mutate(values))}
       >
         <div className="card p-6">
           <div className="grid gap-4 lg:grid-cols-2">
@@ -203,8 +321,8 @@ export function RecipeFormPage() {
           </button>
         </div>
 
-        <button className="button-primary w-full" type="submit">
-          Save recipe
+        <button className="button-primary w-full" type="submit" disabled={saveRecipeMutation.isPending}>
+          {saveRecipeMutation.isPending ? "Saving..." : "Save recipe"}
         </button>
       </form>
     </div>

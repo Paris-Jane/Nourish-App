@@ -1,7 +1,11 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRightLeft, Search, X } from "lucide-react";
+import { swapSlot } from "api/weeks";
+import { useToast } from "hooks/useToast";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
 import { cn, daysUntil } from "lib/utils";
+import { useWeekStore } from "store/weekStore";
 import { RecipeCard } from "./RecipeCard";
 import { TagPill } from "./TagPill";
 import type { FridgeItem, Recipe, WeekMealSlot } from "types/models";
@@ -27,17 +31,34 @@ function matchesSlotMealType(recipe: Recipe, slot: WeekMealSlot | undefined): bo
 }
 
 export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = [], onClose }: SwapDrawerProps) {
+  const queryClient = useQueryClient();
+  const { pushToast } = useToast();
   const currentRecipe = recipes.find((recipe) => recipe.id === slot?.recipeId);
   const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]>("All suggestions");
   const [query, setQuery] = useState("");
+  const [pendingRecipe, setPendingRecipe] = useState<Recipe | null>(null);
+  const [selectedTargetIds, setSelectedTargetIds] = useState<number[]>([]);
   const isFavorite = useRecipePrefsStore((s) => s.isFavorite);
+  const setSlotOverrides = useWeekStore((state) => state.setSlotOverrides);
 
   useEffect(() => {
     if (open) {
       setActiveFilter("All suggestions");
       setQuery("");
+      setPendingRecipe(null);
+      setSelectedTargetIds(slot ? [slot.id] : []);
     }
   }, [open, slot?.id]);
+
+  const eligibleTargetSlots = useMemo(() => {
+    if (!slot) return [];
+
+    return weekSlots.filter((entry) => {
+      if (entry.mealType !== slot.mealType) return false;
+      if (entry.id === slot.id) return true;
+      return !entry.isEatingOut && !entry.isSkipped;
+    });
+  }, [slot, weekSlots]);
 
   const visibleRecipes = useMemo(() => {
     const fridgeIngredientIds = new Set(fridgeItems.map((item) => item.ingredientId));
@@ -83,6 +104,63 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
     return filteredByTab.filter((recipe) => `${recipe.name} ${recipe.cuisine}`.toLowerCase().includes(q));
   }, [activeFilter, fridgeItems, isFavorite, query, recipes, slot, weekSlots]);
 
+  const applyRecipeMutation = useMutation({
+    mutationFn: async ({ recipeId, targetIds }: { recipeId: number; targetIds: number[] }) => {
+      if (!slot) throw new Error("No slot selected");
+      await Promise.all(
+        targetIds.map((slotId) =>
+          swapSlot(slot.weekId, slotId, {
+            recipeId,
+            isSkipped: false,
+            isEatingOut: false,
+          }),
+        ),
+      );
+      return { recipeId, targetIds };
+    },
+    onSuccess: async ({ recipeId, targetIds }) => {
+      if (!slot) return;
+      await queryClient.invalidateQueries({ queryKey: ["week-slots", slot.weekId] });
+      setSlotOverrides(null);
+      const recipe = recipes.find((entry) => entry.id === recipeId);
+      if (recipe) {
+        const count = targetIds.length;
+        pushToast(count > 1 ? `${recipe.name} added to ${count} ${slot.mealType.toLowerCase()} slots.` : `${recipe.name} added to ${slot.dayOfWeek} ${slot.mealType.toLowerCase()}.`);
+      }
+      onClose();
+    },
+    onError: (_error, { recipeId, targetIds }) => {
+      if (!slot) return;
+      const recipe = recipes.find((entry) => entry.id === recipeId);
+      const nextSlots = weekSlots.map((entry) =>
+        targetIds.includes(entry.id)
+          ? { ...entry, recipeId, recipeName: recipe?.name ?? null, isSkipped: false, isEatingOut: false }
+          : entry,
+      );
+      setSlotOverrides(nextSlots);
+      if (recipe) {
+        const count = targetIds.length;
+        pushToast(count > 1 ? `${recipe.name} added in preview mode to ${count} slots.` : `${recipe.name} added in preview mode.`);
+      }
+      onClose();
+    },
+  });
+
+  function selectRecipe(recipe: Recipe) {
+    setPendingRecipe(recipe);
+    setSelectedTargetIds(slot ? [slot.id] : []);
+  }
+
+  function toggleTargetSlot(slotId: number) {
+    if (slot?.id === slotId) return;
+    setSelectedTargetIds((current) => (current.includes(slotId) ? current.filter((id) => id !== slotId) : [...current, slotId]));
+  }
+
+  function applyPendingRecipe() {
+    if (!pendingRecipe || !slot || selectedTargetIds.length === 0) return;
+    applyRecipeMutation.mutate({ recipeId: pendingRecipe.id, targetIds: selectedTargetIds });
+  }
+
   return (
     <div className={cn("fixed inset-0 z-40 transition", open ? "pointer-events-auto" : "pointer-events-none")}>
       <div className={cn("absolute inset-0 bg-[#2c2416]/30 transition", open ? "opacity-100" : "opacity-0")} onClick={onClose} />
@@ -124,6 +202,53 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
             <input className="input pl-10" placeholder="Search recipes" value={query} onChange={(event) => setQuery(event.target.value)} />
           </div>
 
+          {pendingRecipe ? (
+            <div className="mb-4 rounded-2xl border border-nourish-sage/20 bg-nourish-sage/10 p-4">
+              <div className="mb-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Ready to add</p>
+                <h3 className="mt-1 text-lg font-medium text-nourish-ink">{pendingRecipe.name}</h3>
+                <p className="mt-1 text-sm text-nourish-muted">Choose where to use it. We’ve preselected this slot.</p>
+              </div>
+              <div className="space-y-2">
+                {eligibleTargetSlots.map((entry) => {
+                  const checked = selectedTargetIds.includes(entry.id);
+                  const disabled = entry.id === slot?.id;
+                  return (
+                    <label
+                      key={entry.id}
+                      className={cn(
+                        "flex items-center justify-between rounded-xl border px-3 py-2 text-sm",
+                        checked ? "border-nourish-sage bg-white" : "border-nourish-border bg-white/70",
+                      )}
+                    >
+                      <span className="text-nourish-ink">
+                        {entry.dayOfWeek} · {entry.mealType}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        {entry.recipeName && entry.id !== slot?.id ? <span className="text-xs text-nourish-muted">{entry.recipeName}</span> : null}
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={disabled}
+                          onChange={() => toggleTargetSlot(entry.id)}
+                          className="h-4 w-4 rounded border-nourish-border text-nourish-sage focus:ring-nourish-sage"
+                        />
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="mt-4 flex gap-2">
+                <button type="button" className="button-primary flex-1" onClick={applyPendingRecipe} disabled={applyRecipeMutation.isPending}>
+                  {applyRecipeMutation.isPending ? "Saving..." : `Add to ${selectedTargetIds.length} day${selectedTargetIds.length === 1 ? "" : "s"}`}
+                </button>
+                <button type="button" className="button-secondary" onClick={() => setPendingRecipe(null)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {visibleRecipes.length === 0 ? (
             <p className="mb-4 rounded-2xl border border-dashed border-nourish-border bg-nourish-bg/60 px-4 py-6 text-center text-sm text-nourish-muted">
               No recipes match this filter for this slot. Try <strong className="text-nourish-ink">All suggestions</strong> or another tab.
@@ -131,7 +256,13 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
           ) : (
             <div className="grid grid-cols-2 gap-3">
               {visibleRecipes.map((recipe) => (
-                <RecipeCard key={recipe.id} recipe={recipe} compact />
+                <RecipeCard
+                  key={recipe.id}
+                  recipe={recipe}
+                  compact
+                  onSelect={selectRecipe}
+                  actionLabel={pendingRecipe?.id === recipe.id ? "Selected below" : "Choose this recipe"}
+                />
               ))}
             </div>
           )}

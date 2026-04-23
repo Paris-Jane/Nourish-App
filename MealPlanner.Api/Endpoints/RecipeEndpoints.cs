@@ -128,6 +128,18 @@ public static class RecipeEndpoints
                 Notes = ing.Notes
             });
         }
+        foreach (var step in req.Steps)
+        {
+            db.RecipeSteps.Add(new RecipeStep
+            {
+                RecipeId = recipe.Id,
+                StepNumber = step.StepNumber,
+                Instruction = step.Instruction,
+                TimingTag = step.TimingTag,
+                DurationMinutes = step.DurationMinutes,
+                IsPassive = step.IsPassive
+            });
+        }
         await db.SaveChangesAsync();
 
         var created = await db.Recipes
@@ -172,6 +184,20 @@ public static class RecipeEndpoints
                 IsOptional = ing.IsOptional,
                 SubstituteIngredientIds = ing.SubstituteIngredientIds ?? new List<int>(),
                 Notes = ing.Notes
+            });
+        }
+        var existingSteps = await db.RecipeSteps.Where(s => s.RecipeId == recipe.Id).ToListAsync();
+        db.RecipeSteps.RemoveRange(existingSteps);
+        foreach (var step in req.Steps)
+        {
+            db.RecipeSteps.Add(new RecipeStep
+            {
+                RecipeId = recipe.Id,
+                StepNumber = step.StepNumber,
+                Instruction = step.Instruction,
+                TimingTag = step.TimingTag,
+                DurationMinutes = step.DurationMinutes,
+                IsPassive = step.IsPassive
             });
         }
         await db.SaveChangesAsync();

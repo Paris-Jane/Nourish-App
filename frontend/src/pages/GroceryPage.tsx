@@ -189,7 +189,6 @@ export function GroceryPage() {
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-4xl">Grocery List</h1>
-            <p className="text-sm text-nourish-muted">A calm little sweep through the store.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="button-secondary inline-flex items-center gap-2" onClick={() => setAddOpen(true)}>

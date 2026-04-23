@@ -12,6 +12,7 @@ public record RecipeRequest(
     List<MealType> MealTypeTags,
     Dictionary<string, decimal> FoodGroupServings,
     List<RecipeIngredientRequest> Ingredients,
+    List<RecipeStepRequest> Steps,
     string? ImageUrl = null,
     string? SourceUrl = null
 );
