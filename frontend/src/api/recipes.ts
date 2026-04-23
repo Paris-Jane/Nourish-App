@@ -53,8 +53,26 @@ export function getRecipePreference(id: number) {
   return unwrap<UserRecipePref>(apiClient.get(`/api/recipes/${id}/preferences`));
 }
 
-export function upsertRecipePreference(id: number, payload: Partial<Pick<UserRecipePref, "isFavorite" | "isDisliked">>) {
+export function upsertRecipePreference(
+  id: number,
+  payload: Partial<Pick<UserRecipePref, "isFavorite" | "isDisliked" | "selectedModifierIngredientIds">>,
+) {
   return unwrap<UserRecipePref>(apiClient.put(`/api/recipes/${id}/preferences`, payload));
+}
+
+export interface AddRecipeModifierRequest {
+  ingredientId: number;
+  quantity?: number;
+  unit?: string;
+  notes?: string;
+}
+
+export function addRecipeModifier(id: number, payload: AddRecipeModifierRequest) {
+  return unwrap<Recipe["ingredients"][number]>(apiClient.post(`/api/recipes/${id}/modifiers`, payload));
+}
+
+export function removeRecipeModifier(id: number, recipeIngredientId: number) {
+  return unwrap<void>(apiClient.delete(`/api/recipes/${id}/modifiers/${recipeIngredientId}`));
 }
 
 export function getWhatCanIMakeCandidates() {

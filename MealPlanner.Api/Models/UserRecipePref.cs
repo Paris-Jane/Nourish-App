@@ -7,6 +7,7 @@ public class UserRecipePref
     public int RecipeId { get; set; }
     public bool IsFavorite { get; set; }
     public bool IsDisliked { get; set; }
+    public List<int> SelectedModifierIngredientIds { get; set; } = new();
     public DateTime? LastUsedAt { get; set; }
 
     public Household Household { get; set; } = null!;

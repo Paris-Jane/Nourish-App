@@ -151,6 +151,7 @@ create table if not exists "UserRecipePrefs" (
   "RecipeId" integer not null,
   "IsFavorite" boolean not null,
   "IsDisliked" boolean not null,
+  "SelectedModifierIngredientIds" jsonb not null,
   "LastUsedAt" timestamp with time zone null,
   constraint "FK_UserRecipePrefs_Households_HouseholdId"
     foreign key ("HouseholdId") references "Households" ("Id") on delete cascade,

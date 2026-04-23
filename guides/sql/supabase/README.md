@@ -27,3 +27,4 @@ Important:
 Incremental updates for an existing Supabase project:
 
 - `04_add_favorites_tables.sql` adds user-level favorites tables for ingredients and weeks without recreating the base schema
+- `05_add_recipe_modifier_preferences.sql` adds persistent selected add-on storage for recipe preferences

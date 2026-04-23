@@ -115,6 +115,7 @@ export interface UserRecipePref {
   recipeId: number;
   isFavorite: boolean;
   isDisliked: boolean;
+  selectedModifierIngredientIds: number[];
   lastUsedAt?: string | null;
 }
 

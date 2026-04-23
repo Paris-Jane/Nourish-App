@@ -473,6 +473,15 @@ export const mockRecipePrefs: Record<number, UserRecipePref> = {
     recipeId: 1,
     isFavorite: true,
     isDisliked: false,
+    selectedModifierIngredientIds: [],
+    lastUsedAt: new Date().toISOString(),
+  },
+  3: {
+    id: 2,
+    recipeId: 3,
+    isFavorite: false,
+    isDisliked: false,
+    selectedModifierIngredientIds: [7],
     lastUsedAt: new Date().toISOString(),
   },
 };

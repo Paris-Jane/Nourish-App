@@ -75,12 +75,24 @@ public record RecipeStepResponse(
     bool IsPassive
 );
 
-public record RecipePreferenceRequest(bool? IsFavorite, bool? IsDisliked);
+public record RecipePreferenceRequest(
+    bool? IsFavorite,
+    bool? IsDisliked,
+    List<int>? SelectedModifierIngredientIds = null
+);
 
 public record RecipePreferenceResponse(
     int Id,
     int RecipeId,
     bool IsFavorite,
     bool IsDisliked,
+    List<int> SelectedModifierIngredientIds,
     DateTime? LastUsedAt
+);
+
+public record AddRecipeModifierRequest(
+    int IngredientId,
+    decimal? Quantity = null,
+    string? Unit = null,
+    string? Notes = null
 );

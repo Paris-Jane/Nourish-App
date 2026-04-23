@@ -194,6 +194,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<UserRecipePref>(b =>
         {
             b.HasIndex(p => new { p.HouseholdId, p.RecipeId }).IsUnique();
+            b.Property(p => p.SelectedModifierIngredientIds).HasColumnType("jsonb").HasConversion(intListConverter, intListComparer);
         });
 
         // ── UserIngredientPref ───────────────────────────────────────────────
