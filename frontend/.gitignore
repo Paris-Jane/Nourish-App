@@ -1,3 +1,34 @@
+# Dependencies
 node_modules/
+
+# Build
 dist/
+dist-ssr/
+
+# Vite
+.vite/
+
+# TypeScript
 *.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Vite: ignore local env overrides (.env.local, .env.*.local); commit non-secret .env / .env.development as needed
+*.local
+
+# Test / coverage
+coverage/
+
+# Editor
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
