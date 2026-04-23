@@ -9,6 +9,7 @@ import { useFridgeItems, useIngredients, useRecipes } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
 import { countExpiringWithin, getExpiringSoonItems } from "lib/fridgeExpiry";
 import { daysUntil } from "lib/utils";
+import { useIngredientPrefsStore } from "store/ingredientPrefsStore";
 import { fridgeItemSchema, type FridgeItemFormValues } from "types/forms";
 import type { FridgeItem, FridgeLocation, Recipe } from "types/models";
 
@@ -36,6 +37,8 @@ export function FridgePage() {
   const { ingredients } = useIngredients();
   const { recipes } = useRecipes();
   const { pushToast } = useToast();
+  const isIngredientFavorite = useIngredientPrefsStore((state) => state.isFavorite);
+  const toggleIngredientFavorite = useIngredientPrefsStore((state) => state.toggleFavorite);
   const [localItems, setLocalItems] = useState<FridgeItem[] | null>(null);
   const items = localItems ?? queryItems;
 
@@ -249,6 +252,12 @@ export function FridgePage() {
               <FridgeItemRow
                 key={item.id}
                 item={item}
+                isFavorite={isIngredientFavorite(item.ingredientId)}
+                onToggleFavorite={() => {
+                  const nextFavorite = !isIngredientFavorite(item.ingredientId);
+                  toggleIngredientFavorite(item.ingredientId);
+                  pushToast(nextFavorite ? `${item.ingredientName} saved to favorite foods.` : `${item.ingredientName} removed from favorite foods.`);
+                }}
                 deleteRevealed={deleteRevealedId === item.id}
                 onRevealDelete={() => setDeleteRevealedId(item.id)}
                 onHideDelete={() => setDeleteRevealedId(null)}
