@@ -46,7 +46,10 @@ export const fridgeItemSchema = z.object({
   quantity: z.number().positive(),
   unit: z.string().min(1),
   location: z.enum(["Fridge", "Pantry", "Freezer"]),
-  expiresAt: z.string().optional(),
+  expiresAt: z
+    .string()
+    .optional()
+    .transform((val) => (val && val.trim() !== "" ? val : undefined)),
 });
 
 export type RegisterFormValues = z.infer<typeof registerSchema>;

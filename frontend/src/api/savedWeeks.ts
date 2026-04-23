@@ -1,5 +1,5 @@
 import { apiClient, unwrap } from "./client";
-import type { Week } from "types/models";
+import type { UserWeekPref, Week } from "types/models";
 
 export function getSavedWeeks() {
   return unwrap<Week[]>(apiClient.get("/api/weeks/saved"));
@@ -11,4 +11,12 @@ export function loadSavedWeek(id: number) {
 
 export function toggleSavedWeekRotation(id: number, isInRotation: boolean) {
   return unwrap<Week>(apiClient.put(`/api/weeks/${id}/rotation`, { isInRotation }));
+}
+
+export function getWeekPreference(id: number) {
+  return unwrap<UserWeekPref>(apiClient.get(`/api/weeks/${id}/preferences`));
+}
+
+export function upsertWeekPreference(id: number, payload: Partial<Pick<UserWeekPref, "isFavorite">>) {
+  return unwrap<UserWeekPref>(apiClient.put(`/api/weeks/${id}/preferences`, payload));
 }

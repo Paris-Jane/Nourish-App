@@ -61,6 +61,14 @@ export interface Ingredient {
   shelfLifeDays: number;
 }
 
+export interface UserIngredientPref {
+  id: number;
+  userId: number;
+  ingredientId: number;
+  isFavorite: boolean;
+  lastUsedAt?: string | null;
+}
+
 export interface RecipeIngredient {
   id: number;
   ingredientId: number;
@@ -121,6 +129,13 @@ export interface Week {
   templateName?: string | null;
   isInRotation: boolean;
   createdAt: string;
+}
+
+export interface UserWeekPref {
+  id: number;
+  userId: number;
+  weekId: number;
+  isFavorite: boolean;
 }
 
 export interface WeekMealSlot {

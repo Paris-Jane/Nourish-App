@@ -202,6 +202,8 @@ Fields:
 Relationships:
 
 - many-to-one with `Household`
+- one-to-many with `UserIngredientPref`
+- one-to-many with `UserWeekPref`
 
 Indexes / constraints:
 
@@ -270,6 +272,7 @@ Relationships:
 - one-to-many with `RecipeIngredient`
 - one-to-many with `FridgeItem`
 - one-to-many with `GroceryListItem`
+- one-to-many with `UserIngredientPref`
 
 Indexes:
 
@@ -372,6 +375,43 @@ Indexes / constraints:
 
 - unique composite index on `(HouseholdId, RecipeId)`
 
+## UserIngredientPref
+
+Fields:
+
+- `Id: int` — PK
+- `UserId: int` — FK → `User.Id`, required
+- `IngredientId: int` — FK → `Ingredient.Id`, required
+- `IsFavorite: bool` — required
+- `LastUsedAt: DateTime?` — optional
+
+Relationships:
+
+- many-to-one with `User`
+- many-to-one with `Ingredient`
+
+Indexes / constraints:
+
+- unique composite index on `(UserId, IngredientId)`
+
+## UserWeekPref
+
+Fields:
+
+- `Id: int` — PK
+- `UserId: int` — FK → `User.Id`, required
+- `WeekId: int` — FK → `Week.Id`, required
+- `IsFavorite: bool` — required
+
+Relationships:
+
+- many-to-one with `User`
+- many-to-one with `Week`
+
+Indexes / constraints:
+
+- unique composite index on `(UserId, WeekId)`
+
 ## Week Entities
 
 ## Week
@@ -396,6 +436,7 @@ Relationships:
 - one-to-many with `SnackSuggestion`
 - one-to-one with `GroceryList`
 - one-to-many with `PrepSheet`
+- one-to-many with `UserWeekPref`
 
 ## WeekMealSlot
 
@@ -582,6 +623,8 @@ These are the main schema-level constraints and indexes.
 
 - `User.Email`
 - `UserRecipePref(HouseholdId, RecipeId)`
+- `UserIngredientPref(UserId, IngredientId)`
+- `UserWeekPref(UserId, WeekId)`
 - `GroceryList.WeekId`
 - `HouseholdPreferences.HouseholdId`
 
@@ -595,3 +638,5 @@ These are the main schema-level constraints and indexes.
 - `FridgeItem(HouseholdId, ExpiresAt)`
 - `FridgeItem(HouseholdId, Location)`
 - `Ingredient(Name)`
+- `UserIngredientPref(IngredientId)`
+- `UserWeekPref(WeekId)`

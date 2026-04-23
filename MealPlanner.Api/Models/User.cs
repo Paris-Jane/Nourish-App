@@ -14,4 +14,6 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
 
     public Household Household { get; set; } = null!;
+    public ICollection<UserIngredientPref> IngredientPrefs { get; set; } = new List<UserIngredientPref>();
+    public ICollection<UserWeekPref> WeekPrefs { get; set; } = new List<UserWeekPref>();
 }

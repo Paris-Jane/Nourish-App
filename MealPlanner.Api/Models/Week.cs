@@ -18,4 +18,5 @@ public class Week
     public ICollection<SnackSuggestion> SnackSuggestions { get; set; } = new List<SnackSuggestion>();
     public GroceryList? GroceryList { get; set; }
     public ICollection<PrepSheet> PrepSheets { get; set; } = new List<PrepSheet>();
+    public ICollection<UserWeekPref> UserPreferences { get; set; } = new List<UserWeekPref>();
 }

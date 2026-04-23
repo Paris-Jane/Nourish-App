@@ -19,6 +19,8 @@ public class AppDbContext : DbContext
     public DbSet<RecipeIngredient> RecipeIngredients => Set<RecipeIngredient>();
     public DbSet<RecipeStep> RecipeSteps => Set<RecipeStep>();
     public DbSet<UserRecipePref> UserRecipePrefs => Set<UserRecipePref>();
+    public DbSet<UserIngredientPref> UserIngredientPrefs => Set<UserIngredientPref>();
+    public DbSet<UserWeekPref> UserWeekPrefs => Set<UserWeekPref>();
     public DbSet<Week> Weeks => Set<Week>();
     public DbSet<WeekMealSlot> WeekMealSlots => Set<WeekMealSlot>();
     public DbSet<SnackSuggestion> SnackSuggestions => Set<SnackSuggestion>();
@@ -192,6 +194,20 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<UserRecipePref>(b =>
         {
             b.HasIndex(p => new { p.HouseholdId, p.RecipeId }).IsUnique();
+        });
+
+        // ── UserIngredientPref ───────────────────────────────────────────────
+
+        modelBuilder.Entity<UserIngredientPref>(b =>
+        {
+            b.HasIndex(p => new { p.UserId, p.IngredientId }).IsUnique();
+        });
+
+        // ── UserWeekPref ─────────────────────────────────────────────────────
+
+        modelBuilder.Entity<UserWeekPref>(b =>
+        {
+            b.HasIndex(p => new { p.UserId, p.WeekId }).IsUnique();
         });
 
         // ── Week ──────────────────────────────────────────────────────────────

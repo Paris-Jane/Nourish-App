@@ -38,3 +38,13 @@ public record IngredientResponse(
     List<string> Aliases,
     string? Notes
 );
+
+public record IngredientPreferenceRequest(bool? IsFavorite);
+
+public record IngredientPreferenceResponse(
+    int Id,
+    int UserId,
+    int IngredientId,
+    bool IsFavorite,
+    DateTime? LastUsedAt
+);

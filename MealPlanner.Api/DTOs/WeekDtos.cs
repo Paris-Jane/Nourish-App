@@ -51,3 +51,12 @@ public record UpdateMealSlotRequest(
 public record SaveAsTemplateRequest(string TemplateName);
 
 public record ToggleRotationRequest(bool IsInRotation);
+
+public record WeekPreferenceRequest(bool? IsFavorite);
+
+public record WeekPreferenceResponse(
+    int Id,
+    int UserId,
+    int WeekId,
+    bool IsFavorite
+);

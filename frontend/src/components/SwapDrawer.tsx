@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowRightLeft, Search, X } from "lucide-react";
 import { Link } from "react-router-dom";
-import { mockRecipePrefs } from "lib/mockData";
+import { useRecipePrefsStore } from "store/recipePrefsStore";
 import { cn } from "lib/utils";
 import { RecipeCard } from "./RecipeCard";
 import { TagPill } from "./TagPill";
@@ -22,6 +22,7 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
   const currentRecipe = recipes.find((recipe) => recipe.id === slot?.recipeId);
   const [activeFilter, setActiveFilter] = useState(filters[0]);
   const [query, setQuery] = useState("");
+  const isFavorite = useRecipePrefsStore((s) => s.isFavorite);
 
   const visibleRecipes = useMemo(() => {
     const fridgeIngredientIds = new Set(fridgeItems.map((item) => item.ingredientId));
@@ -42,7 +43,7 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
         case "Ingredient overlap":
           return recipe.ingredients.some((ingredient) => usedIngredientIds.has(ingredient.ingredientId));
         case "Favorites":
-          return mockRecipePrefs[recipe.id]?.isFavorite ?? false;
+          return isFavorite(recipe.id);
         case "Recent":
           return index < 4;
         default:
@@ -55,7 +56,7 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
     );
 
     return searched.length > 0 ? searched : filteredByTab;
-  }, [activeFilter, fridgeItems, query, recipes, slot, weekSlots]);
+  }, [activeFilter, fridgeItems, isFavorite, query, recipes, slot, weekSlots]);
 
   return (
     <div className={cn("fixed inset-0 z-40 transition", open ? "pointer-events-auto" : "pointer-events-none")}>

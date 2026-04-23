@@ -23,4 +23,5 @@ public class Ingredient
     public ICollection<RecipeIngredient> RecipeIngredients { get; set; } = new List<RecipeIngredient>();
     public ICollection<FridgeItem> FridgeItems { get; set; } = new List<FridgeItem>();
     public ICollection<GroceryListItem> GroceryListItems { get; set; } = new List<GroceryListItem>();
+    public ICollection<UserIngredientPref> UserPreferences { get; set; } = new List<UserIngredientPref>();
 }

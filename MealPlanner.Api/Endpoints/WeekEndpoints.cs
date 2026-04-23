@@ -16,7 +16,9 @@ public static class WeekEndpoints
         group.MapPost("/", CreateWeek);
         group.MapGet("/saved", GetSavedTemplates);
         group.MapGet("/{id:int}", GetWeek);
+        group.MapGet("/{id:int}/preferences", GetPreferences);
         group.MapPut("/{id:int}", UpdateWeek);
+        group.MapPut("/{id:int}/preferences", UpsertPreferences);
         group.MapPost("/{id:int}/generate", GeneratePlan);
         group.MapPost("/{id:int}/approve", ApproveWeek);
         group.MapGet("/{id:int}/slots", GetSlots);
@@ -84,6 +86,19 @@ public static class WeekEndpoints
         return week == null ? Results.NotFound() : Results.Ok(ToDto(week));
     }
 
+    private static async Task<IResult> GetPreferences(int id, AppDbContext db, ClaimsPrincipal user)
+    {
+        var householdId = user.GetHouseholdId();
+        var userId = user.GetUserId();
+        var weekExists = await db.Weeks.AnyAsync(w => w.Id == id && w.HouseholdId == householdId);
+        if (!weekExists) return Results.NotFound();
+
+        var pref = await db.UserWeekPrefs.FirstOrDefaultAsync(p => p.UserId == userId && p.WeekId == id);
+        if (pref == null) return Results.NotFound();
+
+        return Results.Ok(new WeekPreferenceResponse(pref.Id, pref.UserId, pref.WeekId, pref.IsFavorite));
+    }
+
     private static async Task<IResult> UpdateWeek(int id, UpdateWeekRequest req, AppDbContext db, ClaimsPrincipal user)
     {
         var householdId = user.GetHouseholdId();
@@ -96,6 +111,27 @@ public static class WeekEndpoints
         await db.SaveChangesAsync();
 
         return Results.Ok(ToDto(week));
+    }
+
+    private static async Task<IResult> UpsertPreferences(
+        int id, WeekPreferenceRequest req, AppDbContext db, ClaimsPrincipal user)
+    {
+        var householdId = user.GetHouseholdId();
+        var userId = user.GetUserId();
+        var exists = await db.Weeks.AnyAsync(w => w.Id == id && w.HouseholdId == householdId);
+        if (!exists) return Results.NotFound();
+
+        var pref = await db.UserWeekPrefs.FirstOrDefaultAsync(p => p.UserId == userId && p.WeekId == id);
+        if (pref == null)
+        {
+            pref = new UserWeekPref { UserId = userId, WeekId = id };
+            db.UserWeekPrefs.Add(pref);
+        }
+
+        if (req.IsFavorite.HasValue) pref.IsFavorite = req.IsFavorite.Value;
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new WeekPreferenceResponse(pref.Id, pref.UserId, pref.WeekId, pref.IsFavorite));
     }
 
     private static async Task<IResult> GeneratePlan(int id, AppDbContext db, ClaimsPrincipal user, IPlanGeneratorService generator)
