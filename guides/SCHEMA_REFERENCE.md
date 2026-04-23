@@ -68,6 +68,24 @@ Enums are intended to be stored as strings in PostgreSQL for readability and sta
 - `Fruit`
 - `Dairy`
 - `Legume`
+- `Other`
+
+### DefaultLocation
+
+- `Fridge`
+- `Pantry`
+- `Freezer`
+
+### StoreSection
+
+- `Produce`
+- `Protein`
+- `Dairy`
+- `Grains`
+- `Pantry`
+- `Frozen`
+- `Bakery`
+- `Other`
 
 ### ScalabilityTag
 
@@ -235,9 +253,17 @@ Fields:
 - `ServingSize: decimal` — required
 - `ServingUnit: string` — required
 - `PurchaseUnit: string` — required
+- `DefaultLocation: DefaultLocation` — enum, required
+- `StoreSection: StoreSection` — enum, required
 - `IsPerishable: bool` — required
 - `IsFlexibleGroup: bool` — required
+- `IsMyPlateCounted: bool` — required
 - `ShelfLifeDays: int` — required
+- `TypicalPackageSize: decimal?` — optional
+- `PackageSizeUnit: string?` — optional
+- `IsStaple: bool` — required
+- `Aliases: List<string>` — optional, stored as `jsonb`
+- `Notes: string?` — optional
 
 Relationships:
 

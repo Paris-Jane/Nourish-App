@@ -10,7 +10,7 @@ public static class HouseholdEndpoints
 {
     public static void MapHouseholdEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/households").RequireAuthorization().WithTags("Households").WithOpenApi();
+        var group = app.MapGroup("/api/households").RequireAuthorization().WithTags("Households");
 
         group.MapGet("/{id:int}", GetHousehold);
         group.MapPut("/{id:int}/preferences", UpdatePreferences);

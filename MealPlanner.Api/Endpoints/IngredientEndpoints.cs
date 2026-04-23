@@ -8,7 +8,7 @@ public static class IngredientEndpoints
 {
     public static void MapIngredientEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/ingredients").RequireAuthorization().WithTags("Ingredients").WithOpenApi();
+        var group = app.MapGroup("/api/ingredients").RequireAuthorization().WithTags("Ingredients");
 
         group.MapGet("/", GetAll);
         group.MapGet("/{id:int}", GetById);
@@ -36,16 +36,26 @@ public static class IngredientEndpoints
             ServingSize = req.ServingSize,
             ServingUnit = req.ServingUnit,
             PurchaseUnit = req.PurchaseUnit,
+            DefaultLocation = req.DefaultLocation,
+            StoreSection = req.StoreSection,
             IsPerishable = req.IsPerishable,
             IsFlexibleGroup = req.IsFlexibleGroup,
-            ShelfLifeDays = req.ShelfLifeDays
+            IsMyPlateCounted = req.IsMyPlateCounted,
+            ShelfLifeDays = req.ShelfLifeDays,
+            TypicalPackageSize = req.TypicalPackageSize,
+            PackageSizeUnit = req.PackageSizeUnit,
+            IsStaple = req.IsStaple,
+            Aliases = req.Aliases ?? new List<string>(),
+            Notes = req.Notes
         };
         db.Ingredients.Add(ingredient);
         await db.SaveChangesAsync();
         return Results.Created($"/api/ingredients/{ingredient.Id}", ToDto(ingredient));
     }
 
-    private static IngredientResponse ToDto(Ingredient i) => new(
-        i.Id, i.Name, i.FoodGroup, i.ServingSize, i.ServingUnit,
-        i.PurchaseUnit, i.IsPerishable, i.IsFlexibleGroup, i.ShelfLifeDays);
+    public static IngredientResponse ToDto(Ingredient i) => new(
+        i.Id, i.Name, i.FoodGroup, i.ServingSize, i.ServingUnit, i.PurchaseUnit,
+        i.DefaultLocation, i.StoreSection, i.IsPerishable, i.IsFlexibleGroup,
+        i.IsMyPlateCounted, i.ShelfLifeDays, i.TypicalPackageSize, i.PackageSizeUnit,
+        i.IsStaple, i.Aliases, i.Notes);
 }

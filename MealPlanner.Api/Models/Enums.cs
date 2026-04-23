@@ -4,7 +4,9 @@ public enum ActivityLevel { Sedentary, Light, Moderate, Active }
 public enum UserRole { Owner, Member }
 public enum PrepStyle { DayOf, OnePrepDay, TwoPrepDays }
 public enum CookTime { Under20, Under45, NoLimit }
-public enum FoodGroup { Grains, Protein, Vegetable, Fruit, Dairy, Legume }
+public enum FoodGroup { Grains, Protein, Vegetable, Fruit, Dairy, Legume, Other }
+public enum DefaultLocation { Fridge, Pantry, Freezer }
+public enum StoreSection { Produce, Protein, Dairy, Grains, Pantry, Frozen, Bakery, Other }
 public enum ScalabilityTag { Flexible, Rigid, Portioned }
 public enum TimeTag { Quick, Medium, Involved }
 public enum RecipePrepStyleTag { BatchFriendly, CookFresh, FreezerFriendly }

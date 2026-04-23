@@ -10,7 +10,7 @@ public static class PrepSheetEndpoints
 {
     public static void MapPrepSheetEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/weeks").RequireAuthorization().WithTags("PrepSheets").WithOpenApi();
+        var group = app.MapGroup("/api/weeks").RequireAuthorization().WithTags("PrepSheets");
 
         group.MapGet("/{weekId:int}/prep-sheet", GetSheets);
         group.MapPost("/{weekId:int}/prep-sheet/generate", Generate);

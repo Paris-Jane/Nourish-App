@@ -11,7 +11,7 @@ public static class FridgeEndpoints
 {
     public static void MapFridgeEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/fridge").RequireAuthorization().WithTags("Fridge").WithOpenApi();
+        var group = app.MapGroup("/api/fridge").RequireAuthorization().WithTags("Fridge");
 
         group.MapGet("/", GetAll);
         group.MapPost("/", Add);
@@ -43,6 +43,7 @@ public static class FridgeEndpoints
             IngredientId = req.IngredientId,
             Quantity = req.Quantity,
             Unit = req.Unit,
+            // Use ingredient's DefaultLocation if caller didn't specify one explicitly
             Location = req.Location,
             PurchasedAt = req.PurchasedAt,
             ExpiresAt = req.ExpiresAt,

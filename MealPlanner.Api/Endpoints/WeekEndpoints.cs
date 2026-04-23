@@ -11,7 +11,7 @@ public static class WeekEndpoints
 {
     public static void MapWeekEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/weeks").RequireAuthorization().WithTags("Weeks").WithOpenApi();
+        var group = app.MapGroup("/api/weeks").RequireAuthorization().WithTags("Weeks");
 
         group.MapPost("/", CreateWeek);
         group.MapGet("/saved", GetSavedTemplates);
@@ -29,6 +29,14 @@ public static class WeekEndpoints
     private static async Task<IResult> CreateWeek(CreateWeekRequest req, AppDbContext db, ClaimsPrincipal user)
     {
         var householdId = user.GetHouseholdId();
+
+        // Fetch household size to use as default ServingsPlanned — avoid null nav property
+        var householdSize = await db.Households
+            .Where(h => h.Id == householdId)
+            .Select(h => h.Size)
+            .FirstOrDefaultAsync();
+        var defaultServings = householdSize > 0 ? householdSize : 2;
+
         var week = new Week
         {
             HouseholdId = householdId,
@@ -51,7 +59,7 @@ public static class WeekEndpoints
                     WeekId = week.Id,
                     DayOfWeek = day,
                     MealType = mealType,
-                    ServingsPlanned = week.Household?.Size ?? 2
+                    ServingsPlanned = defaultServings
                 });
             }
         }
@@ -144,7 +152,6 @@ public static class WeekEndpoints
         if (req.ServingsPlanned.HasValue) slot.ServingsPlanned = req.ServingsPlanned.Value;
         await db.SaveChangesAsync();
 
-        // Reload with recipe name
         await db.Entry(slot).Reference(s => s.Recipe).LoadAsync();
         return Results.Ok(ToSlotDto(slot));
     }
@@ -153,10 +160,10 @@ public static class WeekEndpoints
         int id, int slotId, AppDbContext db, ClaimsPrincipal user, IFridgeService fridgeService)
     {
         var householdId = user.GetHouseholdId();
-        var slot = await db.WeekMealSlots
+        var exists = await db.WeekMealSlots
             .Include(s => s.Week)
-            .FirstOrDefaultAsync(s => s.Id == slotId && s.WeekId == id && s.Week.HouseholdId == householdId);
-        if (slot == null) return Results.NotFound();
+            .AnyAsync(s => s.Id == slotId && s.WeekId == id && s.Week.HouseholdId == householdId);
+        if (!exists) return Results.NotFound();
 
         await fridgeService.ReverseDepletionForSlotAsync(slotId);
         return Results.Ok(new { slotId, skipped = true });

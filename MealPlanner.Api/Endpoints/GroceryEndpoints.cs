@@ -11,7 +11,7 @@ public static class GroceryEndpoints
 {
     public static void MapGroceryEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/weeks").RequireAuthorization().WithTags("Grocery").WithOpenApi();
+        var group = app.MapGroup("/api/weeks").RequireAuthorization().WithTags("Grocery");
 
         group.MapGet("/{weekId:int}/grocery-list", GetList);
         group.MapPost("/{weekId:int}/grocery-list/generate", Generate);
@@ -52,19 +52,22 @@ public static class GroceryEndpoints
 
         item.IsChecked = req.IsChecked;
 
-        // Auto-add to fridge when checked
+        // Auto-add to fridge when checked off
         if (req.IsChecked && !item.AddedToFridge)
         {
-            var shelfDays = item.Ingredient.ShelfLifeDays;
+            var ingredient = item.Ingredient;
             db.FridgeItems.Add(new FridgeItem
             {
                 HouseholdId = householdId,
                 IngredientId = item.IngredientId,
                 Quantity = item.PurchasedQuantity ?? item.PlannedQuantity,
                 Unit = item.PlannedUnit,
-                Location = item.Ingredient.IsPerishable ? FridgeLocation.Fridge : FridgeLocation.Pantry,
+                // Use the ingredient's canonical default storage location
+                Location = (FridgeLocation)(int)ingredient.DefaultLocation,
                 PurchasedAt = DateTime.UtcNow,
-                ExpiresAt = item.Ingredient.IsPerishable ? DateTime.UtcNow.AddDays(shelfDays) : null,
+                ExpiresAt = ingredient.IsPerishable
+                    ? DateTime.UtcNow.AddDays(ingredient.ShelfLifeDays)
+                    : null,
                 AddedVia = AddedVia.GroceryList
             });
             item.AddedToFridge = true;

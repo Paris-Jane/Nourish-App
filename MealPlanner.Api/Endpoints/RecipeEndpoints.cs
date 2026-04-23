@@ -10,11 +10,10 @@ public static class RecipeEndpoints
 {
     public static void MapRecipeEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/recipes").RequireAuthorization().WithTags("Recipes").WithOpenApi();
+        var group = app.MapGroup("/api/recipes").RequireAuthorization().WithTags("Recipes");
 
         group.MapGet("/", GetAll);
         group.MapGet("/search", Search);
-        group.MapGet("/saved-templates", GetSavedTemplates);
         group.MapGet("/{id:int}", GetById);
         group.MapPost("/", Create);
         group.MapPut("/{id:int}", Update);
@@ -78,17 +77,6 @@ public static class RecipeEndpoints
         }
 
         return Results.Ok(recipes.Select(ToDto));
-    }
-
-    private static async Task<IResult> GetSavedTemplates(AppDbContext db, ClaimsPrincipal user)
-    {
-        var householdId = user.GetHouseholdId();
-        var templates = await db.Weeks
-            .Where(w => w.HouseholdId == householdId && w.IsSavedTemplate)
-            .ToListAsync();
-        return Results.Ok(templates.Select(w => new WeekResponse(
-            w.Id, w.HouseholdId, w.WeekStartDate, w.Status, w.PrepStyle,
-            w.MaxCookTime, w.IsSavedTemplate, w.TemplateName, w.IsInRotation, w.CreatedAt)));
     }
 
     private static async Task<IResult> GetById(int id, AppDbContext db, ClaimsPrincipal user)

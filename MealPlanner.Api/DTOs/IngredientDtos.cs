@@ -6,9 +6,17 @@ public record IngredientRequest(
     decimal ServingSize,
     string ServingUnit,
     string PurchaseUnit,
+    DefaultLocation DefaultLocation,
+    StoreSection StoreSection,
     bool IsPerishable,
     bool IsFlexibleGroup,
-    int ShelfLifeDays
+    bool IsMyPlateCounted,
+    int ShelfLifeDays,
+    decimal? TypicalPackageSize = null,
+    string? PackageSizeUnit = null,
+    bool IsStaple = false,
+    List<string>? Aliases = null,
+    string? Notes = null
 );
 
 public record IngredientResponse(
@@ -18,7 +26,15 @@ public record IngredientResponse(
     decimal ServingSize,
     string ServingUnit,
     string PurchaseUnit,
+    DefaultLocation DefaultLocation,
+    StoreSection StoreSection,
     bool IsPerishable,
     bool IsFlexibleGroup,
-    int ShelfLifeDays
+    bool IsMyPlateCounted,
+    int ShelfLifeDays,
+    decimal? TypicalPackageSize,
+    string? PackageSizeUnit,
+    bool IsStaple,
+    List<string> Aliases,
+    string? Notes
 );

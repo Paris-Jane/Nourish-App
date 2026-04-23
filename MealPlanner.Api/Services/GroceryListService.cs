@@ -33,7 +33,7 @@ public class GroceryListService : IGroceryListService
             await _db.SaveChangesAsync();
         }
 
-        // Aggregate quantities per ingredient across all slots
+        // Aggregate quantities per ingredient across all meal slots
         var aggregated = new Dictionary<int, AggregatedItem>();
 
         foreach (var slot in week.MealSlots.Where(s => s.Recipe != null))
@@ -70,7 +70,6 @@ public class GroceryListService : IGroceryListService
             .Where(f => f.HouseholdId == householdId)
             .ToListAsync();
 
-        // Create the list
         var groceryList = new GroceryList
         {
             WeekId = weekId,
@@ -90,13 +89,16 @@ public class GroceryListService : IGroceryListService
 
             var plannedQty = Math.Max(0, agg.Quantity - fridgeQty);
 
+            // Use the ingredient's canonical StoreSection
+            var storeSection = agg.Ingredient.StoreSection.ToString();
+
             _db.GroceryListItems.Add(new GroceryListItem
             {
                 GroceryListId = groceryList.Id,
                 IngredientId = ingredientId,
                 PlannedQuantity = Math.Round(plannedQty, 2),
                 PlannedUnit = agg.Unit,
-                StoreSection = GetStoreSection(agg.Ingredient.FoodGroup),
+                StoreSection = storeSection,
                 IsChecked = false,
                 AddedToFridge = false,
                 RecipeIds = agg.RecipeIds
@@ -109,16 +111,6 @@ public class GroceryListService : IGroceryListService
             .Include(g => g.Items).ThenInclude(i => i.Ingredient)
             .FirstAsync(g => g.Id == groceryList.Id);
     }
-
-    private static string GetStoreSection(FoodGroup group) => group switch
-    {
-        FoodGroup.Vegetable or FoodGroup.Fruit           => "Produce",
-        FoodGroup.Protein                                => "Protein",
-        FoodGroup.Dairy                                  => "Dairy",
-        FoodGroup.Grains                                 => "Grains",
-        FoodGroup.Legume                                 => "Pantry",
-        _                                                => "Pantry"
-    };
 
     private class AggregatedItem
     {

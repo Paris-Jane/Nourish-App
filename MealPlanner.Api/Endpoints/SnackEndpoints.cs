@@ -11,11 +11,11 @@ public static class SnackEndpoints
 {
     public static void MapSnackEndpoints(this IEndpointRouteBuilder app)
     {
-        var weekGroup = app.MapGroup("/api/weeks").RequireAuthorization().WithTags("Snacks").WithOpenApi();
+        var weekGroup = app.MapGroup("/api/weeks").RequireAuthorization().WithTags("Snacks");
         weekGroup.MapGet("/{weekId:int}/snack-suggestions", GetSuggestions);
         weekGroup.MapPost("/{weekId:int}/snack-suggestions/generate", Generate);
 
-        var snackGroup = app.MapGroup("/api/snack-suggestions").RequireAuthorization().WithTags("Snacks").WithOpenApi();
+        var snackGroup = app.MapGroup("/api/snack-suggestions").RequireAuthorization().WithTags("Snacks");
         snackGroup.MapPut("/{id:int}/accept", Accept);
     }
 
