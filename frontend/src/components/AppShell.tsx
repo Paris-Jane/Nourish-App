@@ -9,7 +9,7 @@ const navItems = [
   { to: "/grocery", label: "Grocery", icon: ShoppingBasket },
   { to: "/fridge", label: "Fridge", icon: Refrigerator },
   { to: "/recipes", label: "Recipes", icon: ChefHat },
-  { to: "/saved-weeks", label: "Saved Weeks", icon: BookHeart },
+  { to: "/saved-weeks", label: "Saved Weeks", shortLabel: "Saved", icon: BookHeart },
 ];
 
 export function AppShell() {
@@ -49,7 +49,7 @@ export function AppShell() {
       </main>
 
       <nav className="fixed bottom-4 left-3 right-3 z-30 flex rounded-[24px] border border-nourish-border bg-white/95 p-1.5 shadow-card backdrop-blur lg:hidden">
-        {navItems.map(({ to, label, icon: Icon }) => (
+        {navItems.map(({ to, label, shortLabel, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -61,7 +61,7 @@ export function AppShell() {
             }
           >
             <Icon size={16} className="shrink-0" />
-            <span className="line-clamp-2 text-center">{label}</span>
+            <span className="line-clamp-2 text-center">{shortLabel ?? label}</span>
           </NavLink>
         ))}
       </nav>

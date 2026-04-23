@@ -44,15 +44,15 @@ export function DayColumn({
   return (
     <div
       className={cn(
-        "card min-w-0 p-4",
-        isToday && "ring-2 ring-nourish-sage ring-offset-2 ring-offset-[#fbf7f2] lg:ring-offset-white",
+        "flex min-h-0 min-w-0 flex-col overflow-visible rounded-2xl border bg-white p-3 shadow-sm sm:p-4",
+        isToday ? "border-2 border-nourish-sage bg-nourish-sage/[0.06]" : "border-nourish-border",
       )}
     >
-      <div className={cn("mb-4 flex items-center gap-2", hasGap ? "justify-between" : "justify-start")}>
+      <div className={cn("mb-3 flex min-w-0 items-center gap-2", hasGap ? "justify-between" : "justify-start")}>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h3 className="text-xl">{day.slice(0, 3)}</h3>
+          <h3 className="text-lg font-semibold text-nourish-ink">{day.slice(0, 3)}</h3>
           {isToday ? (
-            <span className="rounded-full bg-nourish-sage/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-nourish-sage">
+            <span className="rounded-full bg-nourish-sage/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-nourish-sage">
               Today
             </span>
           ) : null}
@@ -106,7 +106,7 @@ export function DayColumn({
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="min-h-0 flex-1 space-y-3">
         {slots.map((slot) => (
           <MealCard
             key={slot.id}
@@ -118,18 +118,32 @@ export function DayColumn({
         ))}
       </div>
 
-      <label className="mt-4 flex min-h-[44px] cursor-pointer items-center justify-between gap-3 rounded-2xl bg-nourish-bg px-3 py-2 text-sm text-nourish-muted sm:px-4 sm:py-3">
-        <span>Eating out?</span>
-        <span className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center">
-          <input
-            type="checkbox"
-            checked={dayEatingOut}
+      <div className="mt-3 shrink-0 border-t border-nourish-border/60 pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm text-nourish-muted">Eating out?</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={dayEatingOut}
             disabled={togglePending}
-            onChange={(event) => onToggleEatingOut?.(event.target.checked)}
-            className="h-5 w-5 rounded border-nourish-border text-nourish-sage focus:ring-nourish-sage"
-          />
-        </span>
-      </label>
+            onClick={() => onToggleEatingOut?.(!dayEatingOut)}
+            className={cn(
+              "relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nourish-sage",
+              dayEatingOut ? "border-nourish-sage bg-nourish-sage" : "border-nourish-border bg-nourish-bg",
+              togglePending && "pointer-events-none opacity-50",
+            )}
+          >
+            <span
+              className={cn(
+                "pointer-events-none absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-[left] duration-200 ease-out",
+                dayEatingOut ? "left-[calc(100%-1.625rem)]" : "left-0.5",
+              )}
+              aria-hidden
+            />
+            <span className="sr-only">{dayEatingOut ? "Eating out on" : "Eating out off"}</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
