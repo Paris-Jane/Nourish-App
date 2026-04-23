@@ -1,24 +1,44 @@
-import { ArrowLeft, Heart } from "lucide-react";
+import { ArrowLeft, Heart, Plus, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { StepList } from "components/StepList";
 import { TagPill } from "components/TagPill";
 import { cn } from "lib/utils";
-import { useRecipes } from "hooks/useAppData";
+import { useIngredients, useRecipes } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
 
 export function RecipeDetailPage() {
   const { id } = useParams();
   const { recipes } = useRecipes();
+  const { ingredients } = useIngredients();
   const { pushToast } = useToast();
   const [tab, setTab] = useState<"Prep ahead" | "Day of">("Prep ahead");
+  const [customSearch, setCustomSearch] = useState("");
+  const [selectedOptionalIds, setSelectedOptionalIds] = useState<number[]>([]);
+  const [customAddOns, setCustomAddOns] = useState<Array<{ id: number; name: string }>>([]);
   const isFavorite = useRecipePrefsStore((s) => s.isFavorite);
   const toggleFavorite = useRecipePrefsStore((s) => s.toggleFavorite);
   const recipe = recipes.find((entry) => String(entry.id) === id);
 
   const prepAheadSteps = useMemo(() => recipe?.steps.filter((step) => step.timingTag === "PrepAhead") ?? [], [recipe]);
   const dayOfSteps = useMemo(() => recipe?.steps.filter((step) => step.timingTag !== "PrepAhead") ?? [], [recipe]);
+  const coreIngredients = useMemo(() => recipe?.ingredients.filter((ingredient) => !ingredient.isModifier) ?? [], [recipe]);
+  const optionalIngredients = useMemo(() => recipe?.ingredients.filter((ingredient) => ingredient.isModifier || ingredient.isOptional) ?? [], [recipe]);
+  const filteredCustomIngredients = useMemo(() => {
+    const query = customSearch.trim().toLowerCase();
+    if (!query) return [];
+
+    const excludedIds = new Set([
+      ...(recipe?.ingredients.map((ingredient) => ingredient.ingredientId) ?? []),
+      ...customAddOns.map((ingredient) => ingredient.id),
+    ]);
+
+    return ingredients
+      .filter((ingredient) => !excludedIds.has(ingredient.id))
+      .filter((ingredient) => ingredient.name.toLowerCase().includes(query))
+      .slice(0, 8);
+  }, [customAddOns, customSearch, ingredients, recipe]);
 
   if (!recipe) {
     return (
@@ -33,6 +53,31 @@ export function RecipeDetailPage() {
   }
 
   const favorited = isFavorite(recipe.id);
+
+  const handleToggleOptional = (ingredientId: number) => {
+    const ingredient = optionalIngredients.find((entry) => entry.ingredientId === ingredientId);
+    const nextSelected = !selectedOptionalIds.includes(ingredientId);
+
+    setSelectedOptionalIds((current) =>
+      current.includes(ingredientId) ? current.filter((id) => id !== ingredientId) : [...current, ingredientId],
+    );
+
+    if (ingredient) {
+      pushToast(nextSelected ? `${ingredient.ingredientName} added to this version.` : `${ingredient.ingredientName} removed from this version.`);
+    }
+  };
+
+  const handleAddCustomIngredient = (ingredientId: number, ingredientName: string) => {
+    setCustomAddOns((current) => [...current, { id: ingredientId, name: ingredientName }]);
+    setCustomSearch("");
+    pushToast(`${ingredientName} added as a custom add-on.`);
+  };
+
+  const handleRemoveCustomIngredient = (ingredientId: number) => {
+    const ingredient = customAddOns.find((entry) => entry.id === ingredientId);
+    setCustomAddOns((current) => current.filter((entry) => entry.id !== ingredientId));
+    if (ingredient) pushToast(`${ingredient.name} removed.`);
+  };
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -67,6 +112,17 @@ export function RecipeDetailPage() {
       <div className="card overflow-hidden">
         <div className="h-36 bg-gradient-to-br from-nourish-sage/20 via-[#fbf6f0] to-nourish-terracotta/20 sm:h-44 md:h-52" />
         <div className="p-6">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <button
+              className="button-primary"
+              onClick={() => pushToast("Adding into the week grid is the next small wiring step.")}
+            >
+              Add to this week
+            </button>
+            <Link to={`/recipes/${recipe.id}/edit`} className="text-sm text-nourish-muted underline underline-offset-4">
+              Edit recipe
+            </Link>
+          </div>
           <h1 className="mb-4 text-3xl font-semibold tracking-tight text-nourish-ink sm:text-4xl md:text-5xl">{recipe.name}</h1>
           <div className="mb-5 flex flex-wrap gap-2">
             <TagPill tone="warm">{recipe.cuisine}</TagPill>
@@ -92,19 +148,18 @@ export function RecipeDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr,0.8fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
         <div className="card p-6">
-          <h2 className="mb-4 text-2xl font-semibold sm:text-3xl">Ingredients</h2>
-          {recipe.ingredients.length === 0 ? (
+          <h2 className="mb-4 text-2xl font-semibold sm:text-3xl">Core ingredients</h2>
+          {coreIngredients.length === 0 ? (
             <p className="text-sm text-nourish-muted">No ingredient list has been added to this preview recipe yet.</p>
           ) : (
             <ul className="divide-y divide-nourish-border text-sm">
-              {recipe.ingredients.map((ingredient) => (
+              {coreIngredients.map((ingredient) => (
                 <li key={ingredient.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5 first:pt-0">
                   <span className="font-medium text-nourish-ink">{ingredient.ingredientName}</span>
                   <span className="shrink-0 text-nourish-muted">
                     {ingredient.quantity} {ingredient.unit}
-                    {ingredient.isOptional ? " · optional" : ""}
                   </span>
                 </li>
               ))}
@@ -112,14 +167,85 @@ export function RecipeDetailPage() {
           )}
         </div>
 
-        <div className="card p-6">
-          <h2 className="mb-4 text-2xl font-semibold sm:text-3xl">This week</h2>
-          <button className="button-primary mb-3 w-full" onClick={() => pushToast("Adding into the week grid is the next small wiring step.")}>
-            Add to this week
-          </button>
-          <Link to={`/recipes/${recipe.id}/edit`} className="text-sm text-nourish-muted underline underline-offset-4">
-            Edit recipe
-          </Link>
+        <div className="space-y-6">
+          <div className="card p-6">
+            <div className="mb-4">
+              <h2 className="text-2xl font-semibold sm:text-3xl">Optional add-ons</h2>
+              <p className="mt-1 text-sm text-nourish-muted">Pick from the recipe’s suggested extras without cluttering the main ingredient list.</p>
+            </div>
+            {optionalIngredients.length === 0 ? (
+              <p className="text-sm text-nourish-muted">No optional add-ons have been added to this recipe yet.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {optionalIngredients.map((ingredient) => {
+                  const active = selectedOptionalIds.includes(ingredient.ingredientId);
+                  return (
+                    <TagPill
+                      key={ingredient.id}
+                      active={active}
+                      onClick={() => handleToggleOptional(ingredient.ingredientId)}
+                    >
+                      {ingredient.ingredientName}
+                    </TagPill>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="card p-6">
+            <div className="mb-4">
+              <h2 className="text-2xl font-semibold sm:text-3xl">Add your own</h2>
+              <p className="mt-1 text-sm text-nourish-muted">Search your ingredient library to customize this version of the recipe.</p>
+            </div>
+            <div className="space-y-3">
+              <input
+                className="input"
+                placeholder="Search ingredients to add"
+                value={customSearch}
+                onChange={(event) => setCustomSearch(event.target.value)}
+              />
+
+              {filteredCustomIngredients.length > 0 ? (
+                <div className="rounded-2xl border border-nourish-border bg-nourish-bg/40 p-2">
+                  <div className="space-y-1">
+                    {filteredCustomIngredients.map((ingredient) => (
+                      <button
+                        key={ingredient.id}
+                        type="button"
+                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-nourish-ink transition hover:bg-white"
+                        onClick={() => handleAddCustomIngredient(ingredient.id, ingredient.name)}
+                      >
+                        <span>{ingredient.name}</span>
+                        <Plus size={16} aria-hidden className="text-nourish-sage" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : customSearch.trim().length > 0 ? (
+                <p className="text-sm text-nourish-muted">No matching ingredients found.</p>
+              ) : null}
+
+              {customAddOns.length > 0 ? (
+                <div className="space-y-2 rounded-2xl bg-nourish-bg p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Added to this version</p>
+                  <div className="flex flex-wrap gap-2">
+                    {customAddOns.map((ingredient) => (
+                      <button
+                        key={ingredient.id}
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-full border border-nourish-border bg-white px-3 py-1.5 text-xs font-medium text-nourish-ink"
+                        onClick={() => handleRemoveCustomIngredient(ingredient.id)}
+                      >
+                        {ingredient.name}
+                        <X size={12} aria-hidden />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
     </div>
