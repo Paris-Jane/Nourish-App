@@ -49,6 +49,7 @@ export function createBlankWeekSlots(weekId: number, visibleMealTypes: MealType[
       weekId,
       recipeId: null,
       recipeName: null,
+      selectedModifierIngredientIds: [],
       dayOfWeek: day,
       mealType,
       isEatingOut: false,
@@ -77,6 +78,7 @@ export function createAutoWeekSlots({
         ...slot,
         id: weekId * 100 + index + 1,
         weekId,
+        selectedModifierIngredientIds: slot.selectedModifierIngredientIds ?? [],
       })),
   );
 }
@@ -103,6 +105,7 @@ export function createSavedWeekSlots({
         weekId,
         recipeId: recipe?.id ?? null,
         recipeName: recipe?.name ?? null,
+        selectedModifierIngredientIds: [],
         dayOfWeek: day,
         mealType,
         isEatingOut: false,

@@ -7,6 +7,9 @@ Run them in this order in the Supabase SQL editor:
 1. `01_schema.sql`
 2. `02_mark_ef_migration.sql`
 3. `03_seed_all_ingredients.sql`
+4. `04_add_favorites_tables.sql`
+5. `05_add_recipe_modifier_preferences.sql`
+6. `06_add_slot_modifier_preferences.sql`
 
 After that, start the backend normally.
 

@@ -280,6 +280,7 @@ export const mockSlots: WeekMealSlot[] = weekDays.flatMap((day, index) =>
       weekId: 1,
       recipeId,
       recipeName: recipe?.name ?? null,
+      selectedModifierIngredientIds: [],
       dayOfWeek: day,
       mealType: mealType as WeekMealSlot["mealType"],
       isEatingOut: false,

@@ -30,6 +30,7 @@ public record WeekMealSlotResponse(
     int WeekId,
     int? RecipeId,
     string? RecipeName,
+    List<int> SelectedModifierIngredientIds,
     WeekDay DayOfWeek,
     MealType MealType,
     bool IsEatingOut,
@@ -42,6 +43,7 @@ public record WeekMealSlotResponse(
 
 public record UpdateMealSlotRequest(
     int? RecipeId,
+    List<int>? SelectedModifierIngredientIds,
     bool? IsEatingOut,
     bool? IsSkipped,
     bool? IsLocked,

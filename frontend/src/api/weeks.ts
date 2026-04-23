@@ -30,7 +30,7 @@ export function approveWeek(id: number) {
 export function swapSlot(
   weekId: number,
   slotId: number,
-  payload: Partial<Pick<WeekMealSlot, "recipeId" | "isEatingOut" | "isSkipped" | "isLocked" | "servingsPlanned">>,
+  payload: Partial<Pick<WeekMealSlot, "recipeId" | "selectedModifierIngredientIds" | "isEatingOut" | "isSkipped" | "isLocked" | "servingsPlanned">>,
 ) {
   return unwrap<WeekMealSlot>(apiClient.put(`/api/weeks/${weekId}/slots/${slotId}`, payload));
 }

@@ -38,6 +38,7 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
   const [query, setQuery] = useState("");
   const [pendingRecipe, setPendingRecipe] = useState<Recipe | null>(null);
   const [selectedTargetIds, setSelectedTargetIds] = useState<number[]>([]);
+  const [selectedModifierIds, setSelectedModifierIds] = useState<number[]>([]);
   const isFavorite = useRecipePrefsStore((s) => s.isFavorite);
   const setSlotOverrides = useWeekStore((state) => state.setSlotOverrides);
 
@@ -47,8 +48,23 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
       setQuery("");
       setPendingRecipe(null);
       setSelectedTargetIds(slot ? [slot.id] : []);
+      setSelectedModifierIds(slot?.selectedModifierIngredientIds ?? []);
     }
   }, [open, slot?.id]);
+
+  const fridgeIngredientIds = useMemo(() => new Set(fridgeItems.map((item) => item.ingredientId)), [fridgeItems]);
+
+  const usedElsewhereIngredientIds = useMemo(
+    () =>
+      new Set(
+        weekSlots
+          .filter((entry) => entry.id !== slot?.id && entry.recipeId)
+          .flatMap(
+            (entry) => recipes.find((recipe) => recipe.id === entry.recipeId)?.ingredients.map((ingredient) => ingredient.ingredientId) ?? [],
+          ),
+      ),
+    [recipes, slot?.id, weekSlots],
+  );
 
   const eligibleTargetSlots = useMemo(() => {
     if (!slot) return [];
@@ -61,7 +77,6 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
   }, [slot, weekSlots]);
 
   const visibleRecipes = useMemo(() => {
-    const fridgeIngredientIds = new Set(fridgeItems.map((item) => item.ingredientId));
     const expiringIngredientIds = new Set(
       fridgeItems
         .filter((fi) => {
@@ -70,14 +85,6 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
         })
         .map((fi) => fi.ingredientId),
     );
-    const usedIngredientIds = new Set(
-      weekSlots
-        .filter((entry) => entry.id !== slot?.id && entry.recipeId)
-        .flatMap(
-          (entry) => recipes.find((recipe) => recipe.id === entry.recipeId)?.ingredients.map((ingredient) => ingredient.ingredientId) ?? [],
-        ),
-    );
-
     const filteredByTab = recipes.filter((recipe, index) => {
       if (!matchesSlotMealType(recipe, slot)) return false;
 
@@ -89,7 +96,7 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
         case "In your fridge":
           return recipe.ingredients.some((ingredient) => fridgeIngredientIds.has(ingredient.ingredientId));
         case "Ingredient overlap":
-          return recipe.ingredients.some((ingredient) => usedIngredientIds.has(ingredient.ingredientId));
+          return recipe.ingredients.some((ingredient) => usedElsewhereIngredientIds.has(ingredient.ingredientId));
         case "Favorites":
           return isFavorite(recipe.id);
         case "Recent":
@@ -102,39 +109,46 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
     const q = query.trim().toLowerCase();
     if (!q) return filteredByTab;
     return filteredByTab.filter((recipe) => `${recipe.name} ${recipe.cuisine}`.toLowerCase().includes(q));
-  }, [activeFilter, fridgeItems, isFavorite, query, recipes, slot, weekSlots]);
+  }, [activeFilter, fridgeIngredientIds, fridgeItems, isFavorite, query, recipes, slot, usedElsewhereIngredientIds]);
+
+  const pendingModifiers = useMemo(
+    () => pendingRecipe?.ingredients.filter((ingredient) => ingredient.isModifier || ingredient.isOptional) ?? [],
+    [pendingRecipe],
+  );
 
   const applyRecipeMutation = useMutation({
-    mutationFn: async ({ recipeId, targetIds }: { recipeId: number; targetIds: number[] }) => {
+    mutationFn: async ({ recipeId, targetIds, modifierIds }: { recipeId: number; targetIds: number[]; modifierIds: number[] }) => {
       if (!slot) throw new Error("No slot selected");
       await Promise.all(
         targetIds.map((slotId) =>
           swapSlot(slot.weekId, slotId, {
             recipeId,
+            selectedModifierIngredientIds: modifierIds,
             isSkipped: false,
             isEatingOut: false,
           }),
         ),
       );
-      return { recipeId, targetIds };
+      return { recipeId, targetIds, modifierIds };
     },
-    onSuccess: async ({ recipeId, targetIds }) => {
+    onSuccess: async ({ recipeId, targetIds, modifierIds }) => {
       if (!slot) return;
       await queryClient.invalidateQueries({ queryKey: ["week-slots", slot.weekId] });
       setSlotOverrides(null);
       const recipe = recipes.find((entry) => entry.id === recipeId);
       if (recipe) {
         const count = targetIds.length;
-        pushToast(count > 1 ? `${recipe.name} added to ${count} ${slot.mealType.toLowerCase()} slots.` : `${recipe.name} added to ${slot.dayOfWeek} ${slot.mealType.toLowerCase()}.`);
+        const modifierSuffix = modifierIds.length > 0 ? ` with ${modifierIds.length} add-on${modifierIds.length === 1 ? "" : "s"}` : "";
+        pushToast(count > 1 ? `${recipe.name}${modifierSuffix} added to ${count} ${slot.mealType.toLowerCase()} slots.` : `${recipe.name}${modifierSuffix} added to ${slot.dayOfWeek} ${slot.mealType.toLowerCase()}.`);
       }
       onClose();
     },
-    onError: (_error, { recipeId, targetIds }) => {
+    onError: (_error, { recipeId, targetIds, modifierIds }) => {
       if (!slot) return;
       const recipe = recipes.find((entry) => entry.id === recipeId);
       const nextSlots = weekSlots.map((entry) =>
         targetIds.includes(entry.id)
-          ? { ...entry, recipeId, recipeName: recipe?.name ?? null, isSkipped: false, isEatingOut: false }
+          ? { ...entry, recipeId, recipeName: recipe?.name ?? null, selectedModifierIngredientIds: modifierIds, isSkipped: false, isEatingOut: false }
           : entry,
       );
       setSlotOverrides(nextSlots);
@@ -149,6 +163,11 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
   function selectRecipe(recipe: Recipe) {
     setPendingRecipe(recipe);
     setSelectedTargetIds(slot ? [slot.id] : []);
+    const existingModifierIds =
+      slot?.recipeId === recipe.id
+        ? (slot.selectedModifierIngredientIds ?? [])
+        : [];
+    setSelectedModifierIds(existingModifierIds);
   }
 
   function toggleTargetSlot(slotId: number) {
@@ -158,7 +177,13 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
 
   function applyPendingRecipe() {
     if (!pendingRecipe || !slot || selectedTargetIds.length === 0) return;
-    applyRecipeMutation.mutate({ recipeId: pendingRecipe.id, targetIds: selectedTargetIds });
+    applyRecipeMutation.mutate({ recipeId: pendingRecipe.id, targetIds: selectedTargetIds, modifierIds: selectedModifierIds });
+  }
+
+  function toggleModifier(ingredientId: number) {
+    setSelectedModifierIds((current) =>
+      current.includes(ingredientId) ? current.filter((id) => id !== ingredientId) : [...current, ingredientId],
+    );
   }
 
   return (
@@ -238,6 +263,53 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
                   );
                 })}
               </div>
+              {pendingModifiers.length > 0 ? (
+                <div className="mt-4 rounded-2xl border border-nourish-border bg-white/80 p-3">
+                  <div className="mb-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Optional add-ons</p>
+                    <p className="mt-1 text-sm text-nourish-muted">Choose the version you actually want this week so grocery planning stays accurate.</p>
+                  </div>
+                  <div className="space-y-2">
+                    {pendingModifiers.map((ingredient) => {
+                      const selected = selectedModifierIds.includes(ingredient.ingredientId);
+                      const inFridge = fridgeIngredientIds.has(ingredient.ingredientId);
+                      const overlaps = usedElsewhereIngredientIds.has(ingredient.ingredientId);
+                      return (
+                        <button
+                          key={ingredient.id}
+                          type="button"
+                          onClick={() => toggleModifier(ingredient.ingredientId)}
+                          className={cn(
+                            "flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-3 text-left transition",
+                            selected ? "border-nourish-sage bg-nourish-sage/10" : "border-nourish-border bg-white",
+                          )}
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium text-nourish-ink">{ingredient.ingredientName}</p>
+                            <p className="mt-0.5 text-xs text-nourish-muted">
+                              {ingredient.quantity} {ingredient.unit}
+                            </p>
+                            {ingredient.notes ? <p className="mt-1 text-xs text-nourish-muted">{ingredient.notes}</p> : null}
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {inFridge ? <span className="rounded-full bg-nourish-sage/15 px-2 py-1 text-[11px] font-medium text-nourish-sage">In your fridge</span> : null}
+                              {overlaps ? <span className="rounded-full bg-nourish-terracotta/10 px-2 py-1 text-[11px] font-medium text-nourish-terracotta">Used elsewhere this week</span> : null}
+                            </div>
+                          </div>
+                          <span
+                            className={cn(
+                              "mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-semibold",
+                              selected ? "border-nourish-sage bg-nourish-sage text-white" : "border-nourish-border text-transparent",
+                            )}
+                            aria-hidden
+                          >
+                            ✓
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
               <div className="mt-4 flex gap-2">
                 <button type="button" className="button-primary flex-1" onClick={applyPendingRecipe} disabled={applyRecipeMutation.isPending}>
                   {applyRecipeMutation.isPending ? "Saving..." : `Add to ${selectedTargetIds.length} day${selectedTargetIds.length === 1 ? "" : "s"}`}

@@ -227,6 +227,7 @@ public class AppDbContext : DbContext
             b.HasIndex(s => new { s.WeekId, s.DayOfWeek, s.MealType }).IsUnique();
             b.Property(s => s.DayOfWeek).HasConversion<string>();
             b.Property(s => s.MealType).HasConversion<string>();
+            b.Property(s => s.SelectedModifierIngredientIds).HasColumnType("jsonb").HasConversion(intListConverter, intListComparer);
             b.HasOne(s => s.Recipe)
                 .WithMany(r => r.MealSlots)
                 .HasForeignKey(s => s.RecipeId)

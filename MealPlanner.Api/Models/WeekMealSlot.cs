@@ -5,6 +5,7 @@ public class WeekMealSlot
     public int Id { get; set; }
     public int WeekId { get; set; }
     public int? RecipeId { get; set; }
+    public List<int> SelectedModifierIngredientIds { get; set; } = new();
     public WeekDay DayOfWeek { get; set; }
     public MealType MealType { get; set; }
     public bool IsEatingOut { get; set; }

@@ -59,6 +59,7 @@ public static class WeekEndpoints
                 db.WeekMealSlots.Add(new WeekMealSlot
                 {
                     WeekId = week.Id,
+                    SelectedModifierIngredientIds = new List<int>(),
                     DayOfWeek = day,
                     MealType = mealType,
                     ServingsPlanned = defaultServings
@@ -181,7 +182,21 @@ public static class WeekEndpoints
             .FirstOrDefaultAsync(s => s.Id == slotId && s.WeekId == id && s.Week.HouseholdId == householdId);
         if (slot == null) return Results.NotFound();
 
-        if (req.RecipeId.HasValue) slot.RecipeId = req.RecipeId.Value == 0 ? null : req.RecipeId.Value;
+        var recipeChanged = false;
+        if (req.RecipeId.HasValue)
+        {
+            var nextRecipeId = req.RecipeId.Value == 0 ? null : req.RecipeId.Value;
+            recipeChanged = slot.RecipeId != nextRecipeId;
+            slot.RecipeId = nextRecipeId;
+            if (recipeChanged && req.SelectedModifierIngredientIds == null)
+            {
+                slot.SelectedModifierIngredientIds = new List<int>();
+            }
+        }
+        if (req.SelectedModifierIngredientIds != null)
+        {
+            slot.SelectedModifierIngredientIds = req.SelectedModifierIngredientIds.Distinct().ToList();
+        }
         if (req.IsEatingOut.HasValue) slot.IsEatingOut = req.IsEatingOut.Value;
         if (req.IsSkipped.HasValue) slot.IsSkipped = req.IsSkipped.Value;
         if (req.IsLocked.HasValue) slot.IsLocked = req.IsLocked.Value;
@@ -235,7 +250,7 @@ public static class WeekEndpoints
         w.MaxCookTime, w.IsSavedTemplate, w.TemplateName, w.IsInRotation, w.CreatedAt);
 
     private static WeekMealSlotResponse ToSlotDto(WeekMealSlot s) => new(
-        s.Id, s.WeekId, s.RecipeId, s.Recipe?.Name,
+        s.Id, s.WeekId, s.RecipeId, s.Recipe?.Name, s.SelectedModifierIngredientIds,
         s.DayOfWeek, s.MealType, s.IsEatingOut, s.IsSkipped,
         s.IsLocked, s.ServingsPlanned, s.AssumedCompleted, s.MarkedSkippedAt);
 }

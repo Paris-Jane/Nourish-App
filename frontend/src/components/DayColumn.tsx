@@ -10,10 +10,13 @@ interface DayColumnProps {
   recipes: Recipe[];
   isToday?: boolean;
   onSlotSelect: (slotId: number) => void;
+  dayEatingOut?: boolean;
+  togglePending?: boolean;
+  onToggleEatingOut?: (next: boolean) => void;
 }
 
-export function DayColumn({ day, slots, recipes, isToday, onSlotSelect }: DayColumnProps) {
-  const hasGap = slots.some((slot) => slot.mealType !== "Snack" && !slot.recipeId);
+export function DayColumn({ day, slots, recipes, isToday, onSlotSelect, dayEatingOut = false, togglePending = false, onToggleEatingOut }: DayColumnProps) {
+  const hasGap = slots.some((slot) => slot.mealType !== "Snack" && !slot.recipeId && !slot.isEatingOut && !slot.isSkipped);
   const [infoOpen, setInfoOpen] = useState(false);
   const infoId = useId();
   const infoWrapRef = useRef<HTMLDivElement>(null);
@@ -85,7 +88,13 @@ export function DayColumn({ day, slots, recipes, isToday, onSlotSelect }: DayCol
         )}
       >
         Eating out?
-        <input type="checkbox" className="h-4 w-4 rounded border-nourish-border text-nourish-sage focus:ring-nourish-sage" />
+        <input
+          type="checkbox"
+          checked={dayEatingOut}
+          disabled={togglePending}
+          onChange={(event) => onToggleEatingOut?.(event.target.checked)}
+          className="h-4 w-4 rounded border-nourish-border text-nourish-sage focus:ring-nourish-sage"
+        />
       </label>
     </div>
   );

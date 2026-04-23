@@ -42,8 +42,9 @@ public class GroceryListService : IGroceryListService
             var scale = recipe.BaseYieldServings > 0
                 ? (decimal)slot.ServingsPlanned / recipe.BaseYieldServings
                 : 1m;
+            var selectedModifierIds = slot.SelectedModifierIngredientIds.ToHashSet();
 
-            foreach (var ri in recipe.Ingredients.Where(i => !i.IsModifier))
+            foreach (var ri in recipe.Ingredients.Where(i => !i.IsModifier || selectedModifierIds.Contains(i.IngredientId)))
             {
                 var scaledQty = ri.Quantity * scale;
                 if (aggregated.TryGetValue(ri.IngredientId, out var agg))
@@ -88,6 +89,7 @@ public class GroceryListService : IGroceryListService
                 .Sum(f => f.Quantity);
 
             var plannedQty = Math.Max(0, agg.Quantity - fridgeQty);
+            if (plannedQty <= 0) continue;
 
             // Use the ingredient's canonical StoreSection
             var storeSection = agg.Ingredient.StoreSection.ToString();

@@ -15,6 +15,7 @@ function mealLabel(mealType: MealType) {
 
 export function MealCard({ slot, recipe, onSwap }: MealCardProps) {
   const empty = !recipe;
+  const eatingOut = slot.isEatingOut && empty;
 
   return (
     <button
@@ -31,7 +32,14 @@ export function MealCard({ slot, recipe, onSwap }: MealCardProps) {
         <ArrowUpDown size={14} className="text-nourish-muted opacity-0 transition group-hover:opacity-100" />
       </div>
 
-      {empty ? (
+      {eatingOut ? (
+        <div className="space-y-2">
+          <div className="inline-flex items-center rounded-full bg-nourish-terracotta/10 px-2 py-1 text-[11px] font-medium text-nourish-terracotta">
+            Eating out
+          </div>
+          <div className="text-sm text-nourish-muted">This slot won’t be added to grocery planning.</div>
+        </div>
+      ) : empty ? (
         <div className="flex items-center gap-2 text-sm text-nourish-muted">
           <Plus size={14} />
           Add something gentle here
@@ -43,6 +51,11 @@ export function MealCard({ slot, recipe, onSwap }: MealCardProps) {
             <span className="rounded-full bg-nourish-bg px-2 py-1 text-[11px] text-nourish-muted">
               {recipe.timeTag === "Quick" ? "25 min" : recipe.timeTag === "Medium" ? "45 min" : "No limit"}
             </span>
+            {slot.selectedModifierIngredientIds.length > 0 ? (
+              <span className="rounded-full bg-nourish-sage/10 px-2 py-1 text-[11px] font-medium text-nourish-sage">
+                {slot.selectedModifierIngredientIds.length} add-on{slot.selectedModifierIngredientIds.length === 1 ? "" : "s"}
+              </span>
+            ) : null}
           </div>
           <NutritionDots foodGroups={Object.keys(recipe.foodGroupServings)} />
         </>

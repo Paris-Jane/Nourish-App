@@ -144,6 +144,7 @@ export interface WeekMealSlot {
   weekId: number;
   recipeId?: number | null;
   recipeName?: string | null;
+  selectedModifierIngredientIds: number[];
   dayOfWeek: WeekDay;
   mealType: MealType;
   isEatingOut: boolean;
