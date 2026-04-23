@@ -30,6 +30,13 @@ function matchesSlotMealType(recipe: Recipe, slot: WeekMealSlot | undefined): bo
   );
 }
 
+/** When no recipes are tagged for this slot’s meal type, fall back to the full catalog. */
+function recipesForSlotOrFallback(recipes: Recipe[], slot: WeekMealSlot | undefined): Recipe[] {
+  if (!slot) return recipes;
+  const matched = recipes.filter((recipe) => matchesSlotMealType(recipe, slot));
+  return matched.length > 0 ? matched : recipes;
+}
+
 export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = [], onClose }: SwapDrawerProps) {
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
@@ -51,6 +58,15 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
       setSelectedModifierIds(slot?.selectedModifierIngredientIds ?? []);
     }
   }, [open, slot?.id]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
   const fridgeIngredientIds = useMemo(() => new Set(fridgeItems.map((item) => item.ingredientId)), [fridgeItems]);
 
@@ -77,6 +93,7 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
   }, [slot, weekSlots]);
 
   const visibleRecipes = useMemo(() => {
+    const pool = recipesForSlotOrFallback(recipes, slot);
     const expiringIngredientIds = new Set(
       fridgeItems
         .filter((fi) => {
@@ -85,9 +102,7 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
         })
         .map((fi) => fi.ingredientId),
     );
-    const filteredByTab = recipes.filter((recipe, index) => {
-      if (!matchesSlotMealType(recipe, slot)) return false;
-
+    const filteredByTab = pool.filter((recipe, index) => {
       switch (activeFilter) {
         case "All suggestions":
           return true;
@@ -188,16 +203,28 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
 
   return (
     <div className={cn("fixed inset-0 z-40 transition", open ? "pointer-events-auto" : "pointer-events-none")}>
-      <div className={cn("absolute inset-0 bg-[#2c2416]/30 transition", open ? "opacity-100" : "opacity-0")} onClick={onClose} />
+      <div
+        className={cn("absolute inset-0 z-40 bg-[#2c2416]/30 transition", open ? "opacity-100" : "opacity-0")}
+        onClick={onClose}
+        aria-hidden
+      />
       <aside
         className={cn(
-          "absolute bottom-0 left-0 right-0 flex max-h-[90dvh] flex-col rounded-t-[28px] border border-nourish-border bg-nourish-card transition lg:bottom-4 lg:left-auto lg:right-4 lg:top-4 lg:max-h-[min(92vh,800px)] lg:w-[440px] lg:rounded-[28px]",
+          "absolute bottom-0 left-0 right-0 z-50 flex max-h-[90dvh] flex-col rounded-t-[28px] border border-nourish-border bg-nourish-card transition lg:bottom-4 lg:left-auto lg:right-4 lg:top-4 lg:max-h-[min(92vh,800px)] lg:w-[440px] lg:rounded-[28px]",
           open ? "translate-y-0" : "translate-y-full lg:translate-x-full lg:translate-y-0",
         )}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-nourish-border/70 px-5 pb-4 pt-5 lg:rounded-t-[28px] lg:border-b-0">
           <h2 className="text-xl font-semibold text-nourish-ink sm:text-2xl">Swap this meal</h2>
-          <button type="button" onClick={onClose} className="shrink-0 rounded-full p-2.5 text-nourish-muted hover:bg-nourish-bg hover:text-nourish-ink" aria-label="Close">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[44px] min-w-[44px] shrink-0 rounded-full p-2.5 text-nourish-muted hover:bg-nourish-bg hover:text-nourish-ink"
+            aria-label="Close"
+          >
             <X size={20} />
           </button>
         </div>
@@ -212,10 +239,19 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
             {slot ? <p className="mt-2 text-sm text-nourish-muted">{slot.dayOfWeek} · {slot.mealType}</p> : null}
           </div>
 
-          <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
+          <div
+            className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
             {filters.map((filter) => (
               <div key={filter} className="shrink-0">
-                <TagPill active={activeFilter === filter} onClick={() => setActiveFilter(filter)}>
+                <TagPill
+                  active={activeFilter === filter}
+                  onClick={() => {
+                    setActiveFilter(filter);
+                  }}
+                >
                   {filter}
                 </TagPill>
               </div>

@@ -24,6 +24,13 @@ public record GroceryListItemResponse(
     List<int> RecipeIds
 );
 
+public record CreateGroceryItemRequest(
+    int IngredientId,
+    decimal PlannedQuantity,
+    string PlannedUnit,
+    string? StoreSection = null
+);
+
 public record CheckGroceryItemRequest(bool IsChecked);
 
 public record UpdateQuantityRequest(decimal PurchasedQuantity);

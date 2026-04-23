@@ -56,6 +56,7 @@ export interface Ingredient {
   servingSize: number;
   servingUnit: string;
   purchaseUnit: string;
+  storeSection: string;
   isPerishable: boolean;
   isFlexibleGroup: boolean;
   shelfLifeDays: number;

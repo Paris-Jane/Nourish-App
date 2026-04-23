@@ -5,7 +5,7 @@ import { cn } from "lib/utils";
 interface TagPillProps {
   children: ReactNode;
   active?: boolean;
-  tone?: "default" | "accent" | "warm";
+  tone?: "default" | "accent" | "warm" | "cuisine";
   onClick?: () => void;
 }
 
@@ -15,7 +15,9 @@ export function TagPill({ children, active, tone = "default", onClick }: TagPill
       ? "border-transparent bg-nourish-sage/12 text-nourish-sage hover:bg-nourish-sage/20 hover:text-nourish-sage"
       : tone === "warm"
         ? "border-transparent bg-nourish-terracotta/12 text-nourish-terracotta hover:bg-nourish-terracotta/20 hover:text-nourish-terracotta"
-        : "border-nourish-border bg-white text-nourish-muted hover:border-nourish-sage/35 hover:bg-nourish-bg/80 hover:text-nourish-ink";
+        : tone === "cuisine"
+          ? "border-orange-200/90 bg-orange-100 text-orange-800 hover:bg-orange-100/90 hover:text-orange-900"
+          : "border-nourish-border bg-white text-nourish-muted hover:border-nourish-sage/35 hover:bg-nourish-bg/80 hover:text-nourish-ink";
 
   return (
     <button

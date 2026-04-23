@@ -69,7 +69,7 @@ export function RecipeCard({ recipe, compact, onSelect, actionLabel }: RecipeCar
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <TagPill tone="warm">{recipe.cuisine}</TagPill>
+        <TagPill tone="cuisine">{recipe.cuisine}</TagPill>
         <TagPill tone="accent">{recipe.timeTag}</TagPill>
       </div>
 

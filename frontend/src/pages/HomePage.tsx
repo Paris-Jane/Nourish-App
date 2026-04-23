@@ -6,7 +6,6 @@ import {
   endOfWeek,
   format,
   formatISO,
-  isSameDay,
   isSameMonth,
   isToday,
   parseISO,
@@ -15,8 +14,8 @@ import {
   subMonths,
 } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { BookCopy, ChevronLeft, ChevronRight, Sparkles, SquarePen } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight, PanelRightOpen, Sparkles, SquarePen } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { approveWeek, createWeek, generateWeek, getWeekSlots, swapSlot } from "api/weeks";
 import { BottomSheet } from "components/BottomSheet";
@@ -27,20 +26,15 @@ import { useCurrentWeek, useFridgeItems, useGroupedSlots, useRecipes, useSavedWe
 import { createAutoWeekSlots, createBlankWeekSlots, createSavedWeekSlots, formatWeekRange, mealTypes, weekDays } from "lib/utils";
 import { isWeekColumnToday } from "lib/weekCalendar";
 import { useToast } from "hooks/useToast";
+import { mockSavedWeeks } from "lib/mockData";
 import { useWeekStore } from "store/weekStore";
-import type { MealType, WeekDay } from "types/models";
+import type { MealType, Week, WeekDay } from "types/models";
 
 const prepStyles = [
   { title: "Cook each night", value: "DayOf" },
   { title: "One prep day", value: "OnePrepDay" },
   { title: "Two prep days", value: "TwoPrepDays" },
 ];
-
-const planningModes = [
-  { value: "auto", title: "Auto plan", description: "Generate a week for me based on my preferences, time, and saved recipe signals.", icon: Sparkles },
-  { value: "manual", title: "Manually plan", description: "Start with a blank week and add meals slot by slot with smart recommendations.", icon: SquarePen },
-  { value: "saved", title: "Use a saved week", description: "Start from a week you already loved and adapt it for this week.", icon: BookCopy },
-] as const;
 
 type HomeViewMode = "week" | "month";
 
@@ -60,8 +54,6 @@ export function HomePage() {
   const { pushToast } = useToast();
   const selectedSlotId = useWeekStore((state) => state.selectedSlotId);
   const selectSlot = useWeekStore((state) => state.selectSlot);
-  const prepStyleOpen = useWeekStore((state) => state.prepStyleOpen);
-  const setPrepStyleOpen = useWeekStore((state) => state.setPrepStyleOpen);
   const swapDrawerOpen = useWeekStore((state) => state.swapDrawerOpen);
   const setSwapDrawerOpen = useWeekStore((state) => state.setSwapDrawerOpen);
   const planningMode = useWeekStore((state) => state.planningMode);
@@ -82,6 +74,12 @@ export function HomePage() {
   const [selectedPrepStyle, setSelectedPrepStyle] = useState("OnePrepDay");
   const [selectedTime, setSelectedTime] = useState("Under45");
   const [savedWeekSelection, setSavedWeekSelection] = useState<number | null>(savedWeeks[0]?.id ?? null);
+  const [simpleNewWeekOpen, setSimpleNewWeekOpen] = useState(false);
+  const [approveReviewOpen, setApproveReviewOpen] = useState(false);
+  const [mobileContextOpen, setMobileContextOpen] = useState(false);
+  const [dotsLegendOpen, setDotsLegendOpen] = useState(false);
+  const weekScrollerRef = useRef<HTMLDivElement>(null);
+  const [scrollDayIndex, setScrollDayIndex] = useState(0);
   const dayRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
@@ -136,15 +134,16 @@ export function HomePage() {
 
   const startWeekMutation = useMutation({
     mutationFn: async () => {
+      const mode = useWeekStore.getState().planningMode;
       const createdWeek = await createWeek({
         weekStartDate: formatISO(getWeekStartForDate(pendingWeekStart), { representation: "date" }),
         prepStyle: selectedPrepStyle as (typeof week)["prepStyle"],
         maxCookTime: selectedTime as (typeof week)["maxCookTime"],
       });
 
-      if (planningMode === "auto") {
+      if (mode === "auto") {
         await generateWeek(createdWeek.id);
-      } else if (planningMode === "saved") {
+      } else if (mode === "saved") {
         const savedWeek = savedWeeks.find((entry) => entry.id === savedWeekSelection) ?? savedWeeks[0];
         if (savedWeek) {
           const [templateSlots, newSlots] = await Promise.all([getWeekSlots(savedWeek.id), getWeekSlots(createdWeek.id)]);
@@ -174,7 +173,7 @@ export function HomePage() {
     onSuccess: async ({ createdWeek, freshSlots }) => {
       setActiveWeekId(createdWeek.id);
       setSlotOverrides(null);
-      setPrepStyleOpen(false);
+      setSimpleNewWeekOpen(false);
       setMonthCursor(startOfMonth(parseISO(createdWeek.weekStartDate)));
       setViewMode("week");
       await queryClient.invalidateQueries({ queryKey: ["week", createdWeek.id] });
@@ -183,10 +182,10 @@ export function HomePage() {
       queryClient.setQueryData(["week", createdWeek.id], createdWeek);
       queryClient.setQueryData(["week-slots", createdWeek.id], freshSlots);
 
-      if (planningMode === "manual") {
+      if (useWeekStore.getState().planningMode === "manual") {
         setActiveWeekLabel("Manual week");
         pushToast("Blank week created. Tap any slot to start adding meals.");
-      } else if (planningMode === "saved") {
+      } else if (useWeekStore.getState().planningMode === "saved") {
         const savedWeek = savedWeeks.find((entry) => entry.id === savedWeekSelection) ?? savedWeeks[0];
         setActiveWeekLabel(savedWeek?.templateName ?? "Saved week");
         pushToast("Saved week loaded into a new planner.");
@@ -198,16 +197,16 @@ export function HomePage() {
     onError: () => {
       const nextWeekId = (week.id ?? 1) + 1;
 
-      if (planningMode === "manual") {
+      if (useWeekStore.getState().planningMode === "manual") {
         setSlotOverrides(createBlankWeekSlots(nextWeekId, visibleMealTypes));
         setActiveWeekLabel("Manual week");
-        setPrepStyleOpen(false);
+        setSimpleNewWeekOpen(false);
         setViewMode("week");
         pushToast("Blank week ready in preview mode. Tap any slot and we’ll recommend recipes by context.");
         return;
       }
 
-      if (planningMode === "saved") {
+      if (useWeekStore.getState().planningMode === "saved") {
         const savedWeek = savedWeeks.find((entry) => entry.id === savedWeekSelection) ?? savedWeeks[0];
         if (savedWeek) {
           setSlotOverrides(
@@ -220,7 +219,7 @@ export function HomePage() {
           );
           setActiveWeekLabel(savedWeek.templateName ?? "Saved week");
         }
-        setPrepStyleOpen(false);
+        setSimpleNewWeekOpen(false);
         setViewMode("week");
         pushToast("Saved week loaded in preview mode.");
         return;
@@ -234,7 +233,7 @@ export function HomePage() {
         }),
       );
       setActiveWeekLabel("Auto-planned week");
-      setPrepStyleOpen(false);
+      setSimpleNewWeekOpen(false);
       setViewMode("week");
       pushToast("New auto-planned week ready in preview mode.");
     },
@@ -243,11 +242,54 @@ export function HomePage() {
   const approveWeekMutation = useMutation({
     mutationFn: () => approveWeek(week.id),
     onSuccess: (approvedWeek) => {
-      queryClient.setQueryData(["week", approvedWeek.id], approvedWeek);
-      pushToast("Week approved.");
+      const templateName = `Week of ${format(parseISO(approvedWeek.weekStartDate), "MMM d")}`;
+      const enriched: Week = {
+        ...approvedWeek,
+        status: "Active",
+        isSavedTemplate: true,
+        templateName,
+      };
+      queryClient.setQueryData(["week", enriched.id], enriched);
+      const existing = queryClient.getQueryData<Week[]>(["saved-weeks"]) ?? [...mockSavedWeeks];
+      const idx = existing.findIndex((w) => w.id === enriched.id);
+      const nextSaved = idx >= 0 ? existing.map((w, i) => (i === idx ? enriched : w)) : [...existing, enriched];
+      queryClient.setQueryData(["saved-weeks"], nextSaved);
+      setApproveReviewOpen(false);
+      pushToast("Week saved to your library.");
     },
     onError: () => {
-      pushToast("Week approved in preview mode.");
+      const templateName = `Week of ${format(parseISO(week.weekStartDate), "MMM d")}`;
+      const enriched: Week = { ...week, status: "Active", isSavedTemplate: true, templateName };
+      queryClient.setQueryData(["week", enriched.id], enriched);
+      const existing = queryClient.getQueryData<Week[]>(["saved-weeks"]) ?? [...mockSavedWeeks];
+      const idx = existing.findIndex((w) => w.id === enriched.id);
+      const nextSaved = idx >= 0 ? existing.map((w, i) => (i === idx ? enriched : w)) : [...existing, enriched];
+      queryClient.setQueryData(["saved-weeks"], nextSaved);
+      setApproveReviewOpen(false);
+      pushToast("Week saved to your library.");
+    },
+  });
+
+  const skipSlotMutation = useMutation({
+    mutationFn: async (slotId: number) => {
+      await swapSlot(week.id, slotId, {
+        isSkipped: true,
+        recipeId: null,
+        selectedModifierIngredientIds: [],
+        isEatingOut: false,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+      setSlotOverrides(null);
+      pushToast("Marked as didn’t happen. Fridge assumptions updated (preview).");
+    },
+    onError: (_err, slotId) => {
+      const next = slots.map((s) =>
+        s.id === slotId ? { ...s, isSkipped: true, recipeId: null, recipeName: null, selectedModifierIngredientIds: [], isEatingOut: false } : s,
+      );
+      setSlotOverrides(next);
+      pushToast("Marked as didn’t happen (preview).");
     },
   });
 
@@ -290,10 +332,17 @@ export function HomePage() {
     if (next.length > 0) setVisibleMealTypes(next);
   }
 
-  function openNewWeek(startDate = defaultNextWeekStart, mode?: "auto" | "manual" | "saved") {
+  function openSimpleNewWeek(startDate = defaultNextWeekStart, mode: "auto" | "manual" = "auto") {
     setPendingWeekStart(getWeekStartForDate(startDate));
-    if (mode) setPlanningMode(mode);
-    setPrepStyleOpen(true);
+    setPlanningMode(mode);
+    setSimpleNewWeekOpen(true);
+  }
+
+  function buildMyself() {
+    setPendingWeekStart(getWeekStartForDate(defaultNextWeekStart));
+    setPlanningMode("manual");
+    setSimpleNewWeekOpen(false);
+    startWeekMutation.mutate();
   }
 
   function startWeek() {
@@ -312,10 +361,11 @@ export function HomePage() {
       return;
     }
     if (coveredMainSlots === 0) {
-      openNewWeek(defaultNextWeekStart, "auto");
+      setPlanningMode("auto");
+      openSimpleNewWeek(defaultNextWeekStart, "auto");
       return;
     }
-    approveWeekMutation.mutate();
+    setApproveReviewOpen(true);
   }
 
   const primaryActionLabel = isApproved
@@ -328,20 +378,48 @@ export function HomePage() {
 
   const pendingWeekRangeLabel = formatWeekRange(pendingWeekStart);
 
+  const todayDayKey = weekDays.find((d) => isWeekColumnToday(week.weekStartDate, d as WeekDay));
+  const todaySlotsPreview = todayDayKey ? grouped[todayDayKey] ?? [] : [];
+
+  useEffect(() => {
+    const el = weekScrollerRef.current;
+    if (!el || viewMode !== "week") return;
+    const measure = () => {
+      const first = el.querySelector("[data-day-snap]") as HTMLElement | null;
+      if (!first) return 0;
+      const cs = getComputedStyle(el);
+      const gap = Number.parseFloat(cs.gap || "12") || 12;
+      return first.offsetWidth + gap;
+    };
+    const onScroll = () => {
+      const step = measure();
+      if (!step) return;
+      setScrollDayIndex(Math.min(6, Math.max(0, Math.round(el.scrollLeft / step))));
+    };
+    onScroll();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onScroll) : null;
+    ro?.observe(el);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      ro?.disconnect();
+    };
+  }, [viewMode, slots, visibleMealTypes]);
+
   return (
     <ErrorBoundary>
       <div className="space-y-5 pb-28 lg:pb-10">
         <section className="relative overflow-hidden rounded-[1.8rem] border border-nourish-border bg-[radial-gradient(circle_at_top_left,_rgba(196,113,79,0.12),_transparent_32%),linear-gradient(135deg,#fffdf9_0%,#f6efe5_100%)] p-4 shadow-sm lg:rounded-[2rem] lg:p-7">
           <div className="absolute right-4 top-4 hidden h-28 w-28 rounded-full bg-nourish-sage/10 blur-2xl lg:block" aria-hidden />
-          <div className="relative flex flex-col gap-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="relative flex flex-col gap-3 lg:gap-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-2.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-nourish-muted">
+                  <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold tracking-wide text-nourish-muted">
                     {viewMode === "week" ? "Current planner" : "Calendar browser"}
                   </span>
                   <span
-                    className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] ${
+                    className={`rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide ${
                       isApproved ? "bg-nourish-sage/15 text-nourish-sage" : "bg-nourish-terracotta/12 text-nourish-terracotta"
                     }`}
                   >
@@ -350,72 +428,144 @@ export function HomePage() {
                 </div>
                 <div>
                   <h1 className="text-4xl sm:text-5xl">Nourish</h1>
-                  <p className="mt-2 text-sm sm:text-base text-nourish-ink/80">{formatWeekRange(week.weekStartDate)}{activeWeekLabel ? ` · ${activeWeekLabel}` : ""}</p>
+                  <p className="mt-2 text-sm sm:text-base text-nourish-ink/80">
+                    {formatWeekRange(week.weekStartDate)}
+                    {activeWeekLabel ? ` · ${activeWeekLabel}` : ""}
+                  </p>
                 </div>
-                <p className="max-w-2xl text-sm leading-6 text-nourish-muted">{summaryCopy}</p>
+                <p className="hidden max-w-2xl text-sm leading-6 text-nourish-muted lg:block">{summaryCopy}</p>
               </div>
 
-              <div className="flex flex-col gap-3">
-                <div className="inline-flex w-full rounded-full border border-nourish-border bg-white/90 p-1 shadow-sm lg:w-auto">
-                  {(["week", "month"] as const).map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setViewMode(mode)}
-                      className={`flex-1 rounded-full px-4 py-2 text-sm font-medium transition lg:flex-none ${
-                        viewMode === mode ? "bg-nourish-sage text-white" : "text-nourish-muted"
-                      }`}
-                    >
-                      {mode === "week" ? "Week" : "Month"}
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <button type="button" className="button-primary w-full" onClick={() => openNewWeek(defaultNextWeekStart)}>
-                    New week
+              <div className="hidden flex-col gap-3 lg:flex lg:min-w-[280px]">
+                <div className="inline-flex w-full rounded-full border border-nourish-border bg-white/90 p-1 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("week")}
+                    className={`flex-1 rounded-full px-4 py-2 text-sm font-medium transition ${
+                      viewMode === "week" ? "bg-nourish-sage text-white" : "text-nourish-muted"
+                    }`}
+                  >
+                    Week
                   </button>
                   <button
                     type="button"
-                    className="button-secondary w-full"
-                    onClick={() => {
-                      setPlanningMode("manual");
-                      openNewWeek(defaultNextWeekStart, "manual");
-                    }}
+                    onClick={() => setViewMode("month")}
+                    className={`flex-1 rounded-full px-4 py-2 text-sm font-medium transition ${
+                      viewMode === "month" ? "bg-nourish-sage text-white" : "text-nourish-muted"
+                    }`}
                   >
+                    Month
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" className="button-primary w-full" onClick={() => openSimpleNewWeek(defaultNextWeekStart, "auto")}>
+                    New week
+                  </button>
+                  <button type="button" className="button-secondary w-full" onClick={buildMyself}>
                     Build it myself
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[1.3fr,1fr]">
+            <div className="flex flex-wrap gap-2 lg:hidden">
+              <button
+                type="button"
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl border border-nourish-border bg-white px-3 text-sm font-medium text-nourish-ink shadow-sm"
+                onClick={() => openSimpleNewWeek(defaultNextWeekStart, "auto")}
+              >
+                <Sparkles size={16} aria-hidden />
+                New week
+              </button>
+              <button
+                type="button"
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl border border-nourish-border bg-white px-3 text-sm font-medium text-nourish-ink shadow-sm"
+                onClick={buildMyself}
+              >
+                <SquarePen size={16} aria-hidden />
+                Build myself
+              </button>
+              <button
+                type="button"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-2xl border border-nourish-border bg-white px-3 text-sm font-medium text-nourish-ink shadow-sm"
+                onClick={() => setMobileContextOpen((o) => !o)}
+                aria-expanded={mobileContextOpen}
+                aria-label="Quick context details"
+              >
+                <PanelRightOpen size={18} aria-hidden />
+              </button>
+            </div>
+
+            <div className="space-y-1 lg:hidden">
+              <div className="flex items-center justify-between gap-2 text-xs text-nourish-muted">
+                <span className="truncate">{summaryLabel}</span>
+                <span className="shrink-0 tabular-nums">{completionPercent}%</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-nourish-bg">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-nourish-sage to-nourish-terracotta"
+                  style={{ width: `${Math.max(completionPercent, 6)}%` }}
+                />
+              </div>
+            </div>
+
+            {mobileContextOpen ? (
+              <div className="rounded-2xl border border-nourish-border/80 bg-white/90 p-4 shadow-sm lg:hidden">
+                <p className="text-xs font-semibold tracking-wide text-nourish-muted">Quick context</p>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div className="rounded-2xl bg-nourish-bg px-2 py-3 text-center">
+                    <p className="text-lg text-nourish-ink">{fridgeItems.length}</p>
+                    <p className="mt-1 text-[10px] font-medium tracking-wide text-nourish-muted">Kitchen items</p>
+                  </div>
+                  <div className="rounded-2xl bg-nourish-bg px-2 py-3 text-center">
+                    <p className="text-lg text-nourish-ink">{visibleMealTypes.length}</p>
+                    <p className="mt-1 text-[10px] font-medium tracking-wide text-nourish-muted">Meal types</p>
+                  </div>
+                  <div className="rounded-2xl bg-nourish-bg px-2 py-3 text-center">
+                    <p className="text-lg text-nourish-ink">{savedWeeks.length}</p>
+                    <p className="mt-1 text-[10px] font-medium tracking-wide text-nourish-muted">Saved weeks</p>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-nourish-muted">{summaryCopy}</p>
+              </div>
+            ) : null}
+
+            <div className="hidden gap-3 lg:grid lg:grid-cols-[1.3fr,1fr]">
               <div className="rounded-[1.5rem] border border-nourish-border/80 bg-white/92 p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">This week</p>
+                <p className="text-xs font-semibold tracking-wide text-nourish-muted">This week</p>
                 <p className="mt-2 text-2xl text-nourish-ink">{summaryLabel}</p>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-nourish-bg">
                   <div className="h-full rounded-full bg-gradient-to-r from-nourish-sage to-nourish-terracotta" style={{ width: `${Math.max(completionPercent, 6)}%` }} />
                 </div>
-                <p className="mt-3 text-sm text-nourish-muted">{coveredMainSlots} of {mainSlots.length} core meals accounted for.</p>
+                <p className="mt-3 text-sm text-nourish-muted">
+                  {coveredMainSlots} of {mainSlots.length} core meals accounted for.
+                </p>
               </div>
 
               <div className="rounded-[1.5rem] border border-nourish-border/80 bg-white/88 p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">Quick context</p>
+                <p className="text-xs font-semibold tracking-wide text-nourish-muted">Quick context</p>
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <div className="rounded-2xl bg-nourish-bg px-3 py-3 text-center">
                     <p className="text-lg text-nourish-ink">{fridgeItems.length}</p>
-                    <p className="mt-1 text-[11px] uppercase tracking-wide text-nourish-muted">Kitchen items</p>
+                    <p className="mt-1 text-[11px] font-medium tracking-wide text-nourish-muted">Kitchen items</p>
                   </div>
                   <div className="rounded-2xl bg-nourish-bg px-3 py-3 text-center">
                     <p className="text-lg text-nourish-ink">{visibleMealTypes.length}</p>
-                    <p className="mt-1 text-[11px] uppercase tracking-wide text-nourish-muted">Meal types</p>
+                    <p className="mt-1 text-[11px] font-medium tracking-wide text-nourish-muted">Meal types</p>
                   </div>
                   <div className="rounded-2xl bg-nourish-bg px-3 py-3 text-center">
                     <p className="text-lg text-nourish-ink">{savedWeeks.length}</p>
-                    <p className="mt-1 text-[11px] uppercase tracking-wide text-nourish-muted">Saved weeks</p>
+                    <p className="mt-1 text-[11px] font-medium tracking-wide text-nourish-muted">Saved weeks</p>
                   </div>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-nourish-muted">
-                  {isApproved ? "This week is set. Grocery is the best next step." : coveredMainSlots === 0 ? "Auto plan is fastest. Manual plan gives you the most control." : openMainSlots > 0 ? "Tap any open slot to keep filling the week." : "You’re close. Approve when the week feels right."}
+                  {isApproved
+                    ? "This week is set. Grocery is the best next step."
+                    : coveredMainSlots === 0
+                      ? "Auto plan is fastest. Manual plan gives you the most control."
+                      : openMainSlots > 0
+                        ? "Tap any open slot to keep filling the week."
+                        : "You’re close. Approve when the week feels right."}
                 </p>
               </div>
             </div>
@@ -423,44 +573,95 @@ export function HomePage() {
         </section>
 
         {viewMode === "week" ? (
-          <section className="space-y-4">
-            <div className="flex flex-col gap-3 rounded-[1.6rem] border border-nourish-border bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between lg:p-5">
+          <section className="space-y-3 lg:space-y-4">
+            <div className="lg:hidden">
+              <div className="rounded-[1.35rem] border border-nourish-border bg-white p-4 shadow-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-nourish-sage">Today</p>
+                <p className="mt-1 text-xs text-nourish-muted">{todayDayKey ? `${todayDayKey}` : "This week"}</p>
+                <ul className="mt-3 space-y-2">
+                  {todaySlotsPreview.length === 0 ? (
+                    <li className="text-sm text-nourish-muted">No slots for today.</li>
+                  ) : (
+                    todaySlotsPreview.map((slot) => (
+                      <li key={slot.id} className="flex items-start justify-between gap-2 text-sm">
+                        <span className="shrink-0 font-medium text-nourish-muted">{slot.mealType}</span>
+                        <span className="min-w-0 text-right text-nourish-ink">
+                          {slot.isSkipped
+                            ? "Didn’t happen"
+                            : slot.isEatingOut
+                              ? "Eating out"
+                              : slot.recipeName ?? "Not planned yet."}
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-[1.6rem] border border-nourish-border bg-white p-4 shadow-sm sm:flex-row sm:items-end sm:justify-between lg:p-5">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">Week view</p>
-                <h2 className="mt-2 text-2xl sm:text-3xl text-nourish-ink">This week</h2>
-                <p className="mt-1 text-sm text-nourish-muted">Today is brought forward first on mobile so you can start where you are.</p>
+                <h2 className="text-2xl text-nourish-ink sm:text-3xl">
+                  This week
+                  <span className="mt-1 block text-sm font-normal text-nourish-muted sm:mt-0 sm:inline sm:before:content-['\00a0\00a0·\00a0\00a0']">
+                    Today is shown first on small screens so you can start where you are.
+                  </span>
+                </h2>
               </div>
               <div className="flex items-center gap-2 self-start sm:self-auto">
-                <button type="button" className="button-secondary whitespace-nowrap" onClick={jumpToToday}>
+                <button type="button" className="button-secondary min-h-[44px] whitespace-nowrap px-4" onClick={jumpToToday}>
                   Jump to today
                 </button>
               </div>
             </div>
 
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-                {mealTypes.map((mealType) => (
-                  <button
-                    key={mealType}
-                    type="button"
-                    onClick={() => toggleMealType(mealType)}
-                    className={`shrink-0 rounded-full px-4 py-2 text-sm transition ${visibleMealTypes.includes(mealType) ? "bg-nourish-terracotta text-white" : "bg-white border border-nourish-border text-nourish-muted"}`}
-                  >
-                    {mealType}
-                  </button>
-                ))}
+            <div className="-mx-1 flex flex-wrap gap-2 px-1 sm:mx-0 sm:px-0">
+              {mealTypes.map((mealType) => (
+                <button
+                  key={mealType}
+                  type="button"
+                  onClick={() => toggleMealType(mealType)}
+                  className={`inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-full border px-4 text-sm font-medium transition ${
+                    visibleMealTypes.includes(mealType)
+                      ? "border-nourish-terracotta bg-nourish-terracotta text-white"
+                      : "border-nourish-border bg-white text-nourish-muted hover:border-nourish-sage/35"
+                  }`}
+                >
+                  {mealType}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                className="self-start text-left text-xs font-medium text-nourish-sage underline-offset-2 hover:underline lg:hidden"
+                onClick={() => setDotsLegendOpen((o) => !o)}
+              >
+                What are these dots?
+              </button>
+              {dotsLegendOpen ? (
+                <div className="rounded-xl border border-nourish-border bg-nourish-bg/80 p-3 text-xs leading-relaxed text-nourish-ink lg:hidden">
+                  <p className="font-semibold">Food groups under meals</p>
+                  <p className="mt-1 text-nourish-muted">Each dot is a food group represented in that recipe (grains, protein, vegetables, fruit, dairy, legumes).</p>
+                </div>
+              ) : null}
             </div>
 
             <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 bg-gradient-to-r from-[#fbf7f2] to-transparent lg:hidden" aria-hidden />
-              <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-[#fbf7f2] to-transparent lg:hidden" aria-hidden />
-              <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2 pt-1 scroll-smooth lg:mx-0 lg:grid lg:grid-cols-7 lg:gap-4 lg:overflow-visible lg:px-0 lg:pb-0 lg:pt-0">
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-10 bg-gradient-to-l from-[#fbf7f2] via-[#fbf7f2]/90 to-transparent lg:hidden" aria-hidden />
+              <div
+                ref={weekScrollerRef}
+                className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 pt-1 scroll-smooth max-lg:snap-x max-lg:snap-mandatory lg:mx-0 lg:grid lg:grid-cols-7 lg:gap-4 lg:overflow-visible lg:px-0 lg:pb-0 lg:pt-0"
+              >
                 {weekDays.map((day) => (
                   <div
                     key={day}
+                    data-day-snap
                     ref={(node) => {
                       dayRefs.current[day] = node;
                     }}
-                    className="w-[min(88vw,320px)] shrink-0 snap-center snap-always lg:w-auto lg:min-w-0 lg:snap-normal"
+                    className="w-[min(88vw,320px)] shrink-0 max-lg:snap-start lg:w-auto lg:min-w-0 lg:snap-none"
                   >
                     <DayColumn
                       day={day}
@@ -474,22 +675,44 @@ export function HomePage() {
                         selectSlot(slotId);
                         setSwapDrawerOpen(true);
                       }}
+                      onSkipSlot={(slotId) => skipSlotMutation.mutate(slotId)}
                     />
                   </div>
                 ))}
               </div>
-              <div className="mt-1 flex items-center justify-center gap-2 text-xs text-nourish-muted lg:hidden">
-                <span className="rounded-full bg-nourish-border/40 px-2 py-0.5 font-medium text-nourish-ink/80">Swipe</span>
-                <span>for the rest of the week</span>
-                <ChevronRight size={14} className="text-nourish-muted" aria-hidden />
+              <div className="mt-2 flex flex-col items-center gap-2 lg:hidden">
+                <div className="flex items-center gap-1.5 text-[11px] text-nourish-muted">
+                  <span aria-hidden>←</span>
+                  <span>Swipe for more days</span>
+                  <span aria-hidden>→</span>
+                </div>
+                <div className="flex justify-center gap-1.5" aria-hidden>
+                  {weekDays.map((day, i) => (
+                    <span
+                      key={day}
+                      className={`h-1.5 w-1.5 rounded-full ${i === scrollDayIndex ? "bg-nourish-sage" : "bg-nourish-border"}`}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
+
+            {isApproved ? (
+              <div className="pt-1">
+                <Link
+                  to="/prep-sheet"
+                  className="button-primary inline-flex min-h-[48px] w-full items-center justify-center sm:w-auto"
+                >
+                  View prep sheet →
+                </Link>
+              </div>
+            ) : null}
           </section>
         ) : (
           <section className="rounded-[1.6rem] border border-nourish-border bg-white p-4 shadow-sm lg:p-5">
             <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">Month view</p>
+                <p className="text-xs font-semibold tracking-wide text-nourish-muted">Month view</p>
                 <h2 className="mt-2 text-2xl sm:text-3xl text-nourish-ink">{format(monthCursor, "MMMM yyyy")}</h2>
                 <p className="mt-2 text-sm text-nourish-muted">Use month view to move around quickly, then drop back into week view to actually plan.</p>
               </div>
@@ -506,7 +729,7 @@ export function HomePage() {
               </div>
             </div>
 
-            <div className="mb-3 grid grid-cols-7 gap-2 text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-nourish-muted">
+            <div className="mb-3 grid grid-cols-7 gap-2 text-center text-[11px] font-semibold tracking-wide text-nourish-muted">
               {weekDays.map((day) => (
                 <div key={day}>{day.slice(0, 3)}</div>
               ))}
@@ -528,7 +751,7 @@ export function HomePage() {
                         return;
                       }
                       setPlanningMode("auto");
-                      openNewWeek(dayWeekStart, "auto");
+                      openSimpleNewWeek(dayWeekStart, "auto");
                     }}
                     className={`min-h-[68px] rounded-[1.1rem] border p-2 text-left transition sm:min-h-[74px] sm:rounded-2xl ${
                       inActiveWeek
@@ -558,7 +781,7 @@ export function HomePage() {
         <div className="border-t border-transparent bg-transparent px-0 py-0 shadow-none backdrop-blur-none">
           <div className="mx-auto flex max-w-5xl flex-col gap-2 rounded-[1.6rem] border border-nourish-border bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between lg:p-4">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">Next step</p>
+              <p className="text-xs font-semibold tracking-wide text-nourish-muted">Next step</p>
               <p className="mt-1 text-sm text-nourish-ink">{summaryLabel}</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -578,114 +801,100 @@ export function HomePage() {
           </div>
         </div>
 
-        <BottomSheet open={prepStyleOpen} title="Start a new week" onClose={() => setPrepStyleOpen(false)}>
-          <div className="space-y-4">
-            <div className="rounded-2xl bg-nourish-bg p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">Planning week</p>
-              <p className="mt-2 text-lg text-nourish-ink">{pendingWeekRangeLabel}</p>
-              <p className="mt-1 text-sm text-nourish-muted">Choose how you want to start this week, then we’ll build the planner from there.</p>
-            </div>
-
-            <div className="space-y-3">
-              {planningModes.map((mode) => {
-                const Icon = mode.icon;
-                return (
+        <BottomSheet open={simpleNewWeekOpen} title="Plan your week" onClose={() => setSimpleNewWeekOpen(false)}>
+          <div className="space-y-5">
+            <p className="text-sm text-nourish-muted">{pendingWeekRangeLabel}</p>
+            <div>
+              <p className="text-sm font-semibold text-nourish-ink">How do you want to prep this week?</p>
+              <div className="mt-3 space-y-2">
+                {prepStyles.map((style) => (
                   <button
-                    key={mode.value}
+                    key={style.value}
                     type="button"
-                    onClick={() => setPlanningMode(mode.value)}
-                    className={`w-full rounded-2xl border p-4 text-left transition ${planningMode === mode.value ? "border-transparent bg-nourish-sage text-white" : "border-nourish-border bg-white"}`}
+                    onClick={() => setSelectedPrepStyle(style.value)}
+                    className={`w-full rounded-2xl border p-4 text-left text-sm font-medium transition ${
+                      selectedPrepStyle === style.value ? "border-transparent bg-nourish-sage text-white" : "border-nourish-border bg-white text-nourish-ink"
+                    }`}
                   >
-                    <div className="mb-2 flex items-center gap-3">
-                      <Icon size={18} />
-                      <span className="text-base font-medium">{mode.title}</span>
-                    </div>
-                    <p className={`text-sm leading-6 ${planningMode === mode.value ? "text-white/90" : "text-nourish-muted"}`}>{mode.description}</p>
+                    {style.title}
                   </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-nourish-ink">Max time per session?</p>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {[
+                  { label: "20 min", value: "Under20" },
+                  { label: "45 min", value: "Under45" },
+                  { label: "No limit", value: "NoLimit" },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setSelectedTime(option.value)}
+                    className={`min-h-[44px] rounded-xl px-2 text-xs font-medium sm:text-sm ${
+                      selectedTime === option.value ? "bg-nourish-terracotta text-white" : "border border-nourish-border bg-white text-nourish-muted"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="button-primary w-full"
+              onClick={() => {
+                setPlanningMode("auto");
+                startWeek();
+              }}
+              disabled={startWeekMutation.isPending}
+            >
+              Generate my plan →
+            </button>
+            <p className="text-center text-xs text-nourish-muted">
+              Want a saved template?{" "}
+              <Link to="/saved-weeks" className="font-medium text-nourish-sage underline-offset-2 hover:underline">
+                Browse saved weeks
+              </Link>
+            </p>
+          </div>
+        </BottomSheet>
+
+        <BottomSheet open={approveReviewOpen} title="Review your week" onClose={() => setApproveReviewOpen(false)}>
+          <div className="space-y-4">
+            <p className="text-sm text-nourish-muted">Scan every day before you lock the plan in.</p>
+            <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
+              {weekDays.map((day) => {
+                const daySlots = slots.filter((s) => s.dayOfWeek === day);
+                return (
+                  <div key={day} className="rounded-xl border border-nourish-border bg-nourish-bg/40 p-3">
+                    <p className="text-xs font-semibold tracking-wide text-nourish-muted">{day}</p>
+                    <ul className="mt-2 space-y-1.5 text-sm text-nourish-ink">
+                      {daySlots.map((s) => (
+                        <li key={s.id} className="flex justify-between gap-2">
+                          <span className="text-nourish-muted">{s.mealType}</span>
+                          <span className="min-w-0 text-right">
+                            {s.isSkipped ? "Skipped" : s.isEatingOut ? "Eating out" : s.recipeName ?? "Open"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 );
               })}
             </div>
-
-            <div className="rounded-2xl bg-nourish-bg p-4">
-              <p className="mb-3 text-sm text-nourish-muted">Meals to include this week</p>
-              <div className="flex flex-wrap gap-2">
-                {mealTypes.map((mealType) => (
-                  <button
-                    key={mealType}
-                    type="button"
-                    onClick={() => toggleMealType(mealType)}
-                    className={`rounded-full px-4 py-2 text-sm transition ${visibleMealTypes.includes(mealType) ? "bg-nourish-terracotta text-white" : "bg-white text-nourish-muted"}`}
-                  >
-                    {mealType}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {planningMode === "auto" && (
-              <>
-                <div className="space-y-3">
-                  {prepStyles.map((style) => (
-                    <button
-                      key={style.value}
-                      type="button"
-                      onClick={() => setSelectedPrepStyle(style.value)}
-                      className={`w-full rounded-2xl border p-4 text-left ${selectedPrepStyle === style.value ? "border-transparent bg-nourish-sage text-white" : "border-nourish-border bg-white"}`}
-                    >
-                      {style.title}
-                    </button>
-                  ))}
-                </div>
-                <div>
-                  <p className="mb-3 text-sm text-nourish-muted">Max time per session?</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { label: "20 min", value: "Under20" },
-                      { label: "45 min", value: "Under45" },
-                      { label: "No limit", value: "NoLimit" },
-                    ].map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setSelectedTime(option.value)}
-                        className={`rounded-xl px-3 py-3 text-sm ${selectedTime === option.value ? "bg-nourish-terracotta text-white" : "bg-white text-nourish-muted"}`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {planningMode === "manual" && (
-              <div className="rounded-2xl bg-nourish-bg p-4 text-sm leading-6 text-nourish-muted">
-                We’ll start with a blank planner. Tap any slot to add recipes from fridge-aware recommendations, ingredient overlap, favorites, recent meals, or search.
-              </div>
-            )}
-
-            {planningMode === "saved" && (
-              <div className="space-y-3">
-                {savedWeeks.map((savedWeek) => (
-                  <button
-                    key={savedWeek.id}
-                    type="button"
-                    onClick={() => setSavedWeekSelection(savedWeek.id)}
-                    className={`w-full rounded-2xl border p-4 text-left ${savedWeekSelection === savedWeek.id ? "border-transparent bg-nourish-sage text-white" : "border-nourish-border bg-white"}`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-base font-medium">{savedWeek.templateName ?? "Saved week"}</span>
-                      <span className={`text-xs ${savedWeekSelection === savedWeek.id ? "text-white/80" : "text-nourish-muted"}`}>
-                        {formatWeekRange(savedWeek.weekStartDate)}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <button type="button" className="button-primary w-full" onClick={startWeek} disabled={startWeekMutation.isPending}>
-              {planningMode === "auto" ? "Generate my plan →" : planningMode === "manual" ? "Start blank week →" : "Load saved week →"}
+            <button
+              type="button"
+              className="button-primary w-full"
+              onClick={() => approveWeekMutation.mutate()}
+              disabled={approveWeekMutation.isPending}
+            >
+              Looks good — approve →
+            </button>
+            <button type="button" className="button-secondary w-full" onClick={() => setApproveReviewOpen(false)}>
+              Keep editing
             </button>
           </div>
         </BottomSheet>

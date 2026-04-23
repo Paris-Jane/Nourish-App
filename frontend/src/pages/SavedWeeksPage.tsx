@@ -1,15 +1,40 @@
 import { Heart } from "lucide-react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSavedWeeks } from "hooks/useAppData";
 import { formatWeekRange } from "lib/utils";
 import { useToast } from "hooks/useToast";
 import { cn } from "lib/utils";
 import { useWeekPrefsStore } from "store/weekPrefsStore";
+import type { Week } from "types/models";
 
 export function SavedWeeksPage() {
+  const queryClient = useQueryClient();
   const { savedWeeks } = useSavedWeeks();
   const { pushToast } = useToast();
   const isFavorite = useWeekPrefsStore((state) => state.isFavorite);
   const toggleFavorite = useWeekPrefsStore((state) => state.toggleFavorite);
+  const [renamingId, setRenamingId] = useState<number | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+
+  const commitRename = (weekId: number) => {
+    const name = renameDraft.trim();
+    if (!name) {
+      setRenamingId(null);
+      return;
+    }
+    const list = queryClient.getQueryData<Week[]>(["saved-weeks"]);
+    if (!list) {
+      setRenamingId(null);
+      return;
+    }
+    queryClient.setQueryData<Week[]>(
+      ["saved-weeks"],
+      list.map((w) => (w.id === weekId ? { ...w, templateName: name } : w)),
+    );
+    setRenamingId(null);
+    pushToast("Week name updated.");
+  };
 
   if (savedWeeks.length === 0) {
     return (
@@ -25,17 +50,40 @@ export function SavedWeeksPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-4xl">Saved Weeks</h1>
-        <p className="text-sm text-nourish-muted">Templates for the weeks you’d happily repeat.</p>
+        <p className="text-sm text-nourish-muted">Templates for the weeks you’d happily repeat. Tap a name to rename.</p>
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
         {savedWeeks.map((week) => (
           <div key={week.id} className="card p-5">
             <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-3xl">{week.templateName ?? "Saved week"}</h2>
+              <div className="min-w-0 flex-1">
+                {renamingId === week.id ? (
+                  <input
+                    className="input w-full max-w-md text-2xl font-semibold"
+                    value={renameDraft}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onBlur={() => commitRename(week.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      if (e.key === "Escape") setRenamingId(null);
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="block w-full text-left"
+                    onClick={() => {
+                      setRenamingId(week.id);
+                      setRenameDraft(week.templateName ?? "Saved week");
+                    }}
+                  >
+                    <h2 className="text-3xl text-nourish-ink hover:underline">{week.templateName ?? "Saved week"}</h2>
+                  </button>
+                )}
                 <p className="text-sm text-nourish-muted">{formatWeekRange(week.weekStartDate)}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
                   className={cn(

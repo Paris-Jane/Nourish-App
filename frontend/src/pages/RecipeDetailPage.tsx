@@ -207,7 +207,7 @@ export function RecipeDetailPage() {
           </div>
           <h1 className="mb-4 text-3xl font-semibold tracking-tight text-nourish-ink sm:text-4xl md:text-5xl">{recipe.name}</h1>
           <div className="mb-5 flex flex-wrap gap-2">
-            <TagPill tone="warm">{recipe.cuisine}</TagPill>
+            <TagPill tone="cuisine">{recipe.cuisine}</TagPill>
             <TagPill tone="accent">{recipe.timeTag}</TagPill>
             <TagPill>{recipe.scalabilityTag}</TagPill>
             {recipe.mealTypeTags.map((mealType) => (

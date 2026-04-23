@@ -15,8 +15,10 @@ public static class GroceryEndpoints
 
         group.MapGet("/{weekId:int}/grocery-list", GetList);
         group.MapPost("/{weekId:int}/grocery-list/generate", Generate);
+        group.MapPost("/{weekId:int}/grocery-list/items", AddItem);
         group.MapPut("/{weekId:int}/grocery-list/items/{itemId:int}/check", CheckItem);
         group.MapPut("/{weekId:int}/grocery-list/items/{itemId:int}/quantity", UpdateQuantity);
+        group.MapDelete("/{weekId:int}/grocery-list/items/{itemId:int}", DeleteItem);
     }
 
     private static async Task<IResult> GetList(int weekId, AppDbContext db, ClaimsPrincipal user)
@@ -36,6 +38,37 @@ public static class GroceryEndpoints
 
         var list = await service.GenerateAsync(weekId, householdId);
         return Results.Created($"/api/weeks/{weekId}/grocery-list", ToDto(list));
+    }
+
+    private static async Task<IResult> AddItem(
+        int weekId, CreateGroceryItemRequest req, AppDbContext db, ClaimsPrincipal user)
+    {
+        var householdId = user.GetHouseholdId();
+        var list = await db.GroceryLists
+            .Include(g => g.Items)
+            .FirstOrDefaultAsync(g => g.WeekId == weekId && g.HouseholdId == householdId);
+        if (list == null) return Results.NotFound();
+
+        var ingredient = await db.Ingredients.FirstOrDefaultAsync(i => i.Id == req.IngredientId);
+        if (ingredient == null) return Results.BadRequest(new { message = "Ingredient not found" });
+
+        var item = new GroceryListItem
+        {
+            GroceryListId = list.Id,
+            IngredientId = ingredient.Id,
+            PlannedQuantity = req.PlannedQuantity,
+            PlannedUnit = req.PlannedUnit,
+            StoreSection = string.IsNullOrWhiteSpace(req.StoreSection) ? ingredient.StoreSection.ToString() : req.StoreSection!,
+            IsChecked = false,
+            AddedToFridge = false,
+            RecipeIds = new List<int>()
+        };
+
+        db.GroceryListItems.Add(item);
+        await db.SaveChangesAsync();
+        await db.Entry(item).Reference(i => i.Ingredient).LoadAsync();
+
+        return Results.Created($"/api/weeks/{weekId}/grocery-list/items/{item.Id}", ToItemDto(item));
     }
 
     private static async Task<IResult> CheckItem(
@@ -92,6 +125,22 @@ public static class GroceryEndpoints
         item.PurchasedQuantity = req.PurchasedQuantity;
         await db.SaveChangesAsync();
         return Results.Ok(ToItemDto(item));
+    }
+
+    private static async Task<IResult> DeleteItem(
+        int weekId, int itemId, AppDbContext db, ClaimsPrincipal user)
+    {
+        var householdId = user.GetHouseholdId();
+        var item = await db.GroceryListItems
+            .Include(i => i.GroceryList)
+            .FirstOrDefaultAsync(i => i.Id == itemId &&
+                                      i.GroceryList.WeekId == weekId &&
+                                      i.GroceryList.HouseholdId == householdId);
+        if (item == null) return Results.NotFound();
+
+        db.GroceryListItems.Remove(item);
+        await db.SaveChangesAsync();
+        return Results.NoContent();
     }
 
     private static GroceryListResponse ToDto(GroceryList g) => new(

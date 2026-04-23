@@ -18,3 +18,18 @@ export function updateGroceryItemQuantity(weekId: number, itemId: number, purcha
     apiClient.put(`/api/weeks/${weekId}/grocery-list/items/${itemId}/quantity`, { purchasedQuantity }),
   );
 }
+
+export interface CreateGroceryItemRequest {
+  ingredientId: number;
+  plannedQuantity: number;
+  plannedUnit: string;
+  storeSection?: string;
+}
+
+export function addGroceryItem(weekId: number, payload: CreateGroceryItemRequest) {
+  return unwrap<GroceryListItem>(apiClient.post(`/api/weeks/${weekId}/grocery-list/items`, payload));
+}
+
+export function deleteGroceryItem(weekId: number, itemId: number) {
+  return unwrap<void>(apiClient.delete(`/api/weeks/${weekId}/grocery-list/items/${itemId}`));
+}

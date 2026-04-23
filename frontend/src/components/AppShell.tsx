@@ -48,20 +48,20 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      <nav className="fixed bottom-4 left-4 right-4 z-30 flex rounded-[24px] border border-nourish-border bg-white/95 p-2 shadow-card backdrop-blur lg:hidden">
-        {navItems.slice(0, 4).map(({ to, label, icon: Icon }) => (
+      <nav className="fixed bottom-4 left-3 right-3 z-30 flex rounded-[24px] border border-nourish-border bg-white/95 p-1.5 shadow-card backdrop-blur lg:hidden">
+        {navItems.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
               cn(
-                "flex flex-1 flex-col items-center gap-1 rounded-2xl py-2 text-[11px] transition",
+                "flex min-h-[48px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-0.5 py-1 text-[10px] font-medium leading-tight transition sm:text-[11px]",
                 isActive ? "bg-nourish-sage text-white" : "text-nourish-muted",
               )
             }
           >
-            <Icon size={17} />
-            {label}
+            <Icon size={16} className="shrink-0" />
+            <span className="line-clamp-2 text-center">{label}</span>
           </NavLink>
         ))}
       </nav>

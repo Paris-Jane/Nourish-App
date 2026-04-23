@@ -7,6 +7,7 @@ interface GroceryListItemRowProps {
   item: GroceryListItem;
   checked: boolean;
   recipeNote: string;
+  sourceHint?: string | null;
   actualQty: number;
   qtyStatus: "idle" | "saved";
   deleteRevealed: boolean;
@@ -21,6 +22,7 @@ export function GroceryListItemRow({
   item,
   checked,
   recipeNote,
+  sourceHint,
   actualQty,
   qtyStatus,
   deleteRevealed,
@@ -107,6 +109,11 @@ export function GroceryListItemRow({
                   <p className="text-sm text-nourish-muted">
                     {item.plannedQuantity} {item.plannedUnit} planned
                   </p>
+                  {sourceHint ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span className="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-nourish-sage">{sourceHint}</span>
+                    </div>
+                  ) : null}
                   <p className="mt-1 text-xs leading-relaxed text-nourish-muted">
                     <span className="font-medium text-nourish-ink/70">For recipes: </span>
                     {recipeNote}
@@ -130,6 +137,8 @@ export function GroceryListItemRow({
                       </div>
                       {qtyStatus === "saved" ? <span className="text-xs font-medium text-nourish-sage">Saved</span> : null}
                     </div>
+                  ) : item.addedToFridge ? (
+                    <p className="mt-3 text-xs font-medium text-nourish-sage">Already added to your kitchen inventory.</p>
                   ) : null}
                 </div>
               </div>
@@ -173,10 +182,16 @@ export function GroceryListItemRow({
             <p className="text-sm text-nourish-muted">
               {item.plannedQuantity} {item.plannedUnit} planned
             </p>
+            {sourceHint ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <span className="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-nourish-sage">{sourceHint}</span>
+              </div>
+            ) : null}
             <p className="mt-1 text-xs leading-relaxed text-nourish-muted">
               <span className="font-medium text-nourish-ink/70">For recipes: </span>
               {recipeNote}
             </p>
+            {!checked && item.addedToFridge ? <p className="mt-2 text-xs font-medium text-nourish-sage">Already added to your kitchen inventory.</p> : null}
           </div>
         </button>
         <div className="flex shrink-0 flex-col items-end justify-between gap-2 py-3 pr-3">

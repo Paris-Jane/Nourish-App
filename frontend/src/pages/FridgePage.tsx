@@ -315,7 +315,7 @@ export function FridgePage() {
               <button
                 type="button"
                 onClick={cycleListSort}
-                className="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-nourish-border bg-white px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-nourish-muted shadow-sm transition hover:border-nourish-sage/35 hover:text-nourish-ink touch-manipulation"
+                className="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-nourish-border bg-white px-2.5 py-1.5 text-[10px] font-semibold tracking-wide text-nourish-muted shadow-sm transition hover:border-nourish-sage/35 hover:text-nourish-ink touch-manipulation"
                 aria-label={
                   listSort === "default"
                     ? "Sort by name A to Z"
@@ -386,7 +386,7 @@ export function FridgePage() {
           onSubmit={form.handleSubmit(onSubmit)}
         >
           <div>
-            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-nourish-muted" htmlFor="fridge-add-ingredient-search">
+            <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted" htmlFor="fridge-add-ingredient-search">
               Ingredient
             </label>
             <div className="relative">
@@ -446,15 +446,15 @@ export function FridgePage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-nourish-muted">Quantity</label>
+            <label className="block text-xs font-medium tracking-wide text-nourish-muted">Quantity</label>
             <input className="input mt-1" type="number" step="0.1" {...form.register("quantity", { valueAsNumber: true })} />
           </div>
           <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-nourish-muted">Unit</label>
+            <label className="block text-xs font-medium tracking-wide text-nourish-muted">Unit</label>
             <input className="input mt-1" placeholder="e.g. cups, bag" {...form.register("unit")} />
           </div>
           <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-nourish-muted">Location</label>
+            <label className="block text-xs font-medium tracking-wide text-nourish-muted">Location</label>
             <select className="input mt-1" {...form.register("location")}>
               {tabs.map((entry) => (
                 <option key={entry} value={entry}>
@@ -464,7 +464,7 @@ export function FridgePage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium uppercase tracking-wide text-nourish-muted">Expiry (optional)</label>
+            <label className="block text-xs font-medium tracking-wide text-nourish-muted">Expiry (optional)</label>
             <input className="input mt-1" type="date" {...form.register("expiresAt")} />
           </div>
           <button className="button-primary w-full" type="submit">
