@@ -16,7 +16,7 @@ import {
 } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookCopy, CalendarDays, ChevronLeft, ChevronRight, Sparkles, SquarePen } from "lucide-react";
+import { BookCopy, ChevronLeft, ChevronRight, Sparkles, SquarePen } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { approveWeek, createWeek, generateWeek, getWeekSlots, swapSlot } from "api/weeks";
 import { BottomSheet } from "components/BottomSheet";
@@ -82,7 +82,6 @@ export function HomePage() {
   const [selectedPrepStyle, setSelectedPrepStyle] = useState("OnePrepDay");
   const [selectedTime, setSelectedTime] = useState("Under45");
   const [savedWeekSelection, setSavedWeekSelection] = useState<number | null>(savedWeeks[0]?.id ?? null);
-  const weekScrollerRef = useRef<HTMLDivElement | null>(null);
   const dayRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
@@ -301,6 +300,12 @@ export function HomePage() {
     startWeekMutation.mutate();
   }
 
+  function jumpToToday() {
+    const todayDay = weekDays.find((day) => isWeekColumnToday(week.weekStartDate, day as WeekDay));
+    if (!todayDay) return;
+    dayRefs.current[todayDay]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+  }
+
   function handlePrimaryAction() {
     if (isApproved) {
       navigate("/grocery");
@@ -325,12 +330,12 @@ export function HomePage() {
 
   return (
     <ErrorBoundary>
-      <div className="space-y-6 pb-36 lg:pb-10">
-        <section className="relative overflow-hidden rounded-[2rem] border border-nourish-border bg-[radial-gradient(circle_at_top_left,_rgba(196,113,79,0.12),_transparent_32%),linear-gradient(135deg,#fffdf9_0%,#f6efe5_100%)] p-5 shadow-sm lg:p-7">
+      <div className="space-y-5 pb-28 lg:pb-10">
+        <section className="relative overflow-hidden rounded-[1.8rem] border border-nourish-border bg-[radial-gradient(circle_at_top_left,_rgba(196,113,79,0.12),_transparent_32%),linear-gradient(135deg,#fffdf9_0%,#f6efe5_100%)] p-4 shadow-sm lg:rounded-[2rem] lg:p-7">
           <div className="absolute right-4 top-4 hidden h-28 w-28 rounded-full bg-nourish-sage/10 blur-2xl lg:block" aria-hidden />
-          <div className="relative flex flex-col gap-5">
+          <div className="relative flex flex-col gap-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-nourish-muted">
                     {viewMode === "week" ? "Current planner" : "Calendar browser"}
@@ -344,20 +349,20 @@ export function HomePage() {
                   </span>
                 </div>
                 <div>
-                  <h1 className="text-5xl">Nourish</h1>
-                  <p className="mt-2 text-base text-nourish-ink/80">{formatWeekRange(week.weekStartDate)}{activeWeekLabel ? ` · ${activeWeekLabel}` : ""}</p>
+                  <h1 className="text-4xl sm:text-5xl">Nourish</h1>
+                  <p className="mt-2 text-sm sm:text-base text-nourish-ink/80">{formatWeekRange(week.weekStartDate)}{activeWeekLabel ? ` · ${activeWeekLabel}` : ""}</p>
                 </div>
                 <p className="max-w-2xl text-sm leading-6 text-nourish-muted">{summaryCopy}</p>
               </div>
 
-              <div className="flex flex-col gap-3 lg:items-end">
-                <div className="inline-flex rounded-full border border-nourish-border bg-white/90 p-1 shadow-sm">
+              <div className="flex flex-col gap-3">
+                <div className="inline-flex w-full rounded-full border border-nourish-border bg-white/90 p-1 shadow-sm lg:w-auto">
                   {(["week", "month"] as const).map((mode) => (
                     <button
                       key={mode}
                       type="button"
                       onClick={() => setViewMode(mode)}
-                      className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                      className={`flex-1 rounded-full px-4 py-2 text-sm font-medium transition lg:flex-none ${
                         viewMode === mode ? "bg-nourish-sage text-white" : "text-nourish-muted"
                       }`}
                     >
@@ -365,13 +370,13 @@ export function HomePage() {
                     </button>
                   ))}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" className="button-primary" onClick={() => openNewWeek(defaultNextWeekStart)}>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <button type="button" className="button-primary w-full" onClick={() => openNewWeek(defaultNextWeekStart)}>
                     New week
                   </button>
                   <button
                     type="button"
-                    className="button-secondary"
+                    className="button-secondary w-full"
                     onClick={() => {
                       setPlanningMode("manual");
                       openNewWeek(defaultNextWeekStart, "manual");
@@ -383,8 +388,8 @@ export function HomePage() {
               </div>
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[1.35fr,0.9fr,0.9fr]">
-              <div className="rounded-[1.6rem] border border-nourish-border/80 bg-white/90 p-4 shadow-sm">
+            <div className="grid gap-3 lg:grid-cols-[1.3fr,1fr]">
+              <div className="rounded-[1.5rem] border border-nourish-border/80 bg-white/92 p-4 shadow-sm">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">This week</p>
                 <p className="mt-2 text-2xl text-nourish-ink">{summaryLabel}</p>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-nourish-bg">
@@ -393,23 +398,25 @@ export function HomePage() {
                 <p className="mt-3 text-sm text-nourish-muted">{coveredMainSlots} of {mainSlots.length} core meals accounted for.</p>
               </div>
 
-              <div className="rounded-[1.6rem] border border-nourish-border/80 bg-white/85 p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">Focus now</p>
-                <p className="mt-2 text-lg text-nourish-ink">
-                  {isApproved ? "Head to grocery and shopping." : coveredMainSlots === 0 ? "Pick how you want to start." : openMainSlots > 0 ? "Fill the remaining gaps." : "Give the plan a final review."}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-nourish-muted">
-                  {isApproved ? "Your plan is already approved, so the next useful action is grocery prep." : coveredMainSlots === 0 ? "Auto plan is the fastest path, manual plan is the most flexible, and saved weeks are the easiest repeat." : openMainSlots > 0 ? "Tap any open slot to choose a meal, then approve once the week feels balanced." : "You’re close — approve when the week looks right, then move into groceries."}
-                </p>
-              </div>
-
-              <div className="rounded-[1.6rem] border border-nourish-border/80 bg-white/85 p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">Right now</p>
-                <div className="mt-2 space-y-2 text-sm text-nourish-muted">
-                  <p><span className="font-medium text-nourish-ink">{fridgeItems.length}</span> ingredient{fridgeItems.length === 1 ? "" : "s"} in your kitchen</p>
-                  <p><span className="font-medium text-nourish-ink">{visibleMealTypes.length}</span> meal type{visibleMealTypes.length === 1 ? "" : "s"} visible</p>
-                  <p><span className="font-medium text-nourish-ink">{savedWeeks.length}</span> saved week{savedWeeks.length === 1 ? "" : "s"} ready to reuse</p>
+              <div className="rounded-[1.5rem] border border-nourish-border/80 bg-white/88 p-4 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">Quick context</p>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div className="rounded-2xl bg-nourish-bg px-3 py-3 text-center">
+                    <p className="text-lg text-nourish-ink">{fridgeItems.length}</p>
+                    <p className="mt-1 text-[11px] uppercase tracking-wide text-nourish-muted">Kitchen items</p>
+                  </div>
+                  <div className="rounded-2xl bg-nourish-bg px-3 py-3 text-center">
+                    <p className="text-lg text-nourish-ink">{visibleMealTypes.length}</p>
+                    <p className="mt-1 text-[11px] uppercase tracking-wide text-nourish-muted">Meal types</p>
+                  </div>
+                  <div className="rounded-2xl bg-nourish-bg px-3 py-3 text-center">
+                    <p className="text-lg text-nourish-ink">{savedWeeks.length}</p>
+                    <p className="mt-1 text-[11px] uppercase tracking-wide text-nourish-muted">Saved weeks</p>
+                  </div>
                 </div>
+                <p className="mt-3 text-sm leading-6 text-nourish-muted">
+                  {isApproved ? "This week is set. Grocery is the best next step." : coveredMainSlots === 0 ? "Auto plan is fastest. Manual plan gives you the most control." : openMainSlots > 0 ? "Tap any open slot to keep filling the week." : "You’re close. Approve when the week feels right."}
+                </p>
               </div>
             </div>
           </div>
@@ -417,33 +424,36 @@ export function HomePage() {
 
         {viewMode === "week" ? (
           <section className="space-y-4">
-            <div className="flex flex-col gap-3 rounded-[1.8rem] border border-nourish-border bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between lg:p-5">
-              <div>
+            <div className="flex flex-col gap-3 rounded-[1.6rem] border border-nourish-border bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between lg:p-5">
+              <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">Week view</p>
-                <h2 className="mt-2 text-3xl text-nourish-ink">Plan around the week you’re in</h2>
-                <p className="mt-2 text-sm text-nourish-muted">The planner opens on the current week and nudges today into view first on mobile.</p>
+                <h2 className="mt-2 text-2xl sm:text-3xl text-nourish-ink">This week</h2>
+                <p className="mt-1 text-sm text-nourish-muted">Today is brought forward first on mobile so you can start where you are.</p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button type="button" className="button-secondary whitespace-nowrap" onClick={jumpToToday}>
+                  Jump to today
+                </button>
+              </div>
+            </div>
+
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
                 {mealTypes.map((mealType) => (
                   <button
                     key={mealType}
                     type="button"
                     onClick={() => toggleMealType(mealType)}
-                    className={`rounded-full px-4 py-2 text-sm transition ${visibleMealTypes.includes(mealType) ? "bg-nourish-terracotta text-white" : "bg-nourish-bg text-nourish-muted"}`}
+                    className={`shrink-0 rounded-full px-4 py-2 text-sm transition ${visibleMealTypes.includes(mealType) ? "bg-nourish-terracotta text-white" : "bg-white border border-nourish-border text-nourish-muted"}`}
                   >
                     {mealType}
                   </button>
                 ))}
-              </div>
             </div>
 
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 bg-gradient-to-r from-[#fbf7f2] to-transparent lg:hidden" aria-hidden />
               <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-[#fbf7f2] to-transparent lg:hidden" aria-hidden />
-              <div
-                ref={weekScrollerRef}
-                className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2 pt-1 scroll-smooth lg:mx-0 lg:grid lg:grid-cols-7 lg:gap-4 lg:overflow-visible lg:px-0 lg:pb-0 lg:pt-0"
-              >
+              <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2 pt-1 scroll-smooth lg:mx-0 lg:grid lg:grid-cols-7 lg:gap-4 lg:overflow-visible lg:px-0 lg:pb-0 lg:pt-0">
                 {weekDays.map((day) => (
                   <div
                     key={day}
@@ -476,12 +486,12 @@ export function HomePage() {
             </div>
           </section>
         ) : (
-          <section className="rounded-[1.8rem] border border-nourish-border bg-white p-4 shadow-sm lg:p-5">
+          <section className="rounded-[1.6rem] border border-nourish-border bg-white p-4 shadow-sm lg:p-5">
             <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">Month view</p>
-                <h2 className="mt-2 text-3xl text-nourish-ink">{format(monthCursor, "MMMM yyyy")}</h2>
-                <p className="mt-2 text-sm text-nourish-muted">Browse months ahead or behind. Tap any date to start planning that week, or tap the highlighted current week to return to it.</p>
+                <h2 className="mt-2 text-2xl sm:text-3xl text-nourish-ink">{format(monthCursor, "MMMM yyyy")}</h2>
+                <p className="mt-2 text-sm text-nourish-muted">Use month view to move around quickly, then drop back into week view to actually plan.</p>
               </div>
               <div className="flex items-center gap-2 self-start lg:self-auto">
                 <button type="button" className="button-secondary h-11 w-11 p-0" onClick={() => setMonthCursor((current) => subMonths(current, 1))} aria-label="Previous month">
@@ -502,7 +512,7 @@ export function HomePage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-7 gap-2">
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
               {monthDays.map((date) => {
                 const dayWeekStart = getWeekStartForDate(date);
                 const inActiveWeek = formatISO(dayWeekStart, { representation: "date" }) === formatISO(weekStartDate, { representation: "date" });
@@ -520,7 +530,7 @@ export function HomePage() {
                       setPlanningMode("auto");
                       openNewWeek(dayWeekStart, "auto");
                     }}
-                    className={`min-h-[74px] rounded-2xl border p-2 text-left transition ${
+                    className={`min-h-[68px] rounded-[1.1rem] border p-2 text-left transition sm:min-h-[74px] sm:rounded-2xl ${
                       inActiveWeek
                         ? "border-nourish-sage bg-nourish-sage/12"
                         : inCurrentMonth
@@ -545,7 +555,7 @@ export function HomePage() {
           </section>
         )}
 
-        <div className="fixed bottom-[5.75rem] left-0 right-0 z-20 border-t border-nourish-border bg-nourish-card/95 px-4 py-3 shadow-[0_-4px_24px_rgba(44,36,22,0.08)] backdrop-blur-md lg:static lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:shadow-none lg:backdrop-blur-none">
+        <div className="border-t border-transparent bg-transparent px-0 py-0 shadow-none backdrop-blur-none">
           <div className="mx-auto flex max-w-5xl flex-col gap-2 rounded-[1.6rem] border border-nourish-border bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between lg:p-4">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-nourish-muted">Next step</p>
