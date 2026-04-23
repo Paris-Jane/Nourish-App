@@ -10,7 +10,7 @@ interface MealCardProps {
 }
 
 function mealLabel(mealType: MealType) {
-  return mealType === "Snack" ? "Snack idea" : mealType;
+  return mealType === "Snack" ? "Snack" : mealType;
 }
 
 export function MealCard({ slot, recipe, onSwap }: MealCardProps) {
