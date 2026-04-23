@@ -1,10 +1,15 @@
+import { Heart } from "lucide-react";
 import { useSavedWeeks } from "hooks/useAppData";
 import { formatWeekRange } from "lib/utils";
 import { useToast } from "hooks/useToast";
+import { cn } from "lib/utils";
+import { useWeekPrefsStore } from "store/weekPrefsStore";
 
 export function SavedWeeksPage() {
   const { savedWeeks } = useSavedWeeks();
   const { pushToast } = useToast();
+  const isFavorite = useWeekPrefsStore((state) => state.isFavorite);
+  const toggleFavorite = useWeekPrefsStore((state) => state.toggleFavorite);
 
   if (savedWeeks.length === 0) {
     return (
@@ -30,9 +35,30 @@ export function SavedWeeksPage() {
                 <h2 className="text-3xl">{week.templateName ?? "Saved week"}</h2>
                 <p className="text-sm text-nourish-muted">{formatWeekRange(week.weekStartDate)}</p>
               </div>
-              <button className={`rounded-full px-3 py-1.5 text-xs ${week.isInRotation ? "bg-nourish-sage text-white" : "bg-nourish-bg text-nourish-muted"}`}>
-                In rotation
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-xs transition",
+                    isFavorite(week.id)
+                      ? "border-nourish-terracotta/30 bg-nourish-terracotta/10 text-nourish-terracotta"
+                      : "border-nourish-border bg-white text-nourish-muted hover:border-nourish-terracotta/30 hover:text-nourish-terracotta",
+                  )}
+                  onClick={() => {
+                    const nextFavorite = !isFavorite(week.id);
+                    toggleFavorite(week.id);
+                    pushToast(nextFavorite ? "Week saved to favorites." : "Week removed from favorites.");
+                  }}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Heart size={14} className={cn(isFavorite(week.id) && "fill-current")} />
+                    {isFavorite(week.id) ? "Favorited" : "Favorite"}
+                  </span>
+                </button>
+                <button className={`rounded-full px-3 py-1.5 text-xs ${week.isInRotation ? "bg-nourish-sage text-white" : "bg-nourish-bg text-nourish-muted"}`}>
+                  In rotation
+                </button>
+              </div>
             </div>
             <div className="mb-5 grid grid-cols-7 gap-2 text-[11px] text-nourish-muted">
               {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
