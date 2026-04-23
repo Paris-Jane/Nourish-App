@@ -55,16 +55,9 @@ export function RecipeDetailPage() {
   const favorited = isFavorite(recipe.id);
 
   const handleToggleOptional = (ingredientId: number) => {
-    const ingredient = optionalIngredients.find((entry) => entry.ingredientId === ingredientId);
-    const nextSelected = !selectedOptionalIds.includes(ingredientId);
-
     setSelectedOptionalIds((current) =>
-      current.includes(ingredientId) ? current.filter((id) => id !== ingredientId) : [...current, ingredientId],
+      current.includes(ingredientId) ? current.filter((entry) => entry !== ingredientId) : [...current, ingredientId],
     );
-
-    if (ingredient) {
-      pushToast(nextSelected ? `${ingredient.ingredientName} added to this version.` : `${ingredient.ingredientName} removed from this version.`);
-    }
   };
 
   const handleAddCustomIngredient = (ingredientId: number, ingredientName: string) => {
@@ -79,8 +72,10 @@ export function RecipeDetailPage() {
     if (ingredient) pushToast(`${ingredient.name} removed.`);
   };
 
+  const activeSteps = tab === "Prep ahead" ? prepAheadSteps : dayOfSteps;
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6 pb-32 lg:pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           to="/recipes"
@@ -89,40 +84,35 @@ export function RecipeDetailPage() {
           <ArrowLeft size={18} aria-hidden />
           Back to recipes
         </Link>
-        <button
-          type="button"
-          onClick={() => {
-            toggleFavorite(recipe.id);
-            pushToast(favorited ? "Removed from favorites." : "Saved to favorites.");
-          }}
-          className={cn(
-            "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition",
-            favorited
-              ? "border-nourish-terracotta/40 bg-nourish-terracotta/10 text-nourish-terracotta"
-              : "border-nourish-border bg-white text-nourish-muted hover:border-nourish-sage/40 hover:text-nourish-ink",
-          )}
-          aria-pressed={favorited}
-          aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
-        >
-          <Heart size={18} className={favorited ? "fill-current" : ""} aria-hidden />
-          {favorited ? "Favorited" : "Favorite"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to={`/recipes/${recipe.id}/edit`} className="rounded-full border border-nourish-border bg-white px-3 py-2 text-sm font-medium text-nourish-muted transition hover:border-nourish-sage/40 hover:text-nourish-ink">
+            Edit recipe
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              toggleFavorite(recipe.id);
+              const now = useRecipePrefsStore.getState().isFavorite(recipe.id);
+              pushToast(now ? "Saved to favorites." : "Removed from favorites.");
+            }}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition",
+              favorited
+                ? "border-nourish-terracotta/40 bg-nourish-terracotta/10 text-nourish-terracotta"
+                : "border-nourish-border bg-white text-nourish-muted hover:border-nourish-sage/40 hover:text-nourish-ink",
+            )}
+            aria-pressed={favorited}
+            aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart size={18} className={favorited ? "fill-current" : ""} aria-hidden />
+            {favorited ? "Favorited" : "Favorite"}
+          </button>
+        </div>
       </div>
 
       <div className="card overflow-hidden">
-        <div className="h-36 bg-gradient-to-br from-nourish-sage/20 via-[#fbf6f0] to-nourish-terracotta/20 sm:h-44 md:h-52" />
+        <div className="h-24 bg-gradient-to-br from-nourish-sage/20 via-[#fbf6f0] to-nourish-terracotta/20 sm:h-28 md:h-32" />
         <div className="p-6">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <button
-              className="button-primary"
-              onClick={() => pushToast("Adding into the week grid is the next small wiring step.")}
-            >
-              Add to this week
-            </button>
-            <Link to={`/recipes/${recipe.id}/edit`} className="text-sm text-nourish-muted underline underline-offset-4">
-              Edit recipe
-            </Link>
-          </div>
           <h1 className="mb-4 text-3xl font-semibold tracking-tight text-nourish-ink sm:text-4xl md:text-5xl">{recipe.name}</h1>
           <div className="mb-5 flex flex-wrap gap-2">
             <TagPill tone="warm">{recipe.cuisine}</TagPill>
@@ -133,18 +123,32 @@ export function RecipeDetailPage() {
             ))}
           </div>
           <div className="flex gap-2 rounded-2xl bg-nourish-bg p-1">
-            {(["Prep ahead", "Day of"] as const).map((entry) => (
-              <button
-                key={entry}
-                type="button"
-                onClick={() => setTab(entry)}
-                className={`rounded-2xl px-4 py-3 text-sm ${tab === entry ? "bg-white shadow-sm" : "text-nourish-muted"}`}
-              >
-                {entry}
-              </button>
-            ))}
+            {(["Prep ahead", "Day of"] as const).map((entry) => {
+              const active = tab === entry;
+              return (
+                <button
+                  key={entry}
+                  type="button"
+                  onClick={() => setTab(entry)}
+                  className={cn(
+                    "flex-1 rounded-2xl px-4 py-3 text-sm font-medium transition",
+                    active ? "bg-white font-semibold text-nourish-ink shadow-sm ring-2 ring-nourish-sage/30" : "text-nourish-muted hover:text-nourish-ink",
+                  )}
+                >
+                  {entry}
+                </button>
+              );
+            })}
           </div>
-          <div className="mt-5">{tab === "Prep ahead" ? <StepList steps={prepAheadSteps} /> : <StepList steps={dayOfSteps} />}</div>
+          <div className="mt-5">
+            {activeSteps.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-nourish-border bg-nourish-bg/50 px-4 py-6 text-center text-sm text-nourish-muted">
+                No steps in this section yet.
+              </p>
+            ) : (
+              <StepList steps={activeSteps} />
+            )}
+          </div>
         </div>
       </div>
 
@@ -171,7 +175,7 @@ export function RecipeDetailPage() {
           <div className="card p-6">
             <div className="mb-4">
               <h2 className="text-2xl font-semibold sm:text-3xl">Optional add-ons</h2>
-              <p className="mt-1 text-sm text-nourish-muted">Pick from the recipe’s suggested extras without cluttering the main ingredient list.</p>
+              <p className="mt-1 text-sm text-nourish-muted">Tap to include an extra on this version of the dish.</p>
             </div>
             {optionalIngredients.length === 0 ? (
               <p className="text-sm text-nourish-muted">No optional add-ons have been added to this recipe yet.</p>
@@ -180,11 +184,7 @@ export function RecipeDetailPage() {
                 {optionalIngredients.map((ingredient) => {
                   const active = selectedOptionalIds.includes(ingredient.ingredientId);
                   return (
-                    <TagPill
-                      key={ingredient.id}
-                      active={active}
-                      onClick={() => handleToggleOptional(ingredient.ingredientId)}
-                    >
+                    <TagPill key={ingredient.id} active={active} onClick={() => handleToggleOptional(ingredient.ingredientId)}>
                       {ingredient.ingredientName}
                     </TagPill>
                   );
@@ -246,6 +246,18 @@ export function RecipeDetailPage() {
               ) : null}
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="fixed bottom-[5.75rem] left-0 right-0 z-20 border-t border-nourish-border bg-nourish-card/95 px-4 py-3 shadow-[0_-4px_24px_rgba(44,36,22,0.08)] backdrop-blur-md lg:static lg:z-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:shadow-none lg:backdrop-blur-none">
+        <div className="mx-auto max-w-4xl">
+          <button
+            type="button"
+            className="button-primary w-full"
+            onClick={() => pushToast("Added to this week (preview).")}
+          >
+            Add to this week
+          </button>
         </div>
       </div>
     </div>

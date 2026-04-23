@@ -4,53 +4,89 @@ import { Link } from "react-router-dom";
 import { RecipeCard } from "components/RecipeCard";
 import { TagPill } from "components/TagPill";
 import { useRecipes } from "hooks/useAppData";
-import type { MealType } from "types/models";
+import { useRecipePrefsStore } from "store/recipePrefsStore";
+import type { MealType, Recipe } from "types/models";
 
-const styleFilters = ["All", "Quick", "Batch-friendly", "Vegetarian", "Freezer-friendly"] as const;
-const mealFilters = ["All", "Breakfast", "Lunch", "Dinner"] as const;
+const mealFilters = ["All", "Breakfast", "Lunch", "Dinner", "Snack"] as const;
+
+const extraFilters = [
+  "All",
+  "Favorites",
+  "Quick",
+  "Medium",
+  "Involved",
+  "Batch-friendly",
+  "Vegetarian",
+  "Freezer-friendly",
+] as const;
 
 const meatPattern = /chicken|beef|pork|fish|salmon|turkey|lamb|bacon|sausage|shrimp|anchovy/i;
 
-function isVegetarianRecipe(recipe: { ingredients: { ingredientName: string }[] }): boolean {
+function isVegetarianRecipe(recipe: Recipe): boolean {
   return !recipe.ingredients.some((ing) => meatPattern.test(ing.ingredientName));
+}
+
+function matchesExtraFilter(recipe: Recipe, filter: (typeof extraFilters)[number], isFavorite: (id: number) => boolean): boolean {
+  if (filter === "All") return true;
+  if (filter === "Favorites") return isFavorite(recipe.id);
+  if (filter === "Quick") return recipe.timeTag === "Quick";
+  if (filter === "Medium") return recipe.timeTag === "Medium";
+  if (filter === "Involved") return recipe.timeTag === "Involved";
+  if (filter === "Batch-friendly") return recipe.prepStyleTag === "BatchFriendly";
+  if (filter === "Vegetarian") return isVegetarianRecipe(recipe);
+  if (filter === "Freezer-friendly") return recipe.isFreezerFriendly;
+  return true;
 }
 
 export function RecipesPage() {
   const { recipes } = useRecipes();
+  const isFavorite = useRecipePrefsStore((s) => s.isFavorite);
   const [query, setQuery] = useState("");
-  const [styleFilter, setStyleFilter] = useState<(typeof styleFilters)[number]>("All");
   const [mealFilter, setMealFilter] = useState<(typeof mealFilters)[number]>("All");
+  const [extraFilter, setExtraFilter] = useState<(typeof extraFilters)[number]>("All");
 
   const filtered = useMemo(
     () =>
       recipes.filter((recipe) => {
+        const q = query.trim().toLowerCase();
         const matchesQuery =
-          recipe.name.toLowerCase().includes(query.toLowerCase()) || recipe.cuisine.toLowerCase().includes(query.toLowerCase());
-        const matchesStyle =
-          styleFilter === "All" ||
-          (styleFilter === "Quick" && recipe.timeTag === "Quick") ||
-          (styleFilter === "Batch-friendly" && recipe.prepStyleTag === "BatchFriendly") ||
-          (styleFilter === "Freezer-friendly" && recipe.isFreezerFriendly) ||
-          (styleFilter === "Vegetarian" && isVegetarianRecipe(recipe));
-        const matchesMeal =
-          mealFilter === "All" || recipe.mealTypeTags.includes(mealFilter as MealType);
-        return matchesQuery && matchesStyle && matchesMeal;
+          !q || recipe.name.toLowerCase().includes(q) || recipe.cuisine.toLowerCase().includes(q) || recipe.timeTag.toLowerCase().includes(q);
+        const matchesMeal = mealFilter === "All" || recipe.mealTypeTags.includes(mealFilter as MealType);
+        const matchesExtra = matchesExtraFilter(recipe, extraFilter, isFavorite);
+        return matchesQuery && matchesMeal && matchesExtra;
       }),
-    [mealFilter, query, recipes, styleFilter],
+    [extraFilter, isFavorite, mealFilter, query, recipes],
   );
 
   const total = recipes.length;
   const shown = filtered.length;
 
+  const hasActiveFilters = query.trim() !== "" || mealFilter !== "All" || extraFilter !== "All";
+
+  const filterSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (query.trim()) parts.push(`search “${query.trim()}”`);
+    if (mealFilter !== "All") parts.push(`meal ${mealFilter}`);
+    if (extraFilter !== "All") parts.push(extraFilter.toLowerCase());
+    return parts.join(", ");
+  }, [extraFilter, mealFilter, query]);
+
   return (
     <div className="space-y-6 pb-24">
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 pr-16 lg:pr-0">
         <h1 className="text-2xl font-semibold tracking-tight text-nourish-ink sm:text-3xl md:text-4xl">Recipe Index</h1>
         <p className="text-sm text-nourish-muted">
           {shown === total ? `${total} ${total === 1 ? "recipe" : "recipes"}` : `Showing ${shown} of ${total} ${total === 1 ? "recipe" : "recipes"}`}
         </p>
-        <p className="text-sm text-nourish-muted">A growing little box of dinner ideas.</p>
       </div>
+
+      <Link
+        to="/recipes/new"
+        className="fixed right-4 top-[max(5.25rem,env(safe-area-inset-top,0px))] z-30 flex h-12 w-12 items-center justify-center rounded-full bg-nourish-sage text-white shadow-lg ring-2 ring-white/90 transition hover:bg-nourish-sage/90 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nourish-sage lg:right-8 lg:top-28 lg:h-14 lg:w-14"
+        aria-label="Add recipe"
+      >
+        <Plus size={24} strokeWidth={2.25} />
+      </Link>
 
       <div className="card p-4">
         <div className="relative">
@@ -70,10 +106,10 @@ export function RecipesPage() {
         </div>
 
         <p className="mt-4 text-xs font-medium uppercase tracking-wide text-nourish-muted">Filters</p>
-        <div className="-mx-1 mt-2 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1">
-          {styleFilters.map((option) => (
+        <div className="-mx-1 mt-2 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+          {extraFilters.map((option) => (
             <div key={option} className="shrink-0">
-              <TagPill active={styleFilter === option} onClick={() => setStyleFilter(option)}>
+              <TagPill active={extraFilter === option} onClick={() => setExtraFilter(option)}>
                 {option}
               </TagPill>
             </div>
@@ -83,8 +119,16 @@ export function RecipesPage() {
 
       {filtered.length === 0 ? (
         <div className="card p-10 text-center">
-          <h2 className="mb-2 text-2xl sm:text-3xl">No recipes yet</h2>
-          <p className="text-nourish-muted">Add your first one and this page will start to feel wonderfully alive.</p>
+          <h2 className="mb-2 text-2xl sm:text-3xl">{hasActiveFilters ? "No recipes match" : "No recipes yet"}</h2>
+          <p className="text-nourish-muted">
+            {hasActiveFilters ? (
+              <>
+                Nothing matches {filterSummary}. Try clearing search or choosing <strong className="text-nourish-ink">All</strong> in Filters.
+              </>
+            ) : (
+              "Add your first one and this page will start to feel wonderfully alive."
+            )}
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -93,15 +137,6 @@ export function RecipesPage() {
           ))}
         </div>
       )}
-
-      <Link
-        to="/recipes/new"
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-nourish-sage text-white shadow-lg ring-2 ring-white/80 transition hover:bg-nourish-sage/90 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nourish-sage"
-        style={{ marginBottom: "max(0px, env(safe-area-inset-bottom))" }}
-        aria-label="Add recipe"
-      >
-        <Plus size={26} strokeWidth={2.25} />
-      </Link>
     </div>
   );
 }
