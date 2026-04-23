@@ -10,41 +10,41 @@ Generate a full week of meals with minimal user effort.
 
 ### Behavior
 
-- a new week can start from:
-  - auto generation
-  - a blank manual planner
-  - a saved week
-- week contains meal slots across Monday–Sunday
-- meal slots include at least breakfast, lunch, dinner, and snack
-- slots can be:
-  - filled with a recipe
-  - marked as eating out
-  - skipped
-  - manually locked
+- [x] a new week can start from:
+  - [x] auto generation
+  - [x] a blank manual planner
+  - [x] a saved week
+- [x] week contains meal slots across Monday–Sunday
+- [x] meal slots include at least breakfast, lunch, dinner, and snack
+- [x] slots can be:
+  - [x] filled with a recipe
+  - [x] marked as eating out
+  - [x] skipped
+  - [x] manually locked
 
 ### UX expectations
 
-- users should see a complete plan immediately
-- swapping should be easy and in-context
-- empty slots should still feel supported, not broken
+- [x] users should see a complete plan immediately
+- [x] swapping should be easy and in-context
+- [x] empty slots should still feel supported, not broken
 
 ## Meal Swapping
 
 ### Swap recommendations should prioritize
 
-- similar prep time
-- overlap with other ingredients already planned
-- recipes using expiring fridge items
-- recipes not disliked
-- recipes not used too recently
+- [x] similar prep time
+- [x] overlap with other ingredients already planned
+- [x] recipes using expiring fridge items
+- [ ] recipes not disliked
+- [x] recipes not used too recently
 
 ### Categories to show
 
-- Expiring soon
-- In your fridge
-- Ingredient overlap
-- Favorites
-- Recent
+- [x] Expiring soon
+- [x] In your fridge
+- [x] Ingredient overlap
+- [x] Favorites
+- [x] Recent
 
 ## Manual Planning
 
@@ -52,11 +52,11 @@ Manual planning is part of the same experience, not a separate product mode.
 
 ### Requirements
 
-- user can intentionally start from a blank week
-- user can tap any slot to fill it
-- app surfaces context-aware recommendations
-- after selecting a recipe, user can apply it to multiple days
-- app can fill only the remaining slots afterward
+- [x] user can intentionally start from a blank week
+- [x] user can tap any slot to fill it
+- [x] app surfaces context-aware recommendations
+- [x] after selecting a recipe, user can apply it to multiple days
+- [x] app can fill only the remaining slots afterward
 
 ## Snack Suggestions
 
@@ -80,18 +80,18 @@ Avoid:
 
 ### Timing
 
-- subtle suggestions can appear as the week/day is being built
-- final pass can happen at confirmation time
+- [x] subtle suggestions can appear as the week/day is being built
+- [x] final pass can happen at confirmation time
 
 ## Grocery List
 
 ### Requirements
 
-- grouped by store section
-- checkable
-- inline quantity confirmation on check
-- checked items add to fridge inventory
-- completed items move into a done section
+- [x] grouped by store section
+- [x] checkable
+- [x] inline quantity confirmation on check
+- [x] checked items add to fridge inventory
+- [x] completed items move into a done section
 
 ### Store sections
 
@@ -104,20 +104,20 @@ Avoid:
 
 ### Important grocery logic
 
-- quantities must be consolidated
-- list should think in purchase units, not only recipe units
-- partial overlap across recipes should reduce waste
+- [x] quantities must be consolidated
+- [x] list should think in purchase units, not only recipe units
+- [x] partial overlap across recipes should reduce waste
 
 ## Fridge / Pantry / Freezer
 
 ### Requirements
 
-- track location
-- track quantity
-- track expiry or estimated shelf life
-- allow manual entry
-- allow grocery-imported entry
-- support “what can I make?”
+- [x] track location
+- [x] track quantity
+- [x] track expiry or estimated shelf life
+- [x] allow manual entry
+- [x] allow grocery-imported entry
+- [x] support “what can I make?”
 
 ### Important design rule
 
@@ -125,9 +125,9 @@ Fridge, pantry, and freezer must be distinct because timing and recipe logic dif
 
 ### Expiry behavior
 
-- estimated expiry can default from ingredient shelf-life rules
-- users can edit when needed
-- app highlights expiring items
+- [x] estimated expiry can default from ingredient shelf-life rules
+- [x] users can edit when needed
+- [x] app highlights expiring items
 
 ## What Can I Make?
 
@@ -143,22 +143,22 @@ This should be a top-level, highly visible fridge feature.
 
 ### Requirements
 
-- search by name
-- filter by cuisine
-- filter by time
-- filter by prep style
-- filter by “in my fridge” or available ingredients later
-- favorite/dislike signals
+- [x] search by name
+- [x] filter by cuisine
+- [x] filter by time
+- [x] filter by prep style
+- [ ] filter by “in my fridge” or available ingredients later
+- [x] favorite/dislike signals
 
 ## Recipe Detail
 
 Recipe detail should clearly separate:
 
-- prep-ahead steps
-- day-of active steps
-- day-of passive steps
-- core ingredients
-- optional modifiers
+- [x] prep-ahead steps
+- [x] day-of active steps
+- [x] day-of passive steps
+- [x] core ingredients
+- [x] optional modifiers
 
 ## Add / Edit Recipe
 
@@ -166,28 +166,28 @@ Recipe entry is one of the most important foundational systems because nearly ev
 
 ### Metadata required on recipes
 
-- name
-- cuisine
-- meal type tags
-- time tag
-- prep style tag
-- scalability tag
-- freezer-friendly flag
-- cook-fresh-only flag
-- base yield servings
-- ingredients with quantities and units
-- step list with timing tags
+- [x] name
+- [x] cuisine
+- [x] meal type tags
+- [x] time tag
+- [x] prep style tag
+- [x] scalability tag
+- [x] freezer-friendly flag
+- [x] cook-fresh-only flag
+- [x] base yield servings
+- [x] ingredients with quantities and units
+- [x] step list with timing tags
 
 ### AI-assisted recipe entry
 
 AI should assist with:
 
-- meal type tag suggestion
-- step categorization into prep-ahead / day-of active / day-of passive
-- ingredient standardization
-- purchase-unit suggestion
-- scalability tag suggestion
-- optional modifier detection
+- [ ] meal type tag suggestion
+- [ ] step categorization into prep-ahead / day-of active / day-of passive
+- [ ] ingredient standardization
+- [ ] purchase-unit suggestion
+- [ ] scalability tag suggestion
+- [ ] optional modifier detection
 
 Human review is still required before save.
 
@@ -197,10 +197,10 @@ Saved weeks should act like reusable templates.
 
 ### Requirements
 
-- allow naming
-- allow in-rotation flag
-- allow reload into a new week
-- visually preview week contents
+- [x] allow naming
+- [x] allow in-rotation flag
+- [x] allow reload into a new week
+- [x] visually preview week contents
 
 ### Important behavior
 
@@ -212,13 +212,13 @@ Rotation is a natural extension of saved weeks.
 
 ### Requirements
 
-- users can mark favorite weeks as in rotation
-- future generation can reuse them
-- app should detect conflicts:
-  - disliked recipes
-  - seasonal availability
-  - changed preferences
-- app should suggest swaps when a rotation week no longer cleanly fits
+- [x] users can mark favorite weeks as in rotation
+- [x] future generation can reuse them
+- [ ] app should detect conflicts:
+  - [ ] disliked recipes
+  - [ ] seasonal availability
+  - [ ] changed preferences
+- [ ] app should suggest swaps when a rotation week no longer cleanly fits
 
 ## Eating Out / Skip Support
 
@@ -226,9 +226,9 @@ Meal slots should support explicit “no meal generated here” behavior.
 
 ### Requirements
 
-- available directly on the slot
-- removes that slot from grocery generation
-- removes that slot from nutrition-gap logic for that meal
+- [x] available directly on the slot
+- [x] removes that slot from grocery generation
+- [x] removes that slot from nutrition-gap logic for that meal
 
 ## Leftovers and Freezing
 
@@ -236,9 +236,9 @@ This is a major planned differentiator.
 
 ### Requirements
 
-- rigid recipes can intentionally produce extra portions
-- app should proactively suggest freezing leftovers
-- frozen leftovers should become candidates for future planning
+- [ ] rigid recipes can intentionally produce extra portions
+- [ ] app should proactively suggest freezing leftovers
+- [ ] frozen leftovers should become candidates for future planning
 
 ## Receipt Scanning
 
