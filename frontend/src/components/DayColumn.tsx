@@ -11,6 +11,7 @@ interface DayColumnProps {
   isToday?: boolean;
   onSlotSelect: (slotId: number) => void;
   onSkipSlot?: (slotId: number) => void;
+  onClearSlot?: (slotId: number) => void;
   dayEatingOut?: boolean;
   togglePending?: boolean;
   onToggleEatingOut?: (next: boolean) => void;
@@ -23,6 +24,7 @@ export function DayColumn({
   isToday,
   onSlotSelect,
   onSkipSlot,
+  onClearSlot,
   dayEatingOut = false,
   togglePending = false,
   onToggleEatingOut,
@@ -45,7 +47,7 @@ export function DayColumn({
     <div
       className={cn(
         "flex min-h-0 min-w-0 flex-col overflow-visible rounded-2xl border bg-white p-3 shadow-sm sm:p-4",
-        isToday ? "border-2 border-nourish-sage bg-nourish-sage/[0.06]" : "border-nourish-border",
+        isToday ? "border-2 border-nourish-sage bg-[#f0f4f0]" : "border-nourish-border",
       )}
     >
       <div className={cn("mb-3 flex min-w-0 items-center gap-2", hasGap ? "justify-between" : "justify-start")}>
@@ -106,16 +108,28 @@ export function DayColumn({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3">
-        {slots.map((slot) => (
-          <MealCard
-            key={slot.id}
-            slot={slot}
-            recipe={recipes.find((recipe) => recipe.id === slot.recipeId)}
-            onSwap={() => onSlotSelect(slot.id)}
-            onDidntHappen={onSkipSlot ? () => onSkipSlot(slot.id) : undefined}
-          />
-        ))}
+      <div className="relative min-h-0 flex-1 space-y-3">
+        {dayEatingOut ? (
+          <div
+            className="pointer-events-auto absolute inset-0 z-[5] flex flex-col items-center justify-center rounded-xl bg-nourish-ink/20 px-2 text-center backdrop-blur-[1px]"
+            aria-hidden
+          >
+            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-nourish-ink shadow-sm">Eating out</span>
+            <span className="mt-2 text-[11px] font-medium text-nourish-ink/90">Meals paused for this day</span>
+          </div>
+        ) : null}
+        <div className={cn("space-y-3", dayEatingOut && "opacity-40")}>
+          {slots.map((slot) => (
+            <MealCard
+              key={slot.id}
+              slot={slot}
+              recipe={recipes.find((recipe) => recipe.id === slot.recipeId)}
+              onSwap={() => onSlotSelect(slot.id)}
+              onDidntHappen={onSkipSlot ? () => onSkipSlot(slot.id) : undefined}
+              onRemoveMeal={onClearSlot ? () => onClearSlot(slot.id) : undefined}
+            />
+          ))}
+        </div>
       </div>
 
       <div className="mt-3 shrink-0 border-t border-nourish-border/60 pt-3">

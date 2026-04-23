@@ -175,14 +175,11 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
     },
   });
 
-  function selectRecipe(recipe: Recipe) {
-    setPendingRecipe(recipe);
-    setSelectedTargetIds(slot ? [slot.id] : []);
-    const existingModifierIds =
-      slot?.recipeId === recipe.id
-        ? (slot.selectedModifierIngredientIds ?? [])
-        : [];
-    setSelectedModifierIds(existingModifierIds);
+  function applyRecipeNow(recipe: Recipe) {
+    if (!slot) return;
+    const modifierIds =
+      slot.recipeId === recipe.id ? (slot.selectedModifierIngredientIds ?? []) : [];
+    applyRecipeMutation.mutate({ recipeId: recipe.id, targetIds: [slot.id], modifierIds });
   }
 
   function toggleTargetSlot(slotId: number) {
@@ -214,6 +211,7 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
           open ? "translate-y-0" : "translate-y-full lg:translate-x-full lg:translate-y-0",
         )}
         onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
@@ -368,8 +366,8 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
                   key={recipe.id}
                   recipe={recipe}
                   compact
-                  onSelect={selectRecipe}
-                  actionLabel={pendingRecipe?.id === recipe.id ? "Selected below" : "Choose this recipe"}
+                  onSelect={applyRecipeNow}
+                  actionLabel="Choose this recipe"
                 />
               ))}
             </div>

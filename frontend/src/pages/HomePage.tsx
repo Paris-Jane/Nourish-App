@@ -11,6 +11,7 @@ import {
   parseISO,
   startOfMonth,
   startOfWeek,
+  subDays,
   subMonths,
 } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -23,12 +24,14 @@ import { DayColumn } from "components/DayColumn";
 import { ErrorBoundary } from "components/ErrorBoundary";
 import { SwapDrawer } from "components/SwapDrawer";
 import { useCurrentWeek, useFridgeItems, useGroupedSlots, useRecipes, useSavedWeeks, useWeekSlots } from "hooks/useAppData";
-import { createAutoWeekSlots, createBlankWeekSlots, createSavedWeekSlots, formatWeekRange, mealTypes, weekDays } from "lib/utils";
+import { useMatchMedia } from "hooks/useMatchMedia";
+import { mergeSavedTemplateIntoSlots } from "lib/applySavedTemplate";
+import { mockSavedTemplates } from "lib/mockData";
+import { cn, createAutoWeekSlots, createBlankWeekSlots, formatWeekRange, mealTypes, weekDays } from "lib/utils";
 import { isWeekColumnToday } from "lib/weekCalendar";
 import { useToast } from "hooks/useToast";
-import { mockSavedWeeks } from "lib/mockData";
 import { useWeekStore } from "store/weekStore";
-import type { MealType, Week, WeekDay } from "types/models";
+import type { MealType, SavedWeekTemplate, Week, WeekDay } from "types/models";
 
 const prepStyles = [
   { title: "Cook each night", value: "DayOf" },
@@ -44,12 +47,11 @@ function getWeekStartForDate(date: Date) {
 
 export function HomePage() {
   const queryClient = useQueryClient();
-  const { week } = useCurrentWeek();
+  const { week, anchorWeekStartDate } = useCurrentWeek();
   const { slots } = useWeekSlots();
   const { grouped } = useGroupedSlots();
   const { recipes } = useRecipes();
   const { items: fridgeItems } = useFridgeItems();
-  const { savedWeeks } = useSavedWeeks();
   const { pushToast } = useToast();
   const selectedSlotId = useWeekStore((state) => state.selectedSlotId);
   const selectSlot = useWeekStore((state) => state.selectSlot);
@@ -63,6 +65,8 @@ export function HomePage() {
   const activeWeekLabel = useWeekStore((state) => state.activeWeekLabel);
   const setActiveWeekLabel = useWeekStore((state) => state.setActiveWeekLabel);
   const setActiveWeekId = useWeekStore((state) => state.setActiveWeekId);
+  const setVisibleWeekStartDate = useWeekStore((state) => state.setVisibleWeekStartDate);
+  const isDesktopNav = useMatchMedia("(min-width: 1024px)");
 
   const weekStartDate = useMemo(() => parseISO(week.weekStartDate), [week.weekStartDate]);
   const defaultNextWeekStart = useMemo(() => addDays(weekStartDate, 7), [weekStartDate]);
@@ -72,10 +76,13 @@ export function HomePage() {
   const [pendingWeekStart, setPendingWeekStart] = useState(defaultNextWeekStart);
   const [selectedPrepStyle, setSelectedPrepStyle] = useState("OnePrepDay");
   const [selectedTime, setSelectedTime] = useState("Under45");
-  const [savedWeekSelection, setSavedWeekSelection] = useState<number | null>(savedWeeks[0]?.id ?? null);
+  const { savedTemplates } = useSavedWeeks();
+  const [savedWeekSelection, setSavedWeekSelection] = useState<number | null>(savedTemplates[0]?.id ?? null);
   const [simpleNewWeekOpen, setSimpleNewWeekOpen] = useState(false);
   const [approveReviewOpen, setApproveReviewOpen] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [loadTemplateOpen, setLoadTemplateOpen] = useState(false);
+  const [clearWeekOpen, setClearWeekOpen] = useState(false);
   const [dotsHelpOpen, setDotsHelpOpen] = useState(false);
   const [showJumpToToday, setShowJumpToToday] = useState(false);
   const weekScrollerRef = useRef<HTMLDivElement>(null);
@@ -106,6 +113,22 @@ export function HomePage() {
     return () => document.removeEventListener("mousedown", close);
   }, [dotsHelpOpen]);
 
+  useEffect(() => {
+    setSlotOverrides(null);
+  }, [week.weekStartDate, setSlotOverrides]);
+
+  useEffect(() => {
+    if (viewMode !== "week") return;
+    const mq = window.matchMedia("(max-width: 1023px)");
+    if (!mq.matches) return;
+    const todayDay = weekDays.find((day) => isWeekColumnToday(week.weekStartDate, day as WeekDay));
+    if (!todayDay) return;
+    const id = requestAnimationFrame(() => {
+      dayRefs.current[todayDay]?.scrollIntoView({ behavior: "auto", inline: "start", block: "nearest" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [week.weekStartDate, viewMode]);
+
   const selectedSlot = useMemo(
     () => Object.values(grouped).flat().find((slot) => slot.id === selectedSlotId),
     [grouped, selectedSlotId],
@@ -113,11 +136,11 @@ export function HomePage() {
 
   const mainSlots = useMemo(() => slots.filter((slot) => slot.mealType !== "Snack"), [slots]);
   const coveredMainSlots = useMemo(
-    () => mainSlots.filter((slot) => slot.recipeId || slot.isEatingOut).length,
+    () => mainSlots.filter((slot) => slot.recipeId || slot.isEatingOut || slot.isSkipped).length,
     [mainSlots],
   );
-  const openMainSlots = Math.max(0, mainSlots.length - coveredMainSlots);
-  const isApproved = week.status === "Active";
+  const unplannedMainSlots = Math.max(0, mainSlots.length - coveredMainSlots);
+  const isApproved = week.status === "Confirmed";
 
   const monthDays = useMemo(
     () =>
@@ -126,6 +149,19 @@ export function HomePage() {
         end: endOfWeek(endOfMonth(monthCursor), { weekStartsOn: 1 }),
       }),
     [monthCursor],
+  );
+
+  const monthWeekRows = useMemo(() => {
+    const rows: Date[][] = [];
+    for (let i = 0; i < monthDays.length; i += 7) {
+      rows.push(monthDays.slice(i, i + 7));
+    }
+    return rows;
+  }, [monthDays]);
+
+  const slotDatesWithRecipes = useMemo(
+    () => new Set(slots.filter((s) => s.recipeId).map((s) => s.planDate)),
+    [slots],
   );
 
   const startWeekMutation = useMutation({
@@ -140,24 +176,22 @@ export function HomePage() {
       if (mode === "auto") {
         await generateWeek(createdWeek.id);
       } else if (mode === "saved") {
-        const savedWeek = savedWeeks.find((entry) => entry.id === savedWeekSelection) ?? savedWeeks[0];
-        if (savedWeek) {
-          const [templateSlots, newSlots] = await Promise.all([getWeekSlots(savedWeek.id), getWeekSlots(createdWeek.id)]);
-          const visibleTemplateSlots = templateSlots.filter((slot) => visibleMealTypes.includes(slot.mealType));
-          const slotMap = new Map(
-            newSlots.map((slot) => [`${slot.dayOfWeek}-${slot.mealType}`, slot] as const),
-          );
+        const tmpl = savedTemplates.find((entry) => entry.id === savedWeekSelection) ?? savedTemplates[0];
+        if (tmpl) {
+          const newSlots = await getWeekSlots(createdWeek.id);
+          const slotMap = new Map(newSlots.map((slot) => [`${slot.dayOfWeek}-${slot.mealType}`, slot] as const));
 
-          for (const templateSlot of visibleTemplateSlots) {
-            const targetSlot = slotMap.get(`${templateSlot.dayOfWeek}-${templateSlot.mealType}`);
+          for (const row of tmpl.slots) {
+            if (!visibleMealTypes.includes(row.mealType)) continue;
+            const targetSlot = slotMap.get(`${row.dayOfWeek}-${row.mealType}`);
             if (!targetSlot) continue;
             await swapSlot(createdWeek.id, targetSlot.id, {
-              recipeId: templateSlot.recipeId ?? null,
-              selectedModifierIngredientIds: templateSlot.selectedModifierIngredientIds ?? [],
-              isEatingOut: templateSlot.isEatingOut,
-              isSkipped: templateSlot.isSkipped,
-              isLocked: templateSlot.isLocked,
-              servingsPlanned: templateSlot.servingsPlanned,
+              recipeId: row.recipeId,
+              selectedModifierIngredientIds: [],
+              isEatingOut: row.isEatingOut,
+              isSkipped: row.isSkipped,
+              isLocked: false,
+              servingsPlanned: 2,
             });
           }
         }
@@ -182,8 +216,8 @@ export function HomePage() {
         setActiveWeekLabel("Manual week");
         pushToast("Blank week created. Tap any slot to start adding meals.");
       } else if (useWeekStore.getState().planningMode === "saved") {
-        const savedWeek = savedWeeks.find((entry) => entry.id === savedWeekSelection) ?? savedWeeks[0];
-        setActiveWeekLabel(savedWeek?.templateName ?? "Saved week");
+        const tmpl = savedTemplates.find((entry) => entry.id === savedWeekSelection) ?? savedTemplates[0];
+        setActiveWeekLabel(tmpl?.name ?? "Saved week");
         pushToast("Saved week loaded into a new planner.");
       } else {
         setActiveWeekLabel("Auto-planned week");
@@ -194,7 +228,7 @@ export function HomePage() {
       const nextWeekId = (week.id ?? 1) + 1;
 
       if (useWeekStore.getState().planningMode === "manual") {
-        setSlotOverrides(createBlankWeekSlots(nextWeekId, visibleMealTypes));
+        setSlotOverrides(createBlankWeekSlots(nextWeekId, visibleMealTypes, formatISO(weekStartDate, { representation: "date" })));
         setActiveWeekLabel("Manual week");
         setSimpleNewWeekOpen(false);
         setViewMode("week");
@@ -203,17 +237,12 @@ export function HomePage() {
       }
 
       if (useWeekStore.getState().planningMode === "saved") {
-        const savedWeek = savedWeeks.find((entry) => entry.id === savedWeekSelection) ?? savedWeeks[0];
-        if (savedWeek) {
+        const tmpl = savedTemplates.find((entry) => entry.id === savedWeekSelection) ?? savedTemplates[0];
+        if (tmpl) {
           setSlotOverrides(
-            createSavedWeekSlots({
-              weekId: nextWeekId,
-              visibleMealTypes,
-              recipes,
-              seed: savedWeek.id,
-            }),
+            mergeSavedTemplateIntoSlots(tmpl, nextWeekId, formatISO(weekStartDate, { representation: "date" }), recipes),
           );
-          setActiveWeekLabel(savedWeek.templateName ?? "Saved week");
+          setActiveWeekLabel(tmpl.name);
         }
         setSimpleNewWeekOpen(false);
         setViewMode("week");
@@ -241,28 +270,81 @@ export function HomePage() {
       const templateName = `Week of ${format(parseISO(approvedWeek.weekStartDate), "MMM d")}`;
       const enriched: Week = {
         ...approvedWeek,
-        status: "Active",
+        status: "Confirmed",
         isSavedTemplate: true,
         templateName,
       };
       queryClient.setQueryData(["week", enriched.id], enriched);
-      const existing = queryClient.getQueryData<Week[]>(["saved-weeks"]) ?? [...mockSavedWeeks];
-      const idx = existing.findIndex((w) => w.id === enriched.id);
-      const nextSaved = idx >= 0 ? existing.map((w, i) => (i === idx ? enriched : w)) : [...existing, enriched];
+      const snapshot: SavedWeekTemplate = {
+        id: enriched.id,
+        householdId: enriched.householdId,
+        name: templateName,
+        createdAt: new Date().toISOString(),
+        slots: slots.map((s) => ({
+          dayOfWeek: s.dayOfWeek,
+          mealType: s.mealType,
+          recipeId: s.recipeId ?? null,
+          recipeName: s.recipeName ?? null,
+          isEatingOut: s.isEatingOut,
+          isSkipped: s.isSkipped,
+        })),
+      };
+      const existing = queryClient.getQueryData<SavedWeekTemplate[]>(["saved-weeks"]) ?? [...mockSavedTemplates];
+      const idx = existing.findIndex((w) => w.id === snapshot.id);
+      const nextSaved = idx >= 0 ? existing.map((w, i) => (i === idx ? snapshot : w)) : [...existing, snapshot];
       queryClient.setQueryData(["saved-weeks"], nextSaved);
       setApproveReviewOpen(false);
       pushToast("Week saved to your library.");
     },
     onError: () => {
       const templateName = `Week of ${format(parseISO(week.weekStartDate), "MMM d")}`;
-      const enriched: Week = { ...week, status: "Active", isSavedTemplate: true, templateName };
+      const enriched: Week = { ...week, status: "Confirmed", isSavedTemplate: true, templateName };
       queryClient.setQueryData(["week", enriched.id], enriched);
-      const existing = queryClient.getQueryData<Week[]>(["saved-weeks"]) ?? [...mockSavedWeeks];
-      const idx = existing.findIndex((w) => w.id === enriched.id);
-      const nextSaved = idx >= 0 ? existing.map((w, i) => (i === idx ? enriched : w)) : [...existing, enriched];
+      const snapshot: SavedWeekTemplate = {
+        id: enriched.id,
+        householdId: enriched.householdId,
+        name: templateName,
+        createdAt: new Date().toISOString(),
+        slots: slots.map((s) => ({
+          dayOfWeek: s.dayOfWeek,
+          mealType: s.mealType,
+          recipeId: s.recipeId ?? null,
+          recipeName: s.recipeName ?? null,
+          isEatingOut: s.isEatingOut,
+          isSkipped: s.isSkipped,
+        })),
+      };
+      const existing = queryClient.getQueryData<SavedWeekTemplate[]>(["saved-weeks"]) ?? [...mockSavedTemplates];
+      const idx = existing.findIndex((w) => w.id === snapshot.id);
+      const nextSaved = idx >= 0 ? existing.map((w, i) => (i === idx ? snapshot : w)) : [...existing, snapshot];
       queryClient.setQueryData(["saved-weeks"], nextSaved);
       setApproveReviewOpen(false);
       pushToast("Week saved to your library.");
+    },
+  });
+
+  const clearSlotMutation = useMutation({
+    mutationFn: async (slotId: number) => {
+      await swapSlot(week.id, slotId, {
+        recipeId: null,
+        selectedModifierIngredientIds: [],
+        isSkipped: false,
+        isEatingOut: false,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+      setSlotOverrides(null);
+      pushToast("Meal removed.");
+    },
+    onError: (_err, slotId) => {
+      const next = slots.map((s) =>
+        s.id === slotId
+          ? { ...s, recipeId: null, recipeName: null, selectedModifierIngredientIds: [], isSkipped: false, isEatingOut: false }
+          : s,
+      );
+      setSlotOverrides(next);
+      pushToast("Meal cleared (preview).");
     },
   });
 
@@ -324,8 +406,7 @@ export function HomePage() {
     const next = visibleMealTypes.includes(mealType)
       ? visibleMealTypes.filter((entry) => entry !== mealType)
       : [...visibleMealTypes, mealType];
-
-    if (next.length > 0) setVisibleMealTypes(next);
+    setVisibleMealTypes(next);
   }
 
   function openSimpleNewWeek(startDate = defaultNextWeekStart, mode: "auto" | "manual" = "auto") {
@@ -392,12 +473,34 @@ export function HomePage() {
     <ErrorBoundary>
       <div className="relative pb-[calc(9rem+env(safe-area-inset-bottom))] pt-1 lg:pb-28 lg:pt-2">
         <header className="sticky top-0 z-30 border-b border-nourish-border/80 bg-nourish-bg/95 px-4 py-3 backdrop-blur-md lg:relative lg:z-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
-          <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-2">
-            <h1 className="justify-self-start font-heading text-2xl tracking-tight text-nourish-ink sm:text-3xl">Nourish</h1>
-            <p className="justify-self-center text-center text-[11px] leading-tight text-nourish-muted sm:text-sm">
-              {formatWeekRange(week.weekStartDate)}
-            </p>
-            <div className="relative justify-self-end" ref={headerMenuRef}>
+          <div className="mx-auto flex w-full max-w-[min(100%,1170px)] items-center gap-2">
+            <h1 className="shrink-0 font-heading text-2xl tracking-tight text-nourish-ink sm:text-3xl lg:hidden">Nourish</h1>
+            <div className="flex min-w-0 flex-1 items-center justify-center gap-1 sm:gap-2">
+              <button
+                type="button"
+                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white text-nourish-ink shadow-sm transition hover:bg-nourish-bg"
+                aria-label="Previous week"
+                onClick={() =>
+                  setVisibleWeekStartDate(formatISO(subDays(parseISO(week.weekStartDate), 7), { representation: "date" }))
+                }
+              >
+                <ChevronLeft size={22} />
+              </button>
+              <p className="min-w-0 truncate px-1 text-center text-[11px] leading-tight text-nourish-muted sm:text-sm">
+                {formatWeekRange(week.weekStartDate)}
+              </p>
+              <button
+                type="button"
+                className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white text-nourish-ink shadow-sm transition hover:bg-nourish-bg"
+                aria-label="Next week"
+                onClick={() =>
+                  setVisibleWeekStartDate(formatISO(addDays(parseISO(week.weekStartDate), 7), { representation: "date" }))
+                }
+              >
+                <ChevronRight size={22} />
+              </button>
+            </div>
+            <div className="relative shrink-0 justify-self-end" ref={headerMenuRef}>
               <button
                 type="button"
                 className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-nourish-muted transition hover:bg-nourish-border/40 hover:text-nourish-ink"
@@ -408,11 +511,44 @@ export function HomePage() {
               >
                 <MoreHorizontal size={22} strokeWidth={2} />
               </button>
-              {headerMenuOpen ? (
+              {headerMenuOpen && isDesktopNav ? (
                 <div
                   role="menu"
-                  className="absolute right-0 top-full z-40 mt-1 w-52 overflow-hidden rounded-xl border border-nourish-border bg-white py-1 text-sm shadow-lg"
+                  className="absolute right-0 top-full z-40 mt-1 w-56 overflow-hidden rounded-xl border border-nourish-border bg-white py-1 text-sm shadow-lg"
                 >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full px-4 py-3 text-left text-nourish-ink hover:bg-nourish-bg"
+                    onClick={() => {
+                      setHeaderMenuOpen(false);
+                      setLoadTemplateOpen(true);
+                    }}
+                  >
+                    Load a saved week
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full px-4 py-3 text-left text-nourish-ink hover:bg-nourish-bg"
+                    onClick={() => {
+                      setHeaderMenuOpen(false);
+                      setClearWeekOpen(true);
+                    }}
+                  >
+                    Clear this week
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full px-4 py-3 text-left text-nourish-ink hover:bg-nourish-bg"
+                    onClick={() => {
+                      setHeaderMenuOpen(false);
+                      setViewMode("month");
+                    }}
+                  >
+                    View month
+                  </button>
                   <button
                     type="button"
                     role="menuitem"
@@ -441,24 +577,104 @@ export function HomePage() {
                     className="flex w-full px-4 py-3 text-nourish-ink hover:bg-nourish-bg"
                     onClick={() => setHeaderMenuOpen(false)}
                   >
-                    Saved weeks
+                    Saved weeks library
                   </Link>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="flex w-full px-4 py-3 text-left text-nourish-ink hover:bg-nourish-bg"
-                    onClick={() => {
-                      setHeaderMenuOpen(false);
-                      setViewMode((m) => (m === "week" ? "month" : "week"));
-                    }}
-                  >
-                    {viewMode === "week" ? "Browse months" : "Back to week"}
-                  </button>
                 </div>
               ) : null}
             </div>
           </div>
         </header>
+
+        <BottomSheet open={headerMenuOpen && !isDesktopNav} title="Menu" onClose={() => setHeaderMenuOpen(false)}>
+          <div className="space-y-2">
+            <button
+              type="button"
+              className="button-secondary w-full"
+              onClick={() => {
+                setHeaderMenuOpen(false);
+                setLoadTemplateOpen(true);
+              }}
+            >
+              Load a saved week
+            </button>
+            <button
+              type="button"
+              className="button-secondary w-full"
+              onClick={() => {
+                setHeaderMenuOpen(false);
+                setClearWeekOpen(true);
+              }}
+            >
+              Clear this week
+            </button>
+            <button
+              type="button"
+              className="button-secondary w-full"
+              onClick={() => {
+                setHeaderMenuOpen(false);
+                setViewMode("month");
+              }}
+            >
+              View month
+            </button>
+            <button
+              type="button"
+              className="button-secondary w-full"
+              onClick={() => {
+                setHeaderMenuOpen(false);
+                openSimpleNewWeek(defaultNextWeekStart, "auto");
+              }}
+            >
+              New week
+            </button>
+            <button
+              type="button"
+              className="button-secondary w-full"
+              onClick={() => {
+                setHeaderMenuOpen(false);
+                buildMyself();
+              }}
+            >
+              Build it myself
+            </button>
+            <Link to="/saved-weeks" className="button-secondary flex w-full justify-center" onClick={() => setHeaderMenuOpen(false)}>
+              Saved weeks library
+            </Link>
+          </div>
+        </BottomSheet>
+
+        {viewMode === "week" ? (
+          <div className="mx-auto mb-2 flex max-w-[min(100%,1170px)] justify-between gap-0.5 px-4 lg:hidden">
+            {weekDays.map((day, i) => {
+              const colDate = addDays(weekStartDate, i);
+              const colToday = isToday(colDate);
+              const daySlots = slots.filter((s) => s.dayOfWeek === day);
+              const mains = daySlots.filter((s) => s.mealType !== "Snack");
+              const hasOpen = mains.some((s) => !s.recipeId && !s.isEatingOut && !s.isSkipped);
+              const allSettled = mains.length > 0 && !hasOpen;
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => {
+                    dayRefs.current[day]?.scrollIntoView({ behavior: "auto", inline: "start", block: "nearest" });
+                  }}
+                  className={cn(
+                    "flex min-h-[44px] min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-0.5 py-1 text-[11px] leading-tight transition",
+                    colToday ? "bg-nourish-sage font-semibold text-white shadow-sm" : "text-nourish-ink hover:bg-nourish-bg",
+                  )}
+                >
+                  <span className="font-semibold">{day.slice(0, 3)}</span>
+                  <span className={colToday ? "text-white/95" : "text-nourish-muted"}>{format(colDate, "d")}</span>
+                  <span className="mt-0.5 flex h-2 items-center justify-center">
+                    {allSettled ? <span className="h-1.5 w-1.5 rounded-full bg-nourish-sage" /> : null}
+                    {!allSettled && hasOpen ? <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
 
         {showJumpToToday && viewMode === "week" ? (
           <button
@@ -474,7 +690,7 @@ export function HomePage() {
         ) : null}
 
         {viewMode === "week" ? (
-          <section className="mx-auto max-w-6xl px-4 pb-2">
+          <section className="mx-auto w-full max-w-[min(100%,1170px)] px-4 pb-2">
             <div className="overflow-hidden rounded-2xl border border-nourish-border bg-white shadow-sm">
               <div className="flex flex-wrap items-center gap-2 border-b border-nourish-border/70 px-4 py-3">
                 {mealTypes.map((mealType) => (
@@ -514,7 +730,7 @@ export function HomePage() {
               <div className="relative">
                 <div
                   ref={weekScrollerRef}
-                  className="flex w-full snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 py-3 lg:grid lg:grid-cols-7 lg:gap-3 lg:overflow-visible lg:px-3 lg:py-3"
+                  className="flex w-full snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-24 pt-3 max-lg:pb-24 lg:grid lg:min-w-0 lg:grid-cols-7 lg:gap-2 lg:overflow-visible lg:px-3 lg:pb-6 lg:pt-3"
                 >
                   {weekDays.map((day) => (
                     <div
@@ -538,6 +754,7 @@ export function HomePage() {
                           setSwapDrawerOpen(true);
                         }}
                         onSkipSlot={(slotId) => skipSlotMutation.mutate(slotId)}
+                        onClearSlot={(slotId) => clearSlotMutation.mutate(slotId)}
                       />
                     </div>
                   ))}
@@ -554,75 +771,79 @@ export function HomePage() {
             </div>
           </section>
         ) : (
-          <section className="mx-auto max-w-6xl px-4 pb-2">
+          <section className="mx-auto w-full max-w-[min(100%,1170px)] px-4 pb-2">
             <div className="rounded-2xl border border-nourish-border bg-white p-4 shadow-sm lg:p-5">
-              <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-xs font-semibold tracking-wide text-nourish-muted">Month view</p>
-                  <h2 className="mt-2 text-2xl sm:text-3xl text-nourish-ink">{format(monthCursor, "MMMM yyyy")}</h2>
-                  <p className="mt-2 text-sm text-nourish-muted">Tap a week to open it in your planner.</p>
-                </div>
-                <div className="flex items-center gap-2 self-start lg:self-auto">
-                  <button type="button" className="button-secondary h-11 w-11 p-0" onClick={() => setMonthCursor((current) => subMonths(current, 1))} aria-label="Previous month">
-                    <ChevronLeft size={18} className="mx-auto" />
-                  </button>
-                  <button type="button" className="button-secondary" onClick={() => setMonthCursor(startOfMonth(new Date()))}>
-                    Current month
-                  </button>
-                  <button type="button" className="button-secondary h-11 w-11 p-0" onClick={() => setMonthCursor((current) => addMonths(current, 1))} aria-label="Next month">
-                    <ChevronRight size={18} className="mx-auto" />
-                  </button>
-                </div>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  className="button-secondary flex min-h-11 min-w-11 shrink-0 items-center justify-center p-0"
+                  onClick={() => setMonthCursor((current) => subMonths(current, 1))}
+                  aria-label="Previous month"
+                >
+                  <ChevronLeft size={20} className="mx-auto" />
+                </button>
+                <h2 className="min-w-0 flex-1 text-center text-lg font-semibold text-nourish-ink sm:text-xl">
+                  {format(monthCursor, "MMMM yyyy")}
+                </h2>
+                <button
+                  type="button"
+                  className="button-secondary flex min-h-11 min-w-11 shrink-0 items-center justify-center p-0"
+                  onClick={() => setMonthCursor((current) => addMonths(current, 1))}
+                  aria-label="Next month"
+                >
+                  <ChevronRight size={20} className="mx-auto" />
+                </button>
               </div>
-
-              <div className="mb-3 grid grid-cols-7 gap-2 text-center text-[11px] font-semibold tracking-wide text-nourish-muted">
+              <button type="button" className="button-secondary mb-4 w-full" onClick={() => setViewMode("week")}>
+                Back to week
+              </button>
+              <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase tracking-wide text-nourish-muted">
                 {weekDays.map((day) => (
                   <div key={day}>{day.slice(0, 3)}</div>
                 ))}
               </div>
-
-              <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-                {monthDays.map((date) => {
-                  const dayWeekStart = getWeekStartForDate(date);
-                  const inActiveWeek = formatISO(dayWeekStart, { representation: "date" }) === formatISO(weekStartDate, { representation: "date" });
-                  const inCurrentMonth = isSameMonth(date, monthCursor);
-
+              <div className="space-y-1.5">
+                {monthWeekRows.map((row) => {
+                  const rowStart = getWeekStartForDate(row[0]);
+                  const rowWeekIso = formatISO(rowStart, { representation: "date" });
+                  const isPlannerWeek = rowWeekIso === formatISO(parseISO(week.weekStartDate), { representation: "date" });
                   return (
                     <button
-                      key={date.toISOString()}
+                      key={rowWeekIso}
                       type="button"
                       onClick={() => {
-                        if (inActiveWeek) {
-                          setViewMode("week");
-                          return;
-                        }
-                        setPlanningMode("auto");
-                        openSimpleNewWeek(dayWeekStart, "auto");
+                        setVisibleWeekStartDate(rowWeekIso);
+                        setViewMode("week");
                       }}
-                      className={`min-h-[68px] rounded-[1.1rem] border p-2 text-left transition sm:min-h-[74px] sm:rounded-2xl ${
-                        inActiveWeek
-                          ? "border-nourish-sage bg-nourish-sage/12"
-                          : inCurrentMonth
-                            ? "border-nourish-border bg-[#fcfaf7] hover:border-nourish-sage/30 hover:bg-nourish-bg"
-                            : "border-transparent bg-[#f6f1ea] text-nourish-muted/70"
-                      }`}
+                      className={cn(
+                        "flex w-full rounded-2xl border p-1.5 text-left transition sm:p-2",
+                        isPlannerWeek ? "border-nourish-sage bg-nourish-sage/10" : "border-nourish-border bg-[#fcfaf7] hover:border-nourish-sage/30",
+                      )}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className={`text-sm font-medium ${inCurrentMonth ? "text-nourish-ink" : "text-nourish-muted"}`}>
-                          {format(date, "d")}
-                        </span>
-                        {isToday(date) ? (
-                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold tracking-wide text-nourish-sage">Today</span>
-                        ) : null}
-                      </div>
-                      <div className="mt-6 flex flex-wrap gap-1">
-                        {inActiveWeek ? (
-                          <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold tracking-wide text-nourish-sage">Current week</span>
-                        ) : null}
-                        {!inActiveWeek && inCurrentMonth ? (
-                          <span className="rounded-full bg-white/90 px-2 py-1 text-[10px] font-semibold tracking-wide text-nourish-muted">Start week</span>
-                        ) : null}
-                      </div>
+                      {row.map((date) => {
+                        const iso = formatISO(date, { representation: "date" });
+                        const inMonth = isSameMonth(date, monthCursor);
+                        const planned = slotDatesWithRecipes.has(iso);
+                        const today = isToday(date);
+                        return (
+                          <div key={iso} className="flex min-w-0 flex-1 flex-col items-center gap-1 py-1 text-center">
+                            <span
+                              className={cn(
+                                "flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium",
+                                today ? "border-2 border-nourish-sage text-nourish-sage" : "",
+                                !inMonth ? "text-nourish-muted/60" : "text-nourish-ink",
+                              )}
+                            >
+                              {format(date, "d")}
+                            </span>
+                            {planned ? (
+                              <span className="h-1.5 w-1.5 rounded-full bg-nourish-sage" aria-hidden />
+                            ) : (
+                              <span className="h-1.5 w-1.5" aria-hidden />
+                            )}
+                          </div>
+                        );
+                      })}
                     </button>
                   );
                 })}
@@ -632,27 +853,30 @@ export function HomePage() {
         )}
 
         <div className="pointer-events-none fixed inset-x-0 z-[26] flex justify-center px-4 pt-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] lg:bottom-8 lg:px-8">
-          <div className="pointer-events-auto flex w-full max-w-6xl items-center justify-between gap-3 rounded-2xl border border-nourish-border bg-white/95 px-4 py-3 shadow-lg backdrop-blur-md">
+          <div className="pointer-events-auto flex w-full max-w-[min(100%,1170px)] items-center justify-between gap-3 rounded-2xl border border-nourish-border bg-white/95 px-4 py-3 shadow-lg backdrop-blur-md">
             <div className="min-w-0 flex-1 text-sm text-nourish-ink">
               {isApproved ? (
                 <Link to="/prep-sheet" className="font-medium text-nourish-sage underline-offset-2 hover:underline">
                   Approved · View prep sheet →
                 </Link>
-              ) : openMainSlots === 0 ? (
+              ) : unplannedMainSlots === 0 ? (
                 <span>Ready to approve</span>
               ) : (
                 <span>
-                  Draft · {openMainSlots} meal{openMainSlots === 1 ? "" : "s"} open
+                  {unplannedMainSlots} meal{unplannedMainSlots === 1 ? "" : "s"} unplanned this week
                 </span>
               )}
             </div>
-            {!isApproved ? (
+            {!isApproved && unplannedMainSlots === 0 ? (
               <button
                 type="button"
                 className="shrink-0 rounded-full bg-nourish-sage px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-nourish-sage/90"
-                onClick={() => setApproveReviewOpen(true)}
+                onClick={() => {
+                  setSwapDrawerOpen(false);
+                  setApproveReviewOpen(true);
+                }}
               >
-                Approve week →
+                Approve →
               </button>
             ) : null}
           </div>
@@ -719,9 +943,9 @@ export function HomePage() {
           </div>
         </BottomSheet>
 
-        <BottomSheet open={approveReviewOpen} title="Review your week" onClose={() => setApproveReviewOpen(false)}>
+        <BottomSheet open={approveReviewOpen} title="Confirm week" onClose={() => setApproveReviewOpen(false)}>
           <div className="space-y-4">
-            <p className="text-sm text-nourish-muted">Scan every day before you lock the plan in.</p>
+            <p className="text-sm text-nourish-muted">Review this week before saving it to your library.</p>
             <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
               {weekDays.map((day) => {
                 const daySlots = slots.filter((s) => s.dayOfWeek === day);
@@ -729,14 +953,20 @@ export function HomePage() {
                   <div key={day} className="rounded-xl border border-nourish-border bg-nourish-bg/40 p-3">
                     <p className="text-xs font-semibold tracking-wide text-nourish-muted">{day}</p>
                     <ul className="mt-2 space-y-1.5 text-sm text-nourish-ink">
-                      {daySlots.map((s) => (
-                        <li key={s.id} className="flex justify-between gap-2">
-                          <span className="text-nourish-muted">{s.mealType}</span>
-                          <span className="min-w-0 text-right">
-                            {s.isSkipped ? "Skipped" : s.isEatingOut ? "Eating out" : s.recipeName ?? "Open"}
-                          </span>
-                        </li>
-                      ))}
+                      {daySlots.map((s) => {
+                        const open =
+                          s.mealType !== "Snack" && !s.recipeId && !s.isEatingOut && !s.isSkipped;
+                        return (
+                          <li key={s.id} className="flex justify-between gap-2">
+                            <span className="text-nourish-muted">{s.mealType}</span>
+                            <span
+                              className={`min-w-0 text-right ${open ? "rounded-md bg-amber-100/90 px-2 py-0.5 font-medium text-amber-950" : ""}`}
+                            >
+                              {s.isSkipped ? "Skipped" : s.isEatingOut ? "Eating out" : s.recipeName ?? "Open"}
+                            </span>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 );
@@ -748,10 +978,58 @@ export function HomePage() {
               onClick={() => approveWeekMutation.mutate()}
               disabled={approveWeekMutation.isPending}
             >
-              Looks good — approve →
+              Confirm & approve
             </button>
             <button type="button" className="button-secondary w-full" onClick={() => setApproveReviewOpen(false)}>
               Keep editing
+            </button>
+          </div>
+        </BottomSheet>
+
+        <BottomSheet open={loadTemplateOpen} title="Saved weeks" onClose={() => setLoadTemplateOpen(false)}>
+          <div className="space-y-3">
+            {savedTemplates.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className="w-full rounded-2xl border border-nourish-border bg-white p-4 text-left transition hover:border-nourish-sage/40 hover:bg-nourish-bg/60"
+                onClick={() => {
+                  setSlotOverrides(mergeSavedTemplateIntoSlots(t, week.id, week.weekStartDate, recipes));
+                  setLoadTemplateOpen(false);
+                  pushToast(`Loaded “${t.name}” into this week.`);
+                }}
+              >
+                <p className="font-semibold text-nourish-ink">{t.name}</p>
+                <p className="mt-2 line-clamp-2 text-xs text-nourish-muted">
+                  {t.slots
+                    .filter((s) => s.recipeName)
+                    .slice(0, 4)
+                    .map((s) => s.recipeName)
+                    .join(" · ")}
+                </p>
+              </button>
+            ))}
+          </div>
+        </BottomSheet>
+
+        <BottomSheet open={clearWeekOpen} title="Clear this week?" onClose={() => setClearWeekOpen(false)}>
+          <div className="space-y-4">
+            <p className="text-sm text-nourish-muted">
+              Clear all meals for {formatWeekRange(week.weekStartDate)}? This can&apos;t be undone.
+            </p>
+            <button
+              type="button"
+              className="button-primary w-full"
+              onClick={() => {
+                setSlotOverrides(createBlankWeekSlots(week.id, [...mealTypes], week.weekStartDate));
+                setClearWeekOpen(false);
+                pushToast("Week cleared.");
+              }}
+            >
+              Clear all meals
+            </button>
+            <button type="button" className="button-secondary w-full" onClick={() => setClearWeekOpen(false)}>
+              Cancel
             </button>
           </div>
         </BottomSheet>

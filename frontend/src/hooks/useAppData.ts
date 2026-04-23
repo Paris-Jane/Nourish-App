@@ -6,31 +6,49 @@ import { getRecipes } from "api/recipes";
 import { getSavedWeeks } from "api/savedWeeks";
 import { getWeek, getWeekSlots } from "api/weeks";
 import { usePreviewQuery } from "./usePreviewQuery";
-import { mockFridgeItems, mockGroceryList, mockIngredients, mockRecipes, mockSavedWeeks, mockSlots, mockWeek } from "lib/mockData";
+import { buildBlankSlotsForWeek } from "lib/mealPlanDates";
+import { mockFridgeItems, mockGroceryList, mockIngredients, mockRecipes, mockSavedTemplates, mockSlots, mockWeek } from "lib/mockData";
+import { mealTypes, weekDays } from "lib/utils";
 import { useWeekStore } from "store/weekStore";
-import type { FridgeItem, GroceryList, Ingredient, Recipe, Week, WeekMealSlot } from "types/models";
+import type { FridgeItem, GroceryList, Ingredient, Recipe, SavedWeekTemplate, Week, WeekMealSlot } from "types/models";
 
-export function useCurrentWeek(): { week: Week; isLoading: boolean } {
+export function useCurrentWeek(): { week: Week; anchorWeekStartDate: string; isLoading: boolean } {
   const activeWeekId = useWeekStore((state) => state.activeWeekId) ?? 1;
+  const visibleWeekStartDate = useWeekStore((state) => state.visibleWeekStartDate);
   const query = usePreviewQuery({
     queryKey: ["week", activeWeekId],
     queryFn: () => getWeek(activeWeekId),
     fallbackData: mockWeek,
   });
 
-  return { week: query.data ?? mockWeek, isLoading: query.isLoading };
+  const data = query.data ?? mockWeek;
+  const anchorWeekStartDate = data.weekStartDate;
+  const week = { ...data, weekStartDate: visibleWeekStartDate ?? data.weekStartDate };
+
+  return { week, anchorWeekStartDate, isLoading: query.isLoading };
 }
 
 export function useWeekSlots(): { slots: WeekMealSlot[]; isLoading: boolean } {
   const activeWeekId = useWeekStore((state) => state.activeWeekId) ?? 1;
   const slotOverrides = useWeekStore((state) => state.slotOverrides);
+  const { week, anchorWeekStartDate } = useCurrentWeek();
   const query = usePreviewQuery({
     queryKey: ["week-slots", activeWeekId],
     queryFn: () => getWeekSlots(activeWeekId),
     fallbackData: mockSlots,
   });
 
-  return { slots: slotOverrides ?? query.data ?? mockSlots, isLoading: query.isLoading };
+  const anchorSlots = query.data ?? mockSlots;
+  const displayedStart = week.weekStartDate;
+
+  const slotsForDisplayedWeek = useMemo(() => {
+    if (displayedStart === anchorWeekStartDate) {
+      return anchorSlots;
+    }
+    return buildBlankSlotsForWeek(week.id, displayedStart, [...mealTypes]);
+  }, [anchorSlots, anchorWeekStartDate, displayedStart, week.id]);
+
+  return { slots: slotOverrides ?? slotsForDisplayedWeek, isLoading: query.isLoading };
 }
 
 export function useRecipes(): { recipes: Recipe[]; isLoading: boolean } {
@@ -78,27 +96,31 @@ export function useSavedWeeks() {
   const query = usePreviewQuery({
     queryKey: ["saved-weeks"],
     queryFn: getSavedWeeks,
-    fallbackData: mockSavedWeeks,
+    fallbackData: mockSavedTemplates,
   });
 
-  return { savedWeeks: query.data ?? mockSavedWeeks, isLoading: query.isLoading };
+  return { savedTemplates: (query.data ?? mockSavedTemplates) as SavedWeekTemplate[], isLoading: query.isLoading };
 }
 
 export function useGroupedSlots() {
   const { slots, isLoading } = useWeekSlots();
   const visibleMealTypes = useWeekStore((state) => state.visibleMealTypes);
 
-  const grouped = useMemo(
-    () =>
-      slots
-        .filter((slot) => visibleMealTypes.includes(slot.mealType))
-        .reduce<Record<string, WeekMealSlot[]>>((acc, slot) => {
+  const grouped = useMemo(() => {
+    if (visibleMealTypes.length === 0) {
+      return weekDays.reduce<Record<string, WeekMealSlot[]>>((acc, day) => {
+        acc[day] = [];
+        return acc;
+      }, {});
+    }
+    return slots
+      .filter((slot) => visibleMealTypes.includes(slot.mealType))
+      .reduce<Record<string, WeekMealSlot[]>>((acc, slot) => {
         acc[slot.dayOfWeek] ??= [];
         acc[slot.dayOfWeek].push(slot);
         return acc;
-      }, {}),
-    [slots, visibleMealTypes],
-  );
+      }, {});
+  }, [slots, visibleMealTypes]);
 
   return { grouped, isLoading };
 }

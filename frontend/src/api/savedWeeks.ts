@@ -1,8 +1,8 @@
 import { apiClient, unwrap } from "./client";
-import type { UserWeekPref, Week } from "types/models";
+import type { SavedWeekTemplate, UserWeekPref, Week } from "types/models";
 
 export function getSavedWeeks() {
-  return unwrap<Week[]>(apiClient.get("/api/weeks/saved"));
+  return unwrap<SavedWeekTemplate[]>(apiClient.get("/api/weeks/saved"));
 }
 
 export function loadSavedWeek(id: number) {

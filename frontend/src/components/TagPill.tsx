@@ -22,7 +22,10 @@ export function TagPill({ children, active, tone = "default", onClick }: TagPill
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
+      }}
       className={cn(
         "inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition",
         active

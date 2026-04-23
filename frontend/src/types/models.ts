@@ -14,7 +14,8 @@ export type WeekDay =
   | "Saturday"
   | "Sunday";
 export type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack";
-export type WeekStatus = "Draft" | "Active" | "Completed";
+/** Open = planning in progress; Confirmed = approved & snapshot saved; Completed = past cycle */
+export type WeekStatus = "Open" | "Confirmed" | "Completed";
 export type GroceryListStatus = "Active" | "Completed";
 export type FridgeLocation = "Fridge" | "Pantry" | "Freezer";
 export type AddedVia = "GroceryList" | "ReceiptScan" | "Manual" | "Leftover";
@@ -133,6 +134,29 @@ export interface Week {
   createdAt: string;
 }
 
+/** Reusable bookmark of meals (relative Mon–Sun), separate from live dated slots. */
+export interface SavedWeekTemplate {
+  id: number;
+  householdId: number;
+  name: string;
+  createdAt: string;
+  slots: Array<{
+    dayOfWeek: WeekDay;
+    mealType: MealType;
+    recipeId: number | null;
+    recipeName: string | null;
+    isEatingOut: boolean;
+    isSkipped: boolean;
+  }>;
+}
+
+/** Household meal plan window: slots keyed by date live in `WeekMealSlot.planDate`. */
+export type MealPlan = {
+  householdId: number;
+  weekStartDate: string;
+  slots: WeekMealSlot[];
+};
+
 export interface UserWeekPref {
   id: number;
   userId: number;
@@ -140,9 +164,12 @@ export interface UserWeekPref {
   isFavorite: boolean;
 }
 
+/** One planned meal cell, anchored to a calendar date (Monday-start week). */
 export interface WeekMealSlot {
   id: number;
   weekId: number;
+  /** ISO date yyyy-MM-dd for this column */
+  planDate: string;
   recipeId?: number | null;
   recipeName?: string | null;
   selectedModifierIngredientIds: number[];

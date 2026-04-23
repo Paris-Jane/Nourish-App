@@ -1,4 +1,4 @@
-import { addDays, format, parseISO, startOfWeek } from "date-fns";
+import { addDays, format, formatISO, parseISO, startOfWeek } from "date-fns";
 import { clsx } from "clsx";
 import type { MealType, Recipe, WeekMealSlot, WeekDay } from "types/models";
 
@@ -42,11 +42,13 @@ export function sortSlotsByMealType(slots: WeekMealSlot[]) {
   return [...slots].sort((a, b) => mealTypes.indexOf(a.mealType) - mealTypes.indexOf(b.mealType));
 }
 
-export function createBlankWeekSlots(weekId: number, visibleMealTypes: MealType[]): WeekMealSlot[] {
+export function createBlankWeekSlots(weekId: number, visibleMealTypes: MealType[], weekStartISO: string): WeekMealSlot[] {
+  const start = parseISO(weekStartISO);
   return weekDays.flatMap((day, dayIndex) =>
     visibleMealTypes.map((mealType, mealIndex) => ({
       id: 10_000 + dayIndex * 10 + mealIndex + 1,
       weekId,
+      planDate: formatISO(addDays(start, dayIndex), { representation: "date" }),
       recipeId: null,
       recipeName: null,
       selectedModifierIngredientIds: [],
@@ -78,6 +80,7 @@ export function createAutoWeekSlots({
         ...slot,
         id: weekId * 100 + index + 1,
         weekId,
+        planDate: slot.planDate,
         selectedModifierIngredientIds: slot.selectedModifierIngredientIds ?? [],
       })),
   );
@@ -88,12 +91,15 @@ export function createSavedWeekSlots({
   visibleMealTypes,
   recipes,
   seed,
+  weekStartISO,
 }: {
   weekId: number;
   visibleMealTypes: MealType[];
   recipes: Recipe[];
   seed: number;
+  weekStartISO: string;
 }) {
+  const start = parseISO(weekStartISO);
   return weekDays.flatMap((day, dayIndex) =>
     visibleMealTypes.map((mealType, mealIndex) => {
       const eligible = recipes.filter((recipe) => recipe.mealTypeTags.includes(mealType));
@@ -103,6 +109,7 @@ export function createSavedWeekSlots({
       return {
         id: weekId * 100 + dayIndex * 10 + mealIndex + 1,
         weekId,
+        planDate: formatISO(addDays(start, dayIndex), { representation: "date" }),
         recipeId: recipe?.id ?? null,
         recipeName: recipe?.name ?? null,
         selectedModifierIngredientIds: [],

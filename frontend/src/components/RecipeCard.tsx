@@ -81,7 +81,11 @@ export function RecipeCard({ recipe, compact, onSelect, actionLabel }: RecipeCar
     return (
       <button
         type="button"
-        onClick={() => onSelect(recipe)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onSelect(recipe);
+        }}
         className="card group w-full overflow-hidden p-3 text-left transition hover:-translate-y-0.5 hover:shadow-card"
       >
         {content}

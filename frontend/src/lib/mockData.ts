@@ -5,6 +5,7 @@ import type {
   GroceryList,
   Ingredient,
   Recipe,
+  SavedWeekTemplate,
   UserIngredientPref,
   UserRecipePref,
   UserWeekPref,
@@ -18,7 +19,7 @@ export const mockWeek: Week = {
   id: 1,
   householdId: 1,
   weekStartDate: formatISO(baseWeekStart, { representation: "date" }),
-  status: "Draft",
+  status: "Open",
   prepStyle: "OnePrepDay",
   maxCookTime: "Under45",
   isSavedTemplate: false,
@@ -271,13 +272,15 @@ export const mockRecipes: Recipe[] = [
 const mealRotation = [1, 2, null, 3];
 
 export const mockSlots: WeekMealSlot[] = weekDays.flatMap((day, index) =>
-  ["Breakfast", "Lunch", "Dinner", "Snack"].map((mealType, mealIndex) => {
+  (["Breakfast", "Lunch", "Dinner", "Snack"] as const).map((mealType, mealIndex) => {
     const recipeId = mealRotation[(index + mealIndex) % mealRotation.length];
     const recipe = mockRecipes.find((entry) => entry.id === recipeId);
+    const planDate = formatISO(addDays(baseWeekStart, index), { representation: "date" });
 
     return {
       id: index * 10 + mealIndex + 1,
       weekId: 1,
+      planDate,
       recipeId,
       recipeName: recipe?.name ?? null,
       selectedModifierIngredientIds: [],
@@ -292,6 +295,34 @@ export const mockSlots: WeekMealSlot[] = weekDays.flatMap((day, index) =>
     };
   }),
 );
+
+function templateSlotsFromMockSlots(): SavedWeekTemplate["slots"] {
+  return mockSlots.map((s) => ({
+    dayOfWeek: s.dayOfWeek,
+    mealType: s.mealType,
+    recipeId: s.recipeId ?? null,
+    recipeName: s.recipeName ?? null,
+    isEatingOut: s.isEatingOut,
+    isSkipped: s.isSkipped,
+  }));
+}
+
+export const mockSavedTemplates: SavedWeekTemplate[] = [
+  {
+    id: 2,
+    householdId: 1,
+    name: "Cozy Spring Rotation",
+    createdAt: new Date().toISOString(),
+    slots: templateSlotsFromMockSlots().map((s, i) => (i % 5 === 0 ? { ...s, recipeId: 1, recipeName: "Herby Chickpea Bowls" } : s)),
+  },
+  {
+    id: 3,
+    householdId: 1,
+    name: "Busy Week Backup",
+    createdAt: new Date().toISOString(),
+    slots: templateSlotsFromMockSlots().map((s, i) => (i % 3 === 0 ? { ...s, recipeId: 2, recipeName: "Tomato Butter Pasta" } : { ...s, recipeId: null, recipeName: null })),
+  },
+];
 
 export const mockGroceryList: GroceryList = {
   id: 1,
@@ -455,21 +486,14 @@ export const mockIngredients: Ingredient[] = [
   },
 ];
 
-export const mockSavedWeeks: Week[] = [
-  {
-    ...mockWeek,
-    id: 2,
-    isSavedTemplate: true,
-    templateName: "Cozy Spring Rotation",
-  },
-  {
-    ...mockWeek,
-    id: 3,
-    isSavedTemplate: true,
-    templateName: "Busy Week Backup",
-    isInRotation: false,
-  },
-];
+/** @deprecated use mockSavedTemplates — kept for older imports during migration */
+export const mockSavedWeeks: Week[] = mockSavedTemplates.map((t) => ({
+  ...mockWeek,
+  id: t.id,
+  isSavedTemplate: true,
+  templateName: t.name,
+  isInRotation: t.id === 2,
+}));
 
 export const mockRecipePrefs: Record<number, UserRecipePref> = {
   1: {
