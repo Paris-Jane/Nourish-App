@@ -25,7 +25,7 @@ export function AppShell() {
   return (
     <div className="min-h-screen lg:flex">
       <aside className="hidden w-72 shrink-0 border-r border-nourish-border bg-[#f7f2ec] p-6 lg:flex lg:flex-col">
-        <Link to="/" className="mb-10 text-4xl text-nourish-ink">
+        <Link to="/" className="mb-10 font-heading text-4xl tracking-tight text-nourish-ink">
           Nourish
         </Link>
         <nav className="space-y-2">
