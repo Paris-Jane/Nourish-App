@@ -13,6 +13,7 @@ import { RecipeFormPage } from "pages/RecipeFormPage";
 import { RecipesPage } from "pages/RecipesPage";
 import { PrepSheetPage } from "pages/PrepSheetPage";
 import { SavedWeeksPage } from "pages/SavedWeeksPage";
+import { ProfilePage } from "pages/ProfilePage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const token = useAuthStore((state) => state.token);
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/recipes/:id" element={<RecipeDetailPage />} />
         <Route path="/recipes/:id/edit" element={<RecipeFormPage />} />
         <Route path="/saved-weeks" element={<SavedWeeksPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/prep-sheet" element={<PrepSheetPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />

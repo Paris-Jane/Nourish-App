@@ -1,70 +1,26 @@
-import { BookHeart, CalendarDays, ChefHat, ChevronRight, LogOut, Refrigerator, ShoppingBasket } from "lucide-react";
-import { useEffect, useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import { CalendarDays, ChefHat, ChevronRight, Refrigerator, ShoppingBasket, Soup, UserCircle } from "lucide-react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { BottomSheet } from "components/BottomSheet";
-import { useToast } from "hooks/useToast";
 import { useAuthStore } from "store/authStore";
 import { cn } from "lib/utils";
 import { ToastViewport } from "./Toast";
 
-const KITCHEN_LABEL_KEY = "nourish-kitchen-label";
+type ShellNavItem = { to: string; label: string; icon: LucideIcon; shortLabel?: string };
 
-function readKitchenLabel() {
-  if (typeof window === "undefined") return "Willow Kitchen";
-  return window.localStorage.getItem(KITCHEN_LABEL_KEY) ?? "Willow Kitchen";
-}
-
-const navItems = [
+const mainNavItems: ShellNavItem[] = [
   { to: "/", label: "Home", icon: CalendarDays },
   { to: "/grocery", label: "Grocery", icon: ShoppingBasket },
   { to: "/fridge", label: "Fridge", icon: Refrigerator },
   { to: "/recipes", label: "Recipes", icon: ChefHat },
-  { to: "/saved-weeks", label: "Saved Weeks", shortLabel: "Saved", icon: BookHeart },
+  { to: "/prep-sheet", label: "Prep", icon: Soup },
 ];
+
+const mobileNavItems: ShellNavItem[] = [...mainNavItems, { to: "/profile", label: "Profile", shortLabel: "Account", icon: UserCircle }];
 
 export function AppShell() {
   const navigate = useNavigate();
-  const { pushToast } = useToast();
   const user = useAuthStore((state) => state.user);
-  const token = useAuthStore((state) => state.token);
-  const householdId = useAuthStore((state) => state.householdId);
-  const setSession = useAuthStore((state) => state.setSession);
-  const logout = useAuthStore((state) => state.logout);
-
-  const [kitchenLabel, setKitchenLabel] = useState(readKitchenLabel);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [nameDraft, setNameDraft] = useState("");
-  const [emailDraft, setEmailDraft] = useState("");
-  const [kitchenDraft, setKitchenDraft] = useState("");
-
-  useEffect(() => {
-    if (!profileOpen) return;
-    setNameDraft(user?.displayName ?? "");
-    setEmailDraft(user?.email ?? "");
-    setKitchenDraft(readKitchenLabel());
-  }, [profileOpen, user]);
-
-  function handleSaveProfile() {
-    const nextName = nameDraft.trim() || "Preview Household";
-    const nextEmail = emailDraft.trim() || "you@example.com";
-    const nextKitchen = kitchenDraft.trim() || "Willow Kitchen";
-    window.localStorage.setItem(KITCHEN_LABEL_KEY, nextKitchen);
-    setKitchenLabel(nextKitchen);
-    const hid = householdId ?? 1;
-    if (user) {
-      setSession(token, { ...user, displayName: nextName, email: nextEmail }, hid);
-    } else {
-      setSession(token, { id: 1, householdId: hid, displayName: nextName, email: nextEmail }, hid);
-    }
-    setProfileOpen(false);
-    pushToast("Profile saved.");
-  }
-
-  function handleSignOut() {
-    setProfileOpen(false);
-    logout();
-    navigate("/login");
-  }
+  const household = useAuthStore((state) => state.household);
 
   return (
     <div className="min-h-screen lg:flex">
@@ -73,7 +29,7 @@ export function AppShell() {
           Nourish
         </Link>
         <nav className="space-y-2">
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {mainNavItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -91,82 +47,24 @@ export function AppShell() {
         </nav>
         <button
           type="button"
-          onClick={() => setProfileOpen(true)}
+          onClick={() => navigate("/profile")}
           className="mt-auto flex w-full items-center justify-between gap-3 rounded-2xl border border-transparent bg-white p-4 text-left text-sm text-nourish-muted shadow-sm transition hover:border-nourish-border hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-nourish-sage focus-visible:ring-offset-2 focus-visible:ring-offset-[#f7f2ec]"
-          aria-haspopup="dialog"
-          aria-expanded={profileOpen}
         >
           <div className="min-w-0">
             <p className="truncate font-medium text-nourish-ink">{user?.displayName ?? "Preview Household"}</p>
-            <p className="truncate">{kitchenLabel}</p>
+            <p className="truncate">{household.name}</p>
           </div>
           <ChevronRight size={18} className="shrink-0 text-nourish-muted" aria-hidden />
-          <span className="sr-only">Account and sign out</span>
+          <span className="sr-only">Open profile</span>
         </button>
       </aside>
-
-      <BottomSheet open={profileOpen} title="Your account" onClose={() => setProfileOpen(false)}>
-        <div className="space-y-4">
-          <p className="text-sm text-nourish-muted">Update how you appear in Nourish, or sign out on this device.</p>
-          <div>
-            <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted" htmlFor="profile-display-name">
-              Display name
-            </label>
-            <input
-              id="profile-display-name"
-              className="input w-full"
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-              autoComplete="name"
-              placeholder="Your name"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted" htmlFor="profile-email">
-              Email
-            </label>
-            <input
-              id="profile-email"
-              type="email"
-              className="input w-full"
-              value={emailDraft}
-              onChange={(e) => setEmailDraft(e.target.value)}
-              autoComplete="email"
-              placeholder="you@example.com"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted" htmlFor="profile-kitchen">
-              Kitchen / household name
-            </label>
-            <input
-              id="profile-kitchen"
-              className="input w-full"
-              value={kitchenDraft}
-              onChange={(e) => setKitchenDraft(e.target.value)}
-              placeholder="Willow Kitchen"
-            />
-          </div>
-          <button type="button" className="button-primary w-full" onClick={handleSaveProfile}>
-            Save changes
-          </button>
-          <button
-            type="button"
-            className="button-secondary inline-flex w-full items-center justify-center gap-2 border-nourish-terracotta/40 text-nourish-terracotta hover:bg-nourish-terracotta/10"
-            onClick={handleSignOut}
-          >
-            <LogOut size={18} aria-hidden />
-            Sign out
-          </button>
-        </div>
-      </BottomSheet>
 
       <main className="flex-1 px-4 pb-28 pt-4 lg:px-8 lg:pb-8 lg:pt-8">
         <Outlet />
       </main>
 
       <nav className="fixed bottom-4 left-3 right-3 z-30 flex rounded-[24px] border border-nourish-border bg-white/95 p-1.5 shadow-card backdrop-blur lg:hidden">
-        {navItems.map(({ to, label, shortLabel, icon: Icon }) => (
+        {mobileNavItems.map(({ to, label, shortLabel, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}

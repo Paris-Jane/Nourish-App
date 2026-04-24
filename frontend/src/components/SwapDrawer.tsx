@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRightLeft, Search, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { addRecipeModifier } from "api/recipes";
 import { swapSlot } from "api/weeks";
 import { useToast } from "hooks/useToast";
@@ -51,6 +52,7 @@ export function SwapDrawer({
   onClose,
 }: SwapDrawerProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { pushToast } = useToast();
   const currentRecipe = recipes.find((recipe) => recipe.id === slot?.recipeId);
   const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]>("All suggestions");
@@ -312,14 +314,26 @@ export function SwapDrawer({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6">
-            <div className="mb-4 rounded-2xl bg-nourish-bg p-4">
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-nourish-muted">
-                <ArrowRightLeft size={14} aria-hidden />
+          <button
+            type="button"
+            disabled={!currentRecipe}
+            onClick={() => {
+              if (!currentRecipe) return;
+              onClose();
+              navigate(`/recipes/${currentRecipe.id}`, { state: { from: "/" } });
+            }}
+            className={cn(
+              "mb-4 w-full rounded-2xl bg-nourish-bg p-4 text-left transition",
+              currentRecipe ? "hover:bg-nourish-border/40" : "cursor-default",
+            )}
+          >
+            <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-nourish-muted">
+              <ArrowRightLeft size={14} aria-hidden />
                 {slot?.recipeId ? "Current pick" : "Open slot"}
-              </div>
-              <h3 className="text-lg text-nourish-ink">{currentRecipe?.name ?? "Open slot"}</h3>
-              {slot ? <p className="mt-2 text-sm text-nourish-muted">{slot.dayOfWeek} · {slot.mealType}</p> : null}
-          </div>
+            </div>
+            <h3 className="text-lg text-nourish-ink">{currentRecipe?.name ?? "Open slot"}</h3>
+            {slot ? <p className="mt-2 text-sm text-nourish-muted">{slot.dayOfWeek} · {slot.mealType}</p> : null}
+          </button>
 
           <div
             className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1"

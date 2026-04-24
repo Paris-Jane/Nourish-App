@@ -24,11 +24,19 @@ export type AddedVia = "GroceryList" | "ReceiptScan" | "Manual" | "Leftover";
 export type SheetType = "BatchPrepDay" | "NightOf";
 export type TimingTag = "PrepAhead" | "DayOfActive" | "DayOfPassive";
 
+export type UserRole = "Owner" | "Member";
+
 export interface User {
   id: number;
   householdId: number;
   displayName: string;
   email: string;
+  /** Target schema: required on server; optional in client for older saved sessions */
+  age?: number;
+  sex?: string;
+  activityLevel?: ActivityLevel;
+  role?: UserRole;
+  createdAt?: string;
 }
 
 export interface Household {
@@ -40,6 +48,23 @@ export interface Household {
   updatedAt: string;
 }
 
+/** Matches `HouseholdPreferences.MyPlateTargets` in schema (Vegetables plural). */
+export interface MyPlateTargets {
+  Grains: number;
+  Protein: number;
+  Vegetables: number;
+  Fruit: number;
+  Dairy: number;
+}
+
+export const DEFAULT_MY_PLATE_TARGETS: MyPlateTargets = {
+  Grains: 6,
+  Protein: 5,
+  Vegetables: 5,
+  Fruit: 2,
+  Dairy: 3,
+};
+
 export interface HouseholdPreferences {
   id: number;
   householdId: number;
@@ -48,7 +73,7 @@ export interface HouseholdPreferences {
   cuisinePreferences: string[];
   defaultCookTime: CookTime;
   defaultPrepStyle: PrepStyle;
-  myPlateTargets?: Record<string, number> | null;
+  myPlateTargets?: MyPlateTargets | null;
   updatedAt: string;
 }
 

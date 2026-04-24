@@ -918,37 +918,34 @@ export function HomePage() {
           </section>
         )}
 
-        <div className="pointer-events-none fixed inset-x-0 z-[26] flex justify-center px-4 pt-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] lg:bottom-8 lg:px-8">
-          <div className="pointer-events-auto flex w-full max-w-[min(100%,1170px)] items-center justify-between gap-3 rounded-2xl border border-nourish-border bg-white/95 px-4 py-3 shadow-lg backdrop-blur-md">
-            <div className="min-w-0 flex-1 text-sm text-nourish-ink">
+        {isApproved || unplannedMainSlots === 0 ? (
+          <div className="pointer-events-none fixed inset-x-0 z-[26] flex justify-center px-4 pt-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] lg:bottom-8 lg:px-8">
+            <div className="pointer-events-auto flex w-full max-w-[min(100%,1170px)] items-center justify-between gap-3 rounded-2xl border border-nourish-border bg-white/95 px-4 py-3 shadow-lg backdrop-blur-md">
               {isApproved ? (
-                <Link to="/prep-sheet" className="font-medium text-nourish-sage underline-offset-2 hover:underline">
+                <Link
+                  to="/prep-sheet"
+                  className="min-w-0 flex-1 text-sm font-medium text-nourish-sage underline-offset-2 hover:underline"
+                >
                   Approved · View prep sheet →
                 </Link>
-              ) : unplannedMainSlots === 0 ? (
-                <span>Ready to approve</span>
-              ) : planMode ? (
-                <span>
-                  {unplannedMainSlots} meal{unplannedMainSlots === 1 ? "" : "s"} unplanned this week
-                </span>
               ) : (
-                <span>Keep planning this week when you’re ready.</span>
+                <>
+                  <span className="min-w-0 flex-1 text-sm text-nourish-ink">Ready to approve</span>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-full bg-nourish-sage px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-nourish-sage/90"
+                    onClick={() => {
+                      setSwapDrawerOpen(false);
+                      setApproveReviewOpen(true);
+                    }}
+                  >
+                    Approve →
+                  </button>
+                </>
               )}
             </div>
-            {!isApproved && unplannedMainSlots === 0 ? (
-              <button
-                type="button"
-                className="shrink-0 rounded-full bg-nourish-sage px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-nourish-sage/90"
-                onClick={() => {
-                  setSwapDrawerOpen(false);
-                  setApproveReviewOpen(true);
-                }}
-              >
-                Approve →
-              </button>
-            ) : null}
           </div>
-        </div>
+        ) : null}
 
         <BottomSheet open={approveReviewOpen} title="Confirm week" onClose={() => setApproveReviewOpen(false)}>
           <div className="space-y-4">
