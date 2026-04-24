@@ -8,6 +8,7 @@ public class WeekMealSlot
     public List<int> SelectedModifierIngredientIds { get; set; } = new();
     public WeekDay DayOfWeek { get; set; }
     public MealType MealType { get; set; }
+    public int Position { get; set; }
     public bool IsEatingOut { get; set; }
     public bool IsSkipped { get; set; }
     public bool IsLocked { get; set; }

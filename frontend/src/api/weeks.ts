@@ -19,12 +19,37 @@ export function getWeekSlots(id: number) {
   return unwrap<WeekMealSlot[]>(apiClient.get(`/api/weeks/${id}/slots`));
 }
 
+export function createWeekSlot(
+  weekId: number,
+  payload: Pick<WeekMealSlot, "dayOfWeek" | "mealType"> & Partial<Pick<WeekMealSlot, "servingsPlanned">>,
+) {
+  return unwrap<WeekMealSlot>(apiClient.post(`/api/weeks/${weekId}/slots`, payload));
+}
+
+export function deleteWeekSlot(weekId: number, slotId: number) {
+  return unwrap<void>(apiClient.delete(`/api/weeks/${weekId}/slots/${slotId}`));
+}
+
 export function generateWeek(id: number) {
   return unwrap<{ generated: number; weekId: number }>(apiClient.post(`/api/weeks/${id}/generate`));
 }
 
 export function approveWeek(id: number) {
   return unwrap<Week>(apiClient.post(`/api/weeks/${id}/approve`));
+}
+
+export function clearWeek(id: number) {
+  return unwrap<{ weekId: number; cleared: boolean }>(apiClient.post(`/api/weeks/${id}/clear`));
+}
+
+export function applyWeekTemplate(id: number, templateWeekId: number) {
+  return unwrap<{ weekId: number; templateWeekId: number; applied: boolean }>(
+    apiClient.post(`/api/weeks/${id}/apply-template`, { templateWeekId }),
+  );
+}
+
+export function saveWeekAsTemplate(id: number, templateName: string) {
+  return unwrap<Week>(apiClient.post(`/api/weeks/${id}/save-as-template`, { templateName }));
 }
 
 export function swapSlot(

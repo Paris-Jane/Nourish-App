@@ -27,6 +27,7 @@ export function buildBlankSlotsForWeek(weekId: number, weekStartISO: string, typ
         selectedModifierIngredientIds: [],
         dayOfWeek: day,
         mealType,
+        position: 0,
         planDate: formatISO(addDays(parseISO(weekStartISO), dayIndex), { representation: "date" }),
         isEatingOut: false,
         isSkipped: false,

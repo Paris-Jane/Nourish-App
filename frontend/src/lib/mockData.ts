@@ -286,6 +286,7 @@ export const mockSlots: WeekMealSlot[] = weekDays.flatMap((day, index) =>
       selectedModifierIngredientIds: [],
       dayOfWeek: day,
       mealType: mealType as WeekMealSlot["mealType"],
+      position: 0,
       isEatingOut: false,
       isSkipped: false,
       isLocked: false,
@@ -300,6 +301,7 @@ function templateSlotsFromMockSlots(): SavedWeekTemplate["slots"] {
   return mockSlots.map((s) => ({
     dayOfWeek: s.dayOfWeek,
     mealType: s.mealType,
+    position: s.position,
     recipeId: s.recipeId ?? null,
     recipeName: s.recipeName ?? null,
     isEatingOut: s.isEatingOut,

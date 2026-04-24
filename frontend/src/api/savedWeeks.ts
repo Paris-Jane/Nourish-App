@@ -5,6 +5,10 @@ export function getSavedWeeks() {
   return unwrap<SavedWeekTemplate[]>(apiClient.get("/api/weeks/saved"));
 }
 
+export function deleteSavedWeekTemplate(id: number) {
+  return unwrap<void>(apiClient.delete(`/api/weeks/saved/${id}`));
+}
+
 export function loadSavedWeek(id: number) {
   return unwrap<Week>(apiClient.get(`/api/weeks/${id}`));
 }

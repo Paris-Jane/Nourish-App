@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { parseISO } from "date-fns";
-import { AlertTriangle, ArrowDownAZ, CalendarDays, List, Plus, Search } from "lucide-react";
+import { AlertTriangle, Plus, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { BottomSheet } from "components/BottomSheet";
@@ -53,7 +53,6 @@ export function FridgePage() {
   const [editingItem, setEditingItem] = useState<FridgeItem | null>(null);
   const [whatCanIMakeOpen, setWhatCanIMakeOpen] = useState(false);
   const [listQuery, setListQuery] = useState("");
-  const [listSort, setListSort] = useState<"default" | "name" | "expiry">("default");
   const [addIngredientQuery, setAddIngredientQuery] = useState("");
 
   const form = useForm<FridgeItemFormValues>({
@@ -78,22 +77,14 @@ export function FridgePage() {
 
   const listSortedItems = useMemo(() => {
     const arr = [...listFilteredItems];
-    if (listSort === "name") {
-      arr.sort((a, b) => a.ingredientName.localeCompare(b.ingredientName, undefined, { sensitivity: "base" }));
-    } else if (listSort === "expiry") {
-      arr.sort((a, b) => {
-        const ta = a.expiresAt ? parseISO(a.expiresAt).getTime() : Number.POSITIVE_INFINITY;
-        const tb = b.expiresAt ? parseISO(b.expiresAt).getTime() : Number.POSITIVE_INFINITY;
-        if (ta !== tb) return ta - tb;
-        return a.ingredientName.localeCompare(b.ingredientName, undefined, { sensitivity: "base" });
-      });
-    }
+    arr.sort((a, b) => {
+      const ta = a.expiresAt ? parseISO(a.expiresAt).getTime() : Number.POSITIVE_INFINITY;
+      const tb = b.expiresAt ? parseISO(b.expiresAt).getTime() : Number.POSITIVE_INFINITY;
+      if (ta !== tb) return ta - tb;
+      return a.ingredientName.localeCompare(b.ingredientName, undefined, { sensitivity: "base" });
+    });
     return arr;
-  }, [listFilteredItems, listSort]);
-
-  const cycleListSort = () => {
-    setListSort((prev) => (prev === "default" ? "name" : prev === "name" ? "expiry" : "default"));
-  };
+  }, [listFilteredItems]);
 
   const expiringSoon = useMemo(() => getExpiringSoonItems(items, 2), [items]);
   const expiringWithin3 = useMemo(() => countExpiringWithin(items, 3), [items]);
@@ -301,44 +292,17 @@ export function FridgePage() {
             <label className="sr-only" htmlFor="fridge-list-search">
               Search items in {tab}
             </label>
-            <div className="flex min-w-0 items-stretch gap-2">
-              <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-nourish-muted" aria-hidden />
-                <input
-                  id="fridge-list-search"
-                  className="input w-full pl-9"
-                  placeholder={`Search ${tab.toLowerCase()} items…`}
-                  value={listQuery}
-                  onChange={(e) => setListQuery(e.target.value)}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={cycleListSort}
-                className="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-nourish-border bg-white px-2.5 py-1.5 text-[10px] font-semibold tracking-wide text-nourish-muted shadow-sm transition hover:border-nourish-sage/35 hover:text-nourish-ink touch-manipulation"
-                aria-label={
-                  listSort === "default"
-                    ? "Sort by name A to Z"
-                    : listSort === "name"
-                      ? "Sort by expiration date, soonest first"
-                      : "Clear sort, use list order"
-                }
-                title={
-                  listSort === "default"
-                    ? "List order — tap for A–Z"
-                    : listSort === "name"
-                      ? "Name A–Z — tap for expiry"
-                      : "Soonest expiry first — tap to reset order"
-                }
-              >
-                {listSort === "default" ? <List size={18} className="text-nourish-sage" aria-hidden /> : null}
-                {listSort === "name" ? <ArrowDownAZ size={18} className="text-nourish-sage" aria-hidden /> : null}
-                {listSort === "expiry" ? <CalendarDays size={18} className="text-nourish-sage" aria-hidden /> : null}
-                <span className="max-w-[3.25rem] truncate leading-tight text-nourish-ink/80 normal-case">
-                  {listSort === "default" ? "Order" : listSort === "name" ? "A–Z" : "Date"}
-                </span>
-              </button>
+            <div className="relative min-w-0">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-nourish-muted" aria-hidden />
+              <input
+                id="fridge-list-search"
+                className="input w-full pl-9"
+                placeholder={`Search ${tab.toLowerCase()} items…`}
+                value={listQuery}
+                onChange={(e) => setListQuery(e.target.value)}
+              />
             </div>
+            <p className="mt-2 text-xs text-nourish-muted">Sorted by expiration date (soonest first). Items without a date appear last.</p>
           </div>
         ) : null}
 

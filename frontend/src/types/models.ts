@@ -143,6 +143,7 @@ export interface SavedWeekTemplate {
   slots: Array<{
     dayOfWeek: WeekDay;
     mealType: MealType;
+    position: number;
     recipeId: number | null;
     recipeName: string | null;
     isEatingOut: boolean;
@@ -175,6 +176,7 @@ export interface WeekMealSlot {
   selectedModifierIngredientIds: number[];
   dayOfWeek: WeekDay;
   mealType: MealType;
+  position: number;
   isEatingOut: boolean;
   isSkipped: boolean;
   isLocked: boolean;

@@ -9,18 +9,43 @@ import type { MealType, Recipe, WeekMealSlot } from "types/models";
 interface MealCardProps {
   slot: WeekMealSlot;
   recipe?: Recipe;
-  onSwap: () => void;
+  onPrimaryAction: () => void;
+  onSwap?: () => void;
+  onCopyMeal?: () => void;
   onDidntHappen?: () => void;
   onRemoveMeal?: () => void;
+  onDeleteSlot?: () => void;
+  planningMode?: boolean;
+  dropActive?: boolean;
+  draggable?: boolean;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  onDragOver?: () => void;
+  onDrop?: () => void;
 }
 
 function mealLabel(mealType: MealType) {
   return mealType === "Snack" ? "Snack" : mealType;
 }
 
-export function MealCard({ slot, recipe, onSwap, onDidntHappen, onRemoveMeal }: MealCardProps) {
+export function MealCard({
+  slot,
+  recipe,
+  onPrimaryAction,
+  onSwap,
+  onCopyMeal,
+  onDidntHappen,
+  onRemoveMeal,
+  onDeleteSlot,
+  planningMode = false,
+  dropActive = false,
+  draggable = false,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+}: MealCardProps) {
   const empty = !recipe;
-  const eatingOut = slot.isEatingOut && empty;
   const skipped = slot.isSkipped && !recipe;
   const [menuOpen, setMenuOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -37,7 +62,7 @@ export function MealCard({ slot, recipe, onSwap, onDidntHappen, onRemoveMeal }: 
   }, [menuOpen, isDesktop]);
 
   const filled = !empty && !skipped;
-  const showActions = Boolean(onDidntHappen || onRemoveMeal || onSwap);
+  const showActions = planningMode && Boolean(onDidntHappen || onRemoveMeal || onSwap || onCopyMeal || onDeleteSlot);
 
   function openActions() {
     if (isDesktop) setMenuOpen((o) => !o);
@@ -51,32 +76,44 @@ export function MealCard({ slot, recipe, onSwap, onDidntHappen, onRemoveMeal }: 
 
   return (
     <div
+      onContextMenu={(event) => {
+        if (!planningMode) return;
+        event.preventDefault();
+        openActions();
+      }}
+      draggable={planningMode && draggable && filled}
+      onDragStart={() => onDragStart?.()}
+      onDragEnd={() => onDragEnd?.()}
+      onDragOver={(event) => {
+        if (!planningMode || !onDragOver) return;
+        event.preventDefault();
+        onDragOver();
+      }}
+      onDrop={(event) => {
+        if (!planningMode || !onDrop) return;
+        event.preventDefault();
+        onDrop();
+      }}
       className={cn(
         "group relative w-full rounded-2xl border text-left transition",
-        empty && !eatingOut && !skipped ? "border-dashed border-nourish-border bg-[#fdfaf6]" : "border-nourish-border bg-white",
+        empty && !skipped ? "border-dashed border-nourish-border bg-[#fdfaf6]" : "border-nourish-border bg-white",
         slot.mealType === "Snack" && "bg-[#fffaf5]",
         skipped && "border-nourish-border/80 bg-nourish-bg/60",
+        dropActive && "border-nourish-sage bg-nourish-sage/10 shadow-sm",
       )}
     >
       <div className="flex min-h-[44px]">
         <button
           type="button"
-          onClick={onSwap}
+          onClick={onPrimaryAction}
           className="min-h-[44px] flex-1 rounded-2xl p-3 text-left transition hover:shadow-sm"
         >
           <div className="mb-3 flex items-start justify-between gap-3">
             <span className="text-xs font-medium tracking-wide text-nourish-muted">{mealLabel(slot.mealType)}</span>
-            <ArrowUpDown size={14} className="shrink-0 text-nourish-muted opacity-0 transition group-hover:opacity-100" />
+            {planningMode ? <ArrowUpDown size={14} className="shrink-0 text-nourish-muted opacity-0 transition group-hover:opacity-100" /> : null}
           </div>
 
-          {eatingOut ? (
-            <div className="space-y-2">
-              <div className="inline-flex items-center rounded-full bg-nourish-terracotta/10 px-2 py-1 text-[11px] font-medium text-nourish-terracotta">
-                Eating out
-              </div>
-              <div className="text-sm text-nourish-muted">This slot won’t be added to grocery planning.</div>
-            </div>
-          ) : skipped ? (
+          {skipped ? (
             <div className="space-y-1">
               <p className="text-sm font-medium text-nourish-muted line-through decoration-nourish-muted/80">Didn’t happen</p>
               <p className="text-xs text-nourish-muted">Not on this week’s grocery list.</p>
@@ -130,11 +167,24 @@ export function MealCard({ slot, recipe, onSwap, onDidntHappen, onRemoveMeal }: 
                   className="flex w-full px-3 py-2.5 text-left text-nourish-ink hover:bg-nourish-bg"
                   onClick={() => {
                     closeActions();
-                    onSwap();
+                    onSwap?.();
                   }}
                 >
-                  Swap this meal
+                  {filled ? "Swap this meal" : "Add a meal"}
                 </button>
+                {filled && onCopyMeal ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full px-3 py-2.5 text-left text-nourish-ink hover:bg-nourish-bg"
+                    onClick={() => {
+                      closeActions();
+                      onCopyMeal();
+                    }}
+                  >
+                    Add to other days
+                  </button>
+                ) : null}
                 {filled && onDidntHappen ? (
                   <button
                     type="button"
@@ -157,8 +207,21 @@ export function MealCard({ slot, recipe, onSwap, onDidntHappen, onRemoveMeal }: 
                       closeActions();
                       onRemoveMeal();
                     }}
+                    >
+                      Remove meal
+                    </button>
+                ) : null}
+                {onDeleteSlot ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full px-3 py-2.5 text-left text-nourish-ink hover:bg-nourish-bg"
+                    onClick={() => {
+                      closeActions();
+                      onDeleteSlot();
+                    }}
                   >
-                    Remove meal
+                    Remove this snack row
                   </button>
                 ) : null}
               </div>
@@ -174,11 +237,23 @@ export function MealCard({ slot, recipe, onSwap, onDidntHappen, onRemoveMeal }: 
             className="button-secondary w-full"
             onClick={() => {
               closeActions();
-              onSwap();
+              onSwap?.();
             }}
           >
-            Swap this meal
+            {filled ? "Swap this meal" : "Add a meal"}
           </button>
+          {filled && onCopyMeal ? (
+            <button
+              type="button"
+              className="button-secondary w-full"
+              onClick={() => {
+                closeActions();
+                onCopyMeal();
+              }}
+            >
+              Add to other days
+            </button>
+          ) : null}
           {filled && onDidntHappen ? (
             <button
               type="button"
@@ -201,6 +276,18 @@ export function MealCard({ slot, recipe, onSwap, onDidntHappen, onRemoveMeal }: 
               }}
             >
               Remove meal
+            </button>
+          ) : null}
+          {onDeleteSlot ? (
+            <button
+              type="button"
+              className="button-secondary w-full"
+              onClick={() => {
+                closeActions();
+                onDeleteSlot();
+              }}
+            >
+              Remove this snack row
             </button>
           ) : null}
         </div>

@@ -33,12 +33,19 @@ public record WeekMealSlotResponse(
     List<int> SelectedModifierIngredientIds,
     WeekDay DayOfWeek,
     MealType MealType,
+    int Position,
     bool IsEatingOut,
     bool IsSkipped,
     bool IsLocked,
     int ServingsPlanned,
     bool AssumedCompleted,
     DateTime? MarkedSkippedAt
+);
+
+public record CreateWeekMealSlotRequest(
+    WeekDay DayOfWeek,
+    MealType MealType,
+    int? ServingsPlanned
 );
 
 public record UpdateMealSlotRequest(
@@ -52,6 +59,8 @@ public record UpdateMealSlotRequest(
 
 public record SaveAsTemplateRequest(string TemplateName);
 
+public record ApplyWeekTemplateRequest(int TemplateWeekId);
+
 public record ToggleRotationRequest(bool IsInRotation);
 
 public record WeekPreferenceRequest(bool? IsFavorite);
@@ -61,4 +70,22 @@ public record WeekPreferenceResponse(
     int UserId,
     int WeekId,
     bool IsFavorite
+);
+
+public record SavedWeekTemplateSlotResponse(
+    WeekDay DayOfWeek,
+    MealType MealType,
+    int Position,
+    int? RecipeId,
+    string? RecipeName,
+    bool IsEatingOut,
+    bool IsSkipped
+);
+
+public record SavedWeekTemplateResponse(
+    int Id,
+    int HouseholdId,
+    string Name,
+    DateTime CreatedAt,
+    List<SavedWeekTemplateSlotResponse> Slots
 );

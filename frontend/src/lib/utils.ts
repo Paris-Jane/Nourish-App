@@ -39,7 +39,11 @@ export function daysUntil(dateString?: string | null) {
 }
 
 export function sortSlotsByMealType(slots: WeekMealSlot[]) {
-  return [...slots].sort((a, b) => mealTypes.indexOf(a.mealType) - mealTypes.indexOf(b.mealType));
+  return [...slots].sort((a, b) => {
+    const mealSort = mealTypes.indexOf(a.mealType) - mealTypes.indexOf(b.mealType);
+    if (mealSort !== 0) return mealSort;
+    return (a.position ?? 0) - (b.position ?? 0);
+  });
 }
 
 export function createBlankWeekSlots(weekId: number, visibleMealTypes: MealType[], weekStartISO: string): WeekMealSlot[] {
@@ -54,6 +58,7 @@ export function createBlankWeekSlots(weekId: number, visibleMealTypes: MealType[
       selectedModifierIngredientIds: [],
       dayOfWeek: day,
       mealType,
+      position: 0,
       isEatingOut: false,
       isSkipped: false,
       isLocked: false,
@@ -82,6 +87,7 @@ export function createAutoWeekSlots({
         weekId,
         planDate: slot.planDate,
         selectedModifierIngredientIds: slot.selectedModifierIngredientIds ?? [],
+        position: slot.position ?? 0,
       })),
   );
 }
@@ -115,6 +121,7 @@ export function createSavedWeekSlots({
         selectedModifierIngredientIds: [],
         dayOfWeek: day,
         mealType,
+        position: 0,
         isEatingOut: false,
         isSkipped: false,
         isLocked: false,

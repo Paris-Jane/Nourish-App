@@ -22,10 +22,15 @@ public static class WeekEndpoints
         group.MapPost("/{id:int}/generate", GeneratePlan);
         group.MapPost("/{id:int}/approve", ApproveWeek);
         group.MapGet("/{id:int}/slots", GetSlots);
+        group.MapPost("/{id:int}/slots", CreateSlot);
         group.MapPut("/{id:int}/slots/{slotId:int}", UpdateSlot);
+        group.MapDelete("/{id:int}/slots/{slotId:int}", DeleteSlot);
         group.MapPost("/{id:int}/slots/{slotId:int}/skip", SkipSlot);
+        group.MapPost("/{id:int}/clear", ClearWeek);
+        group.MapPost("/{id:int}/apply-template", ApplyTemplate);
         group.MapPost("/{id:int}/save-as-template", SaveAsTemplate);
         group.MapPut("/{id:int}/rotation", ToggleRotation);
+        group.MapDelete("/saved/{id:int}", DeleteSavedTemplate);
     }
 
     private static async Task<IResult> CreateWeek(CreateWeekRequest req, AppDbContext db, ClaimsPrincipal user)
@@ -62,6 +67,7 @@ public static class WeekEndpoints
                     SelectedModifierIngredientIds = new List<int>(),
                     DayOfWeek = day,
                     MealType = mealType,
+                    Position = 0,
                     ServingsPlanned = defaultServings
                 });
             }
@@ -75,9 +81,12 @@ public static class WeekEndpoints
     {
         var householdId = user.GetHouseholdId();
         var weeks = await db.Weeks
+            .Include(w => w.MealSlots)
+            .ThenInclude(s => s.Recipe)
             .Where(w => w.HouseholdId == householdId && w.IsSavedTemplate)
+            .OrderByDescending(w => w.CreatedAt)
             .ToListAsync();
-        return Results.Ok(weeks.Select(ToDto));
+        return Results.Ok(weeks.Select(ToSavedTemplateDto));
     }
 
     private static async Task<IResult> GetWeek(int id, AppDbContext db, ClaimsPrincipal user)
@@ -166,10 +175,55 @@ public static class WeekEndpoints
         var slots = await db.WeekMealSlots
             .Include(s => s.Recipe)
             .Where(s => s.WeekId == id)
-            .OrderBy(s => s.DayOfWeek).ThenBy(s => s.MealType)
+            .OrderBy(s => s.DayOfWeek).ThenBy(s => s.MealType).ThenBy(s => s.Position)
             .ToListAsync();
 
         return Results.Ok(slots.Select(ToSlotDto));
+    }
+
+    private static async Task<IResult> CreateSlot(
+        int id, CreateWeekMealSlotRequest req, AppDbContext db, ClaimsPrincipal user)
+    {
+        var householdId = user.GetHouseholdId();
+        var week = await db.Weeks
+            .Include(w => w.MealSlots)
+            .FirstOrDefaultAsync(w => w.Id == id && w.HouseholdId == householdId);
+        if (week == null) return Results.NotFound();
+
+        if (req.MealType != MealType.Snack)
+        {
+            return Results.BadRequest(new { message = "Only additional snack slots can be created." });
+        }
+
+        var nextPosition = week.MealSlots
+            .Where(s => s.DayOfWeek == req.DayOfWeek && s.MealType == req.MealType)
+            .Select(s => s.Position)
+            .DefaultIfEmpty(-1)
+            .Max() + 1;
+
+        var defaultServings = req.ServingsPlanned
+            ?? week.MealSlots.FirstOrDefault(s => s.DayOfWeek == req.DayOfWeek && s.MealType == req.MealType)?.ServingsPlanned
+            ?? 2;
+
+        var slot = new WeekMealSlot
+        {
+            WeekId = id,
+            RecipeId = null,
+            SelectedModifierIngredientIds = new List<int>(),
+            DayOfWeek = req.DayOfWeek,
+            MealType = req.MealType,
+            Position = nextPosition,
+            IsEatingOut = false,
+            IsSkipped = false,
+            IsLocked = false,
+            ServingsPlanned = defaultServings,
+            AssumedCompleted = false,
+            MarkedSkippedAt = null,
+        };
+
+        db.WeekMealSlots.Add(slot);
+        await db.SaveChangesAsync();
+        return Results.Created($"/api/weeks/{id}/slots/{slot.Id}", ToSlotDto(slot));
     }
 
     private static async Task<IResult> UpdateSlot(
@@ -207,6 +261,24 @@ public static class WeekEndpoints
         return Results.Ok(ToSlotDto(slot));
     }
 
+    private static async Task<IResult> DeleteSlot(int id, int slotId, AppDbContext db, ClaimsPrincipal user)
+    {
+        var householdId = user.GetHouseholdId();
+        var slot = await db.WeekMealSlots
+            .Include(s => s.Week)
+            .FirstOrDefaultAsync(s => s.Id == slotId && s.WeekId == id && s.Week.HouseholdId == householdId);
+        if (slot == null) return Results.NotFound();
+
+        if (slot.Position == 0)
+        {
+            return Results.BadRequest(new { message = "Base meal slots cannot be deleted." });
+        }
+
+        db.WeekMealSlots.Remove(slot);
+        await db.SaveChangesAsync();
+        return Results.NoContent();
+    }
+
     private static async Task<IResult> SkipSlot(
         int id, int slotId, AppDbContext db, ClaimsPrincipal user, IFridgeService fridgeService)
     {
@@ -220,6 +292,136 @@ public static class WeekEndpoints
         return Results.Ok(new { slotId, skipped = true });
     }
 
+    private static async Task<IResult> ClearWeek(int id, AppDbContext db, ClaimsPrincipal user)
+    {
+        var householdId = user.GetHouseholdId();
+        var week = await db.Weeks
+            .Include(w => w.MealSlots)
+            .Include(w => w.GroceryList)
+            .ThenInclude(g => g!.Items)
+            .Include(w => w.SnackSuggestions)
+            .Include(w => w.PrepSheets)
+            .FirstOrDefaultAsync(w => w.Id == id && w.HouseholdId == householdId);
+        if (week == null) return Results.NotFound();
+
+        foreach (var slot in week.MealSlots)
+        {
+            slot.RecipeId = null;
+            slot.SelectedModifierIngredientIds = new List<int>();
+            slot.IsEatingOut = false;
+            slot.IsSkipped = false;
+            slot.IsLocked = false;
+            slot.AssumedCompleted = false;
+            slot.MarkedSkippedAt = null;
+        }
+
+        if (week.GroceryList != null)
+        {
+            db.GroceryListItems.RemoveRange(week.GroceryList.Items);
+            db.GroceryLists.Remove(week.GroceryList);
+        }
+
+        if (week.SnackSuggestions.Count > 0)
+        {
+            db.SnackSuggestions.RemoveRange(week.SnackSuggestions);
+        }
+
+        if (week.PrepSheets.Count > 0)
+        {
+            db.PrepSheets.RemoveRange(week.PrepSheets);
+        }
+
+        await db.SaveChangesAsync();
+        return Results.Ok(new { weekId = id, cleared = true });
+    }
+
+    private static async Task<IResult> ApplyTemplate(
+        int id, ApplyWeekTemplateRequest req, AppDbContext db, ClaimsPrincipal user)
+    {
+        var householdId = user.GetHouseholdId();
+        var week = await db.Weeks
+            .Include(w => w.MealSlots)
+            .Include(w => w.GroceryList)
+            .ThenInclude(g => g!.Items)
+            .Include(w => w.SnackSuggestions)
+            .Include(w => w.PrepSheets)
+            .FirstOrDefaultAsync(w => w.Id == id && w.HouseholdId == householdId);
+        if (week == null) return Results.NotFound();
+
+        var template = await db.Weeks
+            .Include(w => w.MealSlots)
+            .FirstOrDefaultAsync(w => w.Id == req.TemplateWeekId && w.HouseholdId == householdId && w.IsSavedTemplate);
+        if (template == null) return Results.NotFound();
+
+        var templateKeys = template.MealSlots
+            .Select(s => $"{s.DayOfWeek}-{s.MealType}-{s.Position}")
+            .ToHashSet();
+
+        var extraSlotsToDelete = week.MealSlots
+            .Where(s => s.Position > 0 && !templateKeys.Contains($"{s.DayOfWeek}-{s.MealType}-{s.Position}"))
+            .ToList();
+        if (extraSlotsToDelete.Count > 0)
+        {
+            db.WeekMealSlots.RemoveRange(extraSlotsToDelete);
+        }
+
+        foreach (var source in template.MealSlots.Where(s => s.Position > 0))
+        {
+            var exists = week.MealSlots.Any(s => s.DayOfWeek == source.DayOfWeek && s.MealType == source.MealType && s.Position == source.Position);
+            if (exists) continue;
+            week.MealSlots.Add(new WeekMealSlot
+            {
+                WeekId = week.Id,
+                RecipeId = null,
+                SelectedModifierIngredientIds = new List<int>(),
+                DayOfWeek = source.DayOfWeek,
+                MealType = source.MealType,
+                Position = source.Position,
+                IsEatingOut = false,
+                IsSkipped = false,
+                IsLocked = false,
+                ServingsPlanned = source.ServingsPlanned,
+                AssumedCompleted = false,
+                MarkedSkippedAt = null,
+            });
+        }
+
+        await db.SaveChangesAsync();
+
+        var targetSlots = await db.WeekMealSlots.Where(s => s.WeekId == week.Id).ToListAsync();
+
+        foreach (var slot in targetSlots)
+        {
+            var source = template.MealSlots.FirstOrDefault(s => s.DayOfWeek == slot.DayOfWeek && s.MealType == slot.MealType && s.Position == slot.Position);
+            slot.RecipeId = source?.RecipeId;
+            slot.SelectedModifierIngredientIds = new List<int>();
+            slot.IsEatingOut = false;
+            slot.IsSkipped = source?.IsSkipped ?? false;
+            slot.IsLocked = false;
+            slot.AssumedCompleted = false;
+            slot.MarkedSkippedAt = null;
+        }
+
+        if (week.GroceryList != null)
+        {
+            db.GroceryListItems.RemoveRange(week.GroceryList.Items);
+            db.GroceryLists.Remove(week.GroceryList);
+        }
+
+        if (week.SnackSuggestions.Count > 0)
+        {
+            db.SnackSuggestions.RemoveRange(week.SnackSuggestions);
+        }
+
+        if (week.PrepSheets.Count > 0)
+        {
+            db.PrepSheets.RemoveRange(week.PrepSheets);
+        }
+
+        await db.SaveChangesAsync();
+        return Results.Ok(new { weekId = id, templateWeekId = req.TemplateWeekId, applied = true });
+    }
+
     private static async Task<IResult> SaveAsTemplate(int id, SaveAsTemplateRequest req, AppDbContext db, ClaimsPrincipal user)
     {
         var householdId = user.GetHouseholdId();
@@ -231,6 +433,20 @@ public static class WeekEndpoints
         await db.SaveChangesAsync();
 
         return Results.Ok(ToDto(week));
+    }
+
+    private static async Task<IResult> DeleteSavedTemplate(int id, AppDbContext db, ClaimsPrincipal user)
+    {
+        var householdId = user.GetHouseholdId();
+        var week = await db.Weeks.FirstOrDefaultAsync(w => w.Id == id && w.HouseholdId == householdId && w.IsSavedTemplate);
+        if (week == null) return Results.NotFound();
+
+        week.IsSavedTemplate = false;
+        week.TemplateName = null;
+        week.IsInRotation = false;
+        await db.SaveChangesAsync();
+
+        return Results.NoContent();
     }
 
     private static async Task<IResult> ToggleRotation(int id, ToggleRotationRequest req, AppDbContext db, ClaimsPrincipal user)
@@ -251,6 +467,26 @@ public static class WeekEndpoints
 
     private static WeekMealSlotResponse ToSlotDto(WeekMealSlot s) => new(
         s.Id, s.WeekId, s.RecipeId, s.Recipe?.Name, s.SelectedModifierIngredientIds,
-        s.DayOfWeek, s.MealType, s.IsEatingOut, s.IsSkipped,
+        s.DayOfWeek, s.MealType, s.Position, s.IsEatingOut, s.IsSkipped,
         s.IsLocked, s.ServingsPlanned, s.AssumedCompleted, s.MarkedSkippedAt);
+
+    private static SavedWeekTemplateResponse ToSavedTemplateDto(Week week) => new(
+        week.Id,
+        week.HouseholdId,
+        week.TemplateName ?? $"Week of {week.WeekStartDate:MMM d}",
+        week.CreatedAt,
+        week.MealSlots
+            .OrderBy(s => s.DayOfWeek)
+            .ThenBy(s => s.MealType)
+            .Select(s => new SavedWeekTemplateSlotResponse(
+                s.DayOfWeek,
+                s.MealType,
+                s.Position,
+                s.RecipeId,
+                s.Recipe?.Name,
+                s.IsEatingOut,
+                s.IsSkipped
+            ))
+            .ToList()
+    );
 }

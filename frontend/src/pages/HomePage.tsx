@@ -15,76 +15,83 @@ import {
   subMonths,
 } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, CircleHelp, MoreHorizontal } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight, CircleHelp, MoreHorizontal, PencilRuler } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { approveWeek, createWeek, generateWeek, getWeekSlots, swapSlot } from "api/weeks";
+import { applyWeekTemplate, approveWeek, clearWeek, createWeekSlot, deleteWeekSlot, saveWeekAsTemplate, swapSlot } from "api/weeks";
 import { BottomSheet } from "components/BottomSheet";
 import { DayColumn } from "components/DayColumn";
 import { ErrorBoundary } from "components/ErrorBoundary";
 import { SwapDrawer } from "components/SwapDrawer";
-import { useCurrentWeek, useFridgeItems, useGroupedSlots, useRecipes, useSavedWeeks, useWeekSlots } from "hooks/useAppData";
+import { useCurrentWeek, useFridgeItems, useGroupedSlots, useIngredients, useRecipes, useSavedWeeks, useWeekSlots } from "hooks/useAppData";
 import { useMatchMedia } from "hooks/useMatchMedia";
 import { mergeSavedTemplateIntoSlots } from "lib/applySavedTemplate";
-import { mockSavedTemplates } from "lib/mockData";
-import { cn, createAutoWeekSlots, createBlankWeekSlots, formatWeekRange, mealTypes, weekDays } from "lib/utils";
+import { cn, createBlankWeekSlots, formatWeekRange, mealTypes, weekDays } from "lib/utils";
 import { isWeekColumnToday } from "lib/weekCalendar";
 import { useToast } from "hooks/useToast";
 import { useWeekStore } from "store/weekStore";
-import type { MealType, SavedWeekTemplate, Week, WeekDay } from "types/models";
-
-const prepStyles = [
-  { title: "Cook each night", value: "DayOf" },
-  { title: "One prep day", value: "OnePrepDay" },
-  { title: "Two prep days", value: "TwoPrepDays" },
-];
+import type { GroceryList, Ingredient, MealType, SavedWeekTemplate, Week, WeekDay, WeekMealSlot } from "types/models";
 
 type HomeViewMode = "week" | "month";
+type RepeatActionType = "swap" | "remove";
 
 function getWeekStartForDate(date: Date) {
   return startOfWeek(date, { weekStartsOn: 1 });
 }
 
+function createEmptyGroceryList(weekId: number, householdId: number): GroceryList {
+  return {
+    id: 0,
+    weekId,
+    householdId,
+    generatedAt: new Date().toISOString(),
+    status: "Active",
+    items: [],
+  };
+}
+
 export function HomePage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { week, anchorWeekStartDate } = useCurrentWeek();
   const { slots } = useWeekSlots();
   const { grouped } = useGroupedSlots();
   const { recipes } = useRecipes();
+  const { ingredients } = useIngredients();
   const { items: fridgeItems } = useFridgeItems();
   const { pushToast } = useToast();
   const selectedSlotId = useWeekStore((state) => state.selectedSlotId);
   const selectSlot = useWeekStore((state) => state.selectSlot);
   const swapDrawerOpen = useWeekStore((state) => state.swapDrawerOpen);
   const setSwapDrawerOpen = useWeekStore((state) => state.setSwapDrawerOpen);
-  const planningMode = useWeekStore((state) => state.planningMode);
-  const setPlanningMode = useWeekStore((state) => state.setPlanningMode);
   const visibleMealTypes = useWeekStore((state) => state.visibleMealTypes);
   const setVisibleMealTypes = useWeekStore((state) => state.setVisibleMealTypes);
   const setSlotOverrides = useWeekStore((state) => state.setSlotOverrides);
   const activeWeekLabel = useWeekStore((state) => state.activeWeekLabel);
   const setActiveWeekLabel = useWeekStore((state) => state.setActiveWeekLabel);
-  const setActiveWeekId = useWeekStore((state) => state.setActiveWeekId);
   const setVisibleWeekStartDate = useWeekStore((state) => state.setVisibleWeekStartDate);
   const isDesktopNav = useMatchMedia("(min-width: 1024px)");
 
   const weekStartDate = useMemo(() => parseISO(week.weekStartDate), [week.weekStartDate]);
-  const defaultNextWeekStart = useMemo(() => addDays(weekStartDate, 7), [weekStartDate]);
 
   const [viewMode, setViewMode] = useState<HomeViewMode>("week");
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth(weekStartDate));
-  const [pendingWeekStart, setPendingWeekStart] = useState(defaultNextWeekStart);
-  const [selectedPrepStyle, setSelectedPrepStyle] = useState("OnePrepDay");
-  const [selectedTime, setSelectedTime] = useState("Under45");
   const { savedTemplates } = useSavedWeeks();
-  const [savedWeekSelection, setSavedWeekSelection] = useState<number | null>(savedTemplates[0]?.id ?? null);
-  const [simpleNewWeekOpen, setSimpleNewWeekOpen] = useState(false);
   const [approveReviewOpen, setApproveReviewOpen] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [loadTemplateOpen, setLoadTemplateOpen] = useState(false);
   const [clearWeekOpen, setClearWeekOpen] = useState(false);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [templateNameDraft, setTemplateNameDraft] = useState("");
   const [dotsHelpOpen, setDotsHelpOpen] = useState(false);
   const [showJumpToToday, setShowJumpToToday] = useState(false);
+  const [planMode, setPlanMode] = useState(false);
+  const [swapTargetIds, setSwapTargetIds] = useState<number[]>([]);
+  const [repeatAction, setRepeatAction] = useState<null | { type: RepeatActionType; slot: WeekMealSlot; matchingSlots: WeekMealSlot[] }>(null);
+  const [copyMealSlot, setCopyMealSlot] = useState<WeekMealSlot | null>(null);
+  const [copyTargetIds, setCopyTargetIds] = useState<number[]>([]);
+  const [draggedSlotId, setDraggedSlotId] = useState<number | null>(null);
+  const [dropTargetSlotId, setDropTargetSlotId] = useState<number | null>(null);
   const weekScrollerRef = useRef<HTMLDivElement>(null);
   const [scrollDayIndex, setScrollDayIndex] = useState(0);
   const dayRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -136,7 +143,7 @@ export function HomePage() {
 
   const mainSlots = useMemo(() => slots.filter((slot) => slot.mealType !== "Snack"), [slots]);
   const coveredMainSlots = useMemo(
-    () => mainSlots.filter((slot) => slot.recipeId || slot.isEatingOut || slot.isSkipped).length,
+    () => mainSlots.filter((slot) => slot.recipeId || slot.isSkipped).length,
     [mainSlots],
   );
   const unplannedMainSlots = Math.max(0, mainSlots.length - coveredMainSlots);
@@ -164,187 +171,144 @@ export function HomePage() {
     [slots],
   );
 
-  const startWeekMutation = useMutation({
-    mutationFn: async () => {
-      const mode = useWeekStore.getState().planningMode;
-      const createdWeek = await createWeek({
-        weekStartDate: formatISO(getWeekStartForDate(pendingWeekStart), { representation: "date" }),
-        prepStyle: selectedPrepStyle as (typeof week)["prepStyle"],
-        maxCookTime: selectedTime as (typeof week)["maxCookTime"],
-      });
-
-      if (mode === "auto") {
-        await generateWeek(createdWeek.id);
-      } else if (mode === "saved") {
-        const tmpl = savedTemplates.find((entry) => entry.id === savedWeekSelection) ?? savedTemplates[0];
-        if (tmpl) {
-          const newSlots = await getWeekSlots(createdWeek.id);
-          const slotMap = new Map(newSlots.map((slot) => [`${slot.dayOfWeek}-${slot.mealType}`, slot] as const));
-
-          for (const row of tmpl.slots) {
-            if (!visibleMealTypes.includes(row.mealType)) continue;
-            const targetSlot = slotMap.get(`${row.dayOfWeek}-${row.mealType}`);
-            if (!targetSlot) continue;
-            await swapSlot(createdWeek.id, targetSlot.id, {
-              recipeId: row.recipeId,
-              selectedModifierIngredientIds: [],
-              isEatingOut: row.isEatingOut,
-              isSkipped: row.isSkipped,
-              isLocked: false,
-              servingsPlanned: 2,
-            });
-          }
-        }
-      }
-
-      const freshSlots = await getWeekSlots(createdWeek.id);
-      return { createdWeek, freshSlots };
-    },
-    onSuccess: async ({ createdWeek, freshSlots }) => {
-      setActiveWeekId(createdWeek.id);
-      setSlotOverrides(null);
-      setSimpleNewWeekOpen(false);
-      setMonthCursor(startOfMonth(parseISO(createdWeek.weekStartDate)));
-      setViewMode("week");
-      await queryClient.invalidateQueries({ queryKey: ["week", createdWeek.id] });
-      await queryClient.invalidateQueries({ queryKey: ["week-slots", createdWeek.id] });
-      await queryClient.invalidateQueries({ queryKey: ["saved-weeks"] });
-      queryClient.setQueryData(["week", createdWeek.id], createdWeek);
-      queryClient.setQueryData(["week-slots", createdWeek.id], freshSlots);
-
-      if (useWeekStore.getState().planningMode === "manual") {
-        setActiveWeekLabel("Manual week");
-        pushToast("Blank week created. Tap any slot to start adding meals.");
-      } else if (useWeekStore.getState().planningMode === "saved") {
-        const tmpl = savedTemplates.find((entry) => entry.id === savedWeekSelection) ?? savedTemplates[0];
-        setActiveWeekLabel(tmpl?.name ?? "Saved week");
-        pushToast("Saved week loaded into a new planner.");
-      } else {
-        setActiveWeekLabel("Auto-planned week");
-        pushToast("New week created and auto-planned.");
-      }
-    },
-    onError: () => {
-      const nextWeekId = (week.id ?? 1) + 1;
-
-      if (useWeekStore.getState().planningMode === "manual") {
-        setSlotOverrides(createBlankWeekSlots(nextWeekId, visibleMealTypes, formatISO(weekStartDate, { representation: "date" })));
-        setActiveWeekLabel("Manual week");
-        setSimpleNewWeekOpen(false);
-        setViewMode("week");
-        pushToast("Blank week ready in preview mode. Tap any slot and we’ll recommend recipes by context.");
-        return;
-      }
-
-      if (useWeekStore.getState().planningMode === "saved") {
-        const tmpl = savedTemplates.find((entry) => entry.id === savedWeekSelection) ?? savedTemplates[0];
-        if (tmpl) {
-          setSlotOverrides(
-            mergeSavedTemplateIntoSlots(tmpl, nextWeekId, formatISO(weekStartDate, { representation: "date" }), recipes),
-          );
-          setActiveWeekLabel(tmpl.name);
-        }
-        setSimpleNewWeekOpen(false);
-        setViewMode("week");
-        pushToast("Saved week loaded in preview mode.");
-        return;
-      }
-
-      setSlotOverrides(
-        createAutoWeekSlots({
-          baseSlots: slots,
-          weekId: nextWeekId,
-          visibleMealTypes,
-        }),
-      );
-      setActiveWeekLabel("Auto-planned week");
-      setSimpleNewWeekOpen(false);
-      setViewMode("week");
-      pushToast("New auto-planned week ready in preview mode.");
-    },
-  });
-
   const approveWeekMutation = useMutation({
     mutationFn: () => approveWeek(week.id),
     onSuccess: (approvedWeek) => {
-      const templateName = `Week of ${format(parseISO(approvedWeek.weekStartDate), "MMM d")}`;
-      const enriched: Week = {
-        ...approvedWeek,
-        status: "Confirmed",
-        isSavedTemplate: true,
-        templateName,
-      };
+      const enriched: Week = { ...approvedWeek, status: "Confirmed" };
       queryClient.setQueryData(["week", enriched.id], enriched);
-      const snapshot: SavedWeekTemplate = {
-        id: enriched.id,
-        householdId: enriched.householdId,
-        name: templateName,
-        createdAt: new Date().toISOString(),
-        slots: slots.map((s) => ({
-          dayOfWeek: s.dayOfWeek,
-          mealType: s.mealType,
-          recipeId: s.recipeId ?? null,
-          recipeName: s.recipeName ?? null,
-          isEatingOut: s.isEatingOut,
-          isSkipped: s.isSkipped,
-        })),
-      };
-      const existing = queryClient.getQueryData<SavedWeekTemplate[]>(["saved-weeks"]) ?? [...mockSavedTemplates];
-      const idx = existing.findIndex((w) => w.id === snapshot.id);
-      const nextSaved = idx >= 0 ? existing.map((w, i) => (i === idx ? snapshot : w)) : [...existing, snapshot];
-      queryClient.setQueryData(["saved-weeks"], nextSaved);
       setApproveReviewOpen(false);
-      pushToast("Week saved to your library.");
+      pushToast("Week approved.");
     },
     onError: () => {
-      const templateName = `Week of ${format(parseISO(week.weekStartDate), "MMM d")}`;
-      const enriched: Week = { ...week, status: "Confirmed", isSavedTemplate: true, templateName };
+      const enriched: Week = { ...week, status: "Confirmed" };
       queryClient.setQueryData(["week", enriched.id], enriched);
-      const snapshot: SavedWeekTemplate = {
-        id: enriched.id,
-        householdId: enriched.householdId,
-        name: templateName,
-        createdAt: new Date().toISOString(),
-        slots: slots.map((s) => ({
-          dayOfWeek: s.dayOfWeek,
-          mealType: s.mealType,
-          recipeId: s.recipeId ?? null,
-          recipeName: s.recipeName ?? null,
-          isEatingOut: s.isEatingOut,
-          isSkipped: s.isSkipped,
-        })),
-      };
-      const existing = queryClient.getQueryData<SavedWeekTemplate[]>(["saved-weeks"]) ?? [...mockSavedTemplates];
-      const idx = existing.findIndex((w) => w.id === snapshot.id);
-      const nextSaved = idx >= 0 ? existing.map((w, i) => (i === idx ? snapshot : w)) : [...existing, snapshot];
-      queryClient.setQueryData(["saved-weeks"], nextSaved);
       setApproveReviewOpen(false);
-      pushToast("Week saved to your library.");
+      pushToast("Week approved in preview mode.");
     },
   });
 
   const clearSlotMutation = useMutation({
-    mutationFn: async (slotId: number) => {
-      await swapSlot(week.id, slotId, {
-        recipeId: null,
-        selectedModifierIngredientIds: [],
-        isSkipped: false,
-        isEatingOut: false,
-      });
+    mutationFn: async (slotIds: number[]) => {
+      await Promise.all(
+        slotIds.map((slotId) =>
+          swapSlot(week.id, slotId, {
+            recipeId: null,
+            selectedModifierIngredientIds: [],
+            isSkipped: false,
+            isEatingOut: false,
+          }),
+        ),
+      );
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
       setSlotOverrides(null);
       pushToast("Meal removed.");
     },
-    onError: (_err, slotId) => {
+    onError: (_err, slotIds) => {
+      const targetIds = new Set(slotIds);
       const next = slots.map((s) =>
-        s.id === slotId
+        targetIds.has(s.id)
           ? { ...s, recipeId: null, recipeName: null, selectedModifierIngredientIds: [], isSkipped: false, isEatingOut: false }
           : s,
       );
       setSlotOverrides(next);
-      pushToast("Meal cleared (preview).");
+      pushToast(targetIds.size > 1 ? "Meals cleared in preview mode." : "Meal cleared in preview mode.");
+    },
+  });
+
+  const copyMealMutation = useMutation({
+    mutationFn: async ({ sourceSlot, targetIds }: { sourceSlot: WeekMealSlot; targetIds: number[] }) => {
+      await Promise.all(
+        targetIds.map((slotId) =>
+          swapSlot(week.id, slotId, {
+            recipeId: sourceSlot.recipeId ?? null,
+            selectedModifierIngredientIds: sourceSlot.selectedModifierIngredientIds ?? [],
+            isSkipped: false,
+            isEatingOut: false,
+          }),
+        ),
+      );
+    },
+    onSuccess: async (_result, { targetIds }) => {
+      await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+      setSlotOverrides(null);
+      setCopyMealSlot(null);
+      setCopyTargetIds([]);
+      pushToast(`Meal added to ${targetIds.length} more day${targetIds.length === 1 ? "" : "s"}.`);
+    },
+    onError: (_error, { sourceSlot, targetIds }) => {
+      const recipe = recipes.find((entry) => entry.id === sourceSlot.recipeId);
+      const targetSet = new Set(targetIds);
+      const nextSlots = slots.map((entry) =>
+        targetSet.has(entry.id)
+          ? {
+              ...entry,
+              recipeId: sourceSlot.recipeId ?? null,
+              recipeName: recipe?.name ?? null,
+              selectedModifierIngredientIds: sourceSlot.selectedModifierIngredientIds ?? [],
+              isSkipped: false,
+              isEatingOut: false,
+            }
+          : entry,
+      );
+      setSlotOverrides(nextSlots);
+      setCopyMealSlot(null);
+      setCopyTargetIds([]);
+      pushToast("Meal copied in preview mode.");
+    },
+  });
+
+  const addSnackMutation = useMutation({
+    mutationFn: async (day: WeekDay) =>
+      createWeekSlot(week.id, {
+        dayOfWeek: day,
+        mealType: "Snack",
+        servingsPlanned: 1,
+      }),
+    onSuccess: async (_, day) => {
+      await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+      setSlotOverrides(null);
+      pushToast(`Added another snack slot for ${day}.`);
+    },
+    onError: (_error, day) => {
+      const daySnackPositions = slots.filter((slot) => slot.dayOfWeek === day && slot.mealType === "Snack").map((slot) => slot.position ?? 0);
+      const nextPosition = (daySnackPositions.length > 0 ? Math.max(...daySnackPositions) : -1) + 1;
+      const planDate = formatISO(addDays(weekStartDate, weekDays.indexOf(day)), { representation: "date" });
+      const nextSlot: WeekMealSlot = {
+        id: 950_000 + slots.length + nextPosition,
+        weekId: week.id,
+        planDate,
+        recipeId: null,
+        selectedModifierIngredientIds: [],
+        recipeName: null,
+        dayOfWeek: day,
+        mealType: "Snack",
+        position: nextPosition,
+        isEatingOut: false,
+        isSkipped: false,
+        isLocked: false,
+        servingsPlanned: 1,
+        assumedCompleted: false,
+        markedSkippedAt: null,
+      };
+      setSlotOverrides([...slots, nextSlot]);
+      pushToast(`Added another snack slot for ${day} in preview mode.`);
+    },
+  });
+
+  const deleteSlotMutation = useMutation({
+    mutationFn: async (slotId: number) => {
+      await deleteWeekSlot(week.id, slotId);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+      setSlotOverrides(null);
+      pushToast("Snack row removed.");
+    },
+    onError: (_error, slotId) => {
+      setSlotOverrides(slots.filter((slot) => slot.id !== slotId));
+      pushToast("Snack row removed in preview mode.");
     },
   });
 
@@ -371,34 +335,97 @@ export function HomePage() {
     },
   });
 
-  const toggleDayEatingOutMutation = useMutation({
-    mutationFn: async ({ day, next }: { day: WeekDay; next: boolean }) => {
-      const daySlots = slots.filter((entry) => entry.dayOfWeek === day);
-      await Promise.all(
-        daySlots.map((entry) =>
-          swapSlot(week.id, entry.id, {
-            recipeId: null,
-            selectedModifierIngredientIds: [],
-            isEatingOut: next,
-            isSkipped: false,
-          }),
-        ),
-      );
-      return { day, next };
-    },
-    onSuccess: async ({ day, next }) => {
+  const clearWeekMutation = useMutation({
+    mutationFn: () => clearWeek(week.id),
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+      queryClient.setQueryData(["grocery-list", week.id], createEmptyGroceryList(week.id, week.householdId));
       setSlotOverrides(null);
-      pushToast(next ? `${day} marked as eating out. Meals were cleared for that day.` : `${day} is back in your planner.`);
+      setClearWeekOpen(false);
+      pushToast("Week cleared. Grocery list reset too.");
     },
-    onError: (_error, { day, next }) => {
-      const nextSlots = slots.map((entry) =>
-        entry.dayOfWeek === day
-          ? { ...entry, recipeId: null, recipeName: null, selectedModifierIngredientIds: [], isEatingOut: next, isSkipped: false }
-          : entry,
-      );
-      setSlotOverrides(nextSlots);
-      pushToast(next ? `${day} marked as eating out in preview mode.` : `${day} restored in preview mode.`);
+    onError: () => {
+      setSlotOverrides(createBlankWeekSlots(week.id, [...mealTypes], week.weekStartDate));
+      queryClient.setQueryData(["grocery-list", week.id], createEmptyGroceryList(week.id, week.householdId));
+      setClearWeekOpen(false);
+      pushToast("Week cleared in preview mode.");
+    },
+  });
+
+  const applyTemplateMutation = useMutation({
+    mutationFn: async (template: SavedWeekTemplate) => {
+      await applyWeekTemplate(week.id, template.id);
+      return template;
+    },
+    onSuccess: async (template) => {
+      await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+      queryClient.setQueryData(["grocery-list", week.id], createEmptyGroceryList(week.id, week.householdId));
+      setSlotOverrides(null);
+      setLoadTemplateOpen(false);
+      setActiveWeekLabel(template.name);
+      pushToast(`Loaded “${template.name}” into this week. Grocery list cleared so it can refresh from the new plan.`);
+    },
+    onError: (_error, template) => {
+      setSlotOverrides(mergeSavedTemplateIntoSlots(template, week.id, week.weekStartDate, recipes));
+      queryClient.setQueryData(["grocery-list", week.id], createEmptyGroceryList(week.id, week.householdId));
+      setLoadTemplateOpen(false);
+      setActiveWeekLabel(template.name);
+      pushToast(`Loaded “${template.name}” in preview mode.`);
+    },
+  });
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (templateName: string) => saveWeekAsTemplate(week.id, templateName),
+    onSuccess: (savedWeek) => {
+      const snapshot: SavedWeekTemplate = {
+        id: savedWeek.id,
+        householdId: savedWeek.householdId,
+        name: savedWeek.templateName ?? templateNameDraft.trim(),
+        createdAt: savedWeek.createdAt,
+        slots: slots.map((s) => ({
+          dayOfWeek: s.dayOfWeek,
+          mealType: s.mealType,
+          position: s.position ?? 0,
+          recipeId: s.recipeId ?? null,
+          recipeName: s.recipeName ?? null,
+          isEatingOut: false,
+          isSkipped: s.isSkipped,
+        })),
+      };
+      queryClient.setQueryData<SavedWeekTemplate[]>(["saved-weeks"], (prev) => {
+        const existing = prev ?? [];
+        const idx = existing.findIndex((item) => item.id === snapshot.id);
+        return idx >= 0 ? existing.map((item, index) => (index === idx ? snapshot : item)) : [snapshot, ...existing];
+      });
+      queryClient.setQueryData(["week", savedWeek.id], savedWeek);
+      setSaveTemplateOpen(false);
+      setTemplateNameDraft("");
+      pushToast("Week saved as a reusable template.");
+    },
+    onError: () => {
+      const snapshot: SavedWeekTemplate = {
+        id: week.id,
+        householdId: week.householdId,
+        name: templateNameDraft.trim(),
+        createdAt: new Date().toISOString(),
+        slots: slots.map((s) => ({
+          dayOfWeek: s.dayOfWeek,
+          mealType: s.mealType,
+          position: s.position ?? 0,
+          recipeId: s.recipeId ?? null,
+          recipeName: s.recipeName ?? null,
+          isEatingOut: false,
+          isSkipped: s.isSkipped,
+        })),
+      };
+      queryClient.setQueryData<SavedWeekTemplate[]>(["saved-weeks"], (prev) => {
+        const existing = prev ?? [];
+        const idx = existing.findIndex((item) => item.id === snapshot.id);
+        return idx >= 0 ? existing.map((item, index) => (index === idx ? snapshot : item)) : [snapshot, ...existing];
+      });
+      setSaveTemplateOpen(false);
+      setTemplateNameDraft("");
+      pushToast("Week saved as a template in preview mode.");
     },
   });
 
@@ -409,31 +436,153 @@ export function HomePage() {
     setVisibleMealTypes(next);
   }
 
-  function openSimpleNewWeek(startDate = defaultNextWeekStart, mode: "auto" | "manual" = "auto") {
-    setPendingWeekStart(getWeekStartForDate(startDate));
-    setPlanningMode(mode);
-    setSimpleNewWeekOpen(true);
-  }
-
-  function buildMyself() {
-    setPendingWeekStart(getWeekStartForDate(defaultNextWeekStart));
-    setPlanningMode("manual");
-    setSimpleNewWeekOpen(false);
-    startWeekMutation.mutate();
-  }
-
-  function startWeek() {
-    startWeekMutation.mutate();
-  }
-
   function jumpToToday() {
     const todayDay = weekDays.find((day) => isWeekColumnToday(week.weekStartDate, day as WeekDay));
     if (!todayDay) return;
     dayRefs.current[todayDay]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
   }
 
-  const pendingWeekRangeLabel = formatWeekRange(pendingWeekStart);
+  function openRecipeOrPlanner(slot: WeekMealSlot) {
+    if (slot.recipeId && !planMode) {
+      navigate(`/recipes/${slot.recipeId}`);
+      return;
+    }
 
+    selectSlot(slot.id);
+    setSwapTargetIds([slot.id]);
+    setSwapDrawerOpen(true);
+  }
+
+  function matchingRecipeSlots(slot: WeekMealSlot) {
+    if (!slot.recipeId) return [];
+    return slots.filter((entry) => entry.recipeId === slot.recipeId && entry.id !== slot.id);
+  }
+
+  function startSwap(slot: WeekMealSlot) {
+    const matchingSlots = matchingRecipeSlots(slot);
+    if (matchingSlots.length > 0) {
+      setRepeatAction({ type: "swap", slot, matchingSlots });
+      return;
+    }
+    selectSlot(slot.id);
+    setSwapTargetIds([slot.id]);
+    setSwapDrawerOpen(true);
+  }
+
+  function startRemove(slot: WeekMealSlot) {
+    const matchingSlots = matchingRecipeSlots(slot);
+    if (matchingSlots.length > 0) {
+      setRepeatAction({ type: "remove", slot, matchingSlots });
+      return;
+    }
+    clearSlotMutation.mutate([slot.id]);
+  }
+
+  function confirmRepeatAction(scope: "single" | "all") {
+    if (!repeatAction) return;
+    const targetIds =
+      scope === "all"
+        ? [repeatAction.slot.id, ...repeatAction.matchingSlots.map((slot) => slot.id)]
+        : [repeatAction.slot.id];
+
+    if (repeatAction.type === "swap") {
+      selectSlot(repeatAction.slot.id);
+      setSwapTargetIds(targetIds);
+      setSwapDrawerOpen(true);
+    } else {
+      clearSlotMutation.mutate(targetIds);
+    }
+
+    setRepeatAction(null);
+  }
+
+  function openCopyMeal(slot: WeekMealSlot) {
+    if (!slot.recipeId) return;
+    const eligibleTargetIds = slots
+      .filter((entry) => entry.mealType === slot.mealType && entry.id !== slot.id)
+      .map((entry) => entry.id);
+    setCopyMealSlot(slot);
+    setCopyTargetIds(eligibleTargetIds.filter((id) => {
+      const entry = slots.find((slotEntry) => slotEntry.id === id);
+      return entry ? entry.recipeId == null : false;
+    }));
+  }
+
+  function toggleCopyTarget(slotId: number) {
+    setCopyTargetIds((current) => (current.includes(slotId) ? current.filter((id) => id !== slotId) : [...current, slotId]));
+  }
+
+  function applyCopyMeal() {
+    if (!copyMealSlot || copyTargetIds.length === 0) return;
+    copyMealMutation.mutate({ sourceSlot: copyMealSlot, targetIds: copyTargetIds });
+  }
+
+  function handleDragDrop(targetSlotId: number) {
+    if (!planMode || draggedSlotId == null || draggedSlotId === targetSlotId) return;
+    const sourceSlot = slots.find((slot) => slot.id === draggedSlotId);
+    const targetSlot = slots.find((slot) => slot.id === targetSlotId);
+    if (!sourceSlot || !targetSlot || !sourceSlot.recipeId) {
+      setDraggedSlotId(null);
+      setDropTargetSlotId(null);
+      return;
+    }
+
+    const sourceRecipeId = sourceSlot.recipeId ?? null;
+    const sourceModifierIds = sourceSlot.selectedModifierIngredientIds ?? [];
+    const targetRecipeId = targetSlot.recipeId ?? null;
+    const targetModifierIds = targetSlot.selectedModifierIngredientIds ?? [];
+
+    Promise.all([
+      swapSlot(week.id, targetSlot.id, {
+        recipeId: sourceRecipeId,
+        selectedModifierIngredientIds: sourceModifierIds,
+        isSkipped: false,
+        isEatingOut: false,
+      }),
+      swapSlot(week.id, sourceSlot.id, {
+        recipeId: targetRecipeId,
+        selectedModifierIngredientIds: targetModifierIds,
+        isSkipped: false,
+        isEatingOut: false,
+      }),
+    ])
+      .then(async () => {
+        await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+        setSlotOverrides(null);
+        pushToast(targetRecipeId ? "Meals swapped." : "Meal moved.");
+      })
+      .catch(() => {
+        const sourceRecipe = recipes.find((recipe) => recipe.id === sourceRecipeId);
+        const targetRecipe = recipes.find((recipe) => recipe.id === targetRecipeId);
+        const nextSlots = slots.map((entry) => {
+          if (entry.id === targetSlot.id) {
+            return {
+              ...entry,
+              recipeId: sourceRecipeId,
+              recipeName: sourceRecipe?.name ?? null,
+              selectedModifierIngredientIds: sourceModifierIds,
+              isSkipped: false,
+            };
+          }
+          if (entry.id === sourceSlot.id) {
+            return {
+              ...entry,
+              recipeId: targetRecipeId,
+              recipeName: targetRecipe?.name ?? null,
+              selectedModifierIngredientIds: targetModifierIds,
+              isSkipped: false,
+            };
+          }
+          return entry;
+        });
+        setSlotOverrides(nextSlots);
+        pushToast(targetRecipeId ? "Meals swapped in preview mode." : "Meal moved in preview mode.");
+      })
+      .finally(() => {
+        setDraggedSlotId(null);
+        setDropTargetSlotId(null);
+      });
+  }
   const todayDayKey = weekDays.find((d) => isWeekColumnToday(week.weekStartDate, d as WeekDay));
   const todayColumnIndex = todayDayKey ? weekDays.indexOf(todayDayKey as (typeof weekDays)[number]) : -1;
 
@@ -522,10 +671,10 @@ export function HomePage() {
                     className="flex w-full px-4 py-3 text-left text-nourish-ink hover:bg-nourish-bg"
                     onClick={() => {
                       setHeaderMenuOpen(false);
-                      setLoadTemplateOpen(true);
+                      setViewMode("month");
                     }}
                   >
-                    Load a saved week
+                    View month
                   </button>
                   <button
                     type="button"
@@ -544,10 +693,10 @@ export function HomePage() {
                     className="flex w-full px-4 py-3 text-left text-nourish-ink hover:bg-nourish-bg"
                     onClick={() => {
                       setHeaderMenuOpen(false);
-                      setViewMode("month");
+                      setLoadTemplateOpen(true);
                     }}
                   >
-                    View month
+                    Choose weekly template
                   </button>
                   <button
                     type="button"
@@ -555,30 +704,12 @@ export function HomePage() {
                     className="flex w-full px-4 py-3 text-left text-nourish-ink hover:bg-nourish-bg"
                     onClick={() => {
                       setHeaderMenuOpen(false);
-                      openSimpleNewWeek(defaultNextWeekStart, "auto");
+                      setTemplateNameDraft(week.templateName ?? `Week of ${format(parseISO(week.weekStartDate), "MMM d")}`);
+                      setSaveTemplateOpen(true);
                     }}
                   >
-                    New week
+                    Save as a weekly template
                   </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="flex w-full px-4 py-3 text-left text-nourish-ink hover:bg-nourish-bg"
-                    onClick={() => {
-                      setHeaderMenuOpen(false);
-                      buildMyself();
-                    }}
-                  >
-                    Build it myself
-                  </button>
-                  <Link
-                    to="/saved-weeks"
-                    role="menuitem"
-                    className="flex w-full px-4 py-3 text-nourish-ink hover:bg-nourish-bg"
-                    onClick={() => setHeaderMenuOpen(false)}
-                  >
-                    Saved weeks library
-                  </Link>
                 </div>
               ) : null}
             </div>
@@ -592,10 +723,10 @@ export function HomePage() {
               className="button-secondary w-full"
               onClick={() => {
                 setHeaderMenuOpen(false);
-                setLoadTemplateOpen(true);
+                setViewMode("month");
               }}
             >
-              Load a saved week
+              View month
             </button>
             <button
               type="button"
@@ -612,34 +743,22 @@ export function HomePage() {
               className="button-secondary w-full"
               onClick={() => {
                 setHeaderMenuOpen(false);
-                setViewMode("month");
+                setLoadTemplateOpen(true);
               }}
             >
-              View month
+              Choose weekly template
             </button>
             <button
               type="button"
               className="button-secondary w-full"
               onClick={() => {
                 setHeaderMenuOpen(false);
-                openSimpleNewWeek(defaultNextWeekStart, "auto");
+                setTemplateNameDraft(week.templateName ?? `Week of ${format(parseISO(week.weekStartDate), "MMM d")}`);
+                setSaveTemplateOpen(true);
               }}
             >
-              New week
+              Save as a weekly template
             </button>
-            <button
-              type="button"
-              className="button-secondary w-full"
-              onClick={() => {
-                setHeaderMenuOpen(false);
-                buildMyself();
-              }}
-            >
-              Build it myself
-            </button>
-            <Link to="/saved-weeks" className="button-secondary flex w-full justify-center" onClick={() => setHeaderMenuOpen(false)}>
-              Saved weeks library
-            </Link>
           </div>
         </BottomSheet>
 
@@ -650,7 +769,7 @@ export function HomePage() {
               const colToday = isToday(colDate);
               const daySlots = slots.filter((s) => s.dayOfWeek === day);
               const mains = daySlots.filter((s) => s.mealType !== "Snack");
-              const hasOpen = mains.some((s) => !s.recipeId && !s.isEatingOut && !s.isSkipped);
+              const hasOpen = mains.some((s) => !s.recipeId && !s.isSkipped);
               const allSettled = mains.length > 0 && !hasOpen;
               return (
                 <button
@@ -707,6 +826,19 @@ export function HomePage() {
                     {mealType}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setPlanMode((current) => !current)}
+                  className={cn(
+                    "inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition",
+                    planMode
+                      ? "border-nourish-terracotta bg-nourish-terracotta text-white"
+                      : "border-nourish-border bg-white text-nourish-ink hover:border-nourish-terracotta/40 hover:text-nourish-terracotta",
+                  )}
+                >
+                  <PencilRuler size={16} />
+                  {planMode ? "Plan mode on" : "Plan mode"}
+                </button>
                 <div className="relative z-10 ml-auto" ref={dotsHelpRef}>
                   <button
                     type="button"
@@ -746,15 +878,28 @@ export function HomePage() {
                         slots={grouped[day] ?? []}
                         recipes={recipes}
                         isToday={isWeekColumnToday(week.weekStartDate, day as WeekDay)}
-                        dayEatingOut={(grouped[day] ?? []).every((slot) => slot.isEatingOut)}
-                        togglePending={toggleDayEatingOutMutation.isPending}
-                        onToggleEatingOut={(next) => toggleDayEatingOutMutation.mutate({ day: day as WeekDay, next })}
-                        onSlotSelect={(slotId) => {
-                          selectSlot(slotId);
-                          setSwapDrawerOpen(true);
-                        }}
+                        planningMode={planMode}
+                        onSlotPrimaryAction={openRecipeOrPlanner}
+                        onSlotEdit={startSwap}
+                        onCopyMeal={openCopyMeal}
                         onSkipSlot={(slotId) => skipSlotMutation.mutate(slotId)}
-                        onClearSlot={(slotId) => clearSlotMutation.mutate(slotId)}
+                        onClearSlot={(slotId) => {
+                          const slot = slots.find((entry) => entry.id === slotId);
+                          if (slot) startRemove(slot);
+                        }}
+                        onDeleteSlot={(slotId) => deleteSlotMutation.mutate(slotId)}
+                        onAddSnack={() => addSnackMutation.mutate(day as WeekDay)}
+                        dragState={{
+                          draggedSlotId,
+                          dropTargetSlotId,
+                          onDragStart: (slotId) => setDraggedSlotId(slotId),
+                          onDragEnd: () => {
+                            setDraggedSlotId(null);
+                            setDropTargetSlotId(null);
+                          },
+                          onDragOver: (slotId) => setDropTargetSlotId(slotId),
+                          onDrop: handleDragDrop,
+                        }}
                       />
                     </div>
                   ))}
@@ -882,67 +1027,6 @@ export function HomePage() {
           </div>
         </div>
 
-        <BottomSheet open={simpleNewWeekOpen} title="Plan your week" onClose={() => setSimpleNewWeekOpen(false)}>
-          <div className="space-y-5">
-            <p className="text-sm text-nourish-muted">{pendingWeekRangeLabel}</p>
-            <div>
-              <p className="text-sm font-semibold text-nourish-ink">How do you want to prep this week?</p>
-              <div className="mt-3 space-y-2">
-                {prepStyles.map((style) => (
-                  <button
-                    key={style.value}
-                    type="button"
-                    onClick={() => setSelectedPrepStyle(style.value)}
-                    className={`w-full rounded-2xl border p-4 text-left text-sm font-medium transition ${
-                      selectedPrepStyle === style.value ? "border-transparent bg-nourish-sage text-white" : "border-nourish-border bg-white text-nourish-ink"
-                    }`}
-                  >
-                    {style.title}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-nourish-ink">Max time per session?</p>
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {[
-                  { label: "20 min", value: "Under20" },
-                  { label: "45 min", value: "Under45" },
-                  { label: "No limit", value: "NoLimit" },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setSelectedTime(option.value)}
-                    className={`min-h-[44px] rounded-xl px-2 text-xs font-medium sm:text-sm ${
-                      selectedTime === option.value ? "bg-nourish-terracotta text-white" : "border border-nourish-border bg-white text-nourish-muted"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <button
-              type="button"
-              className="button-primary w-full"
-              onClick={() => {
-                setPlanningMode("auto");
-                startWeek();
-              }}
-              disabled={startWeekMutation.isPending}
-            >
-              Generate my plan →
-            </button>
-            <p className="text-center text-xs text-nourish-muted">
-              Want a saved template?{" "}
-              <Link to="/saved-weeks" className="font-medium text-nourish-sage underline-offset-2 hover:underline">
-                Browse saved weeks
-              </Link>
-            </p>
-          </div>
-        </BottomSheet>
-
         <BottomSheet open={approveReviewOpen} title="Confirm week" onClose={() => setApproveReviewOpen(false)}>
           <div className="space-y-4">
             <p className="text-sm text-nourish-muted">Review this week before saving it to your library.</p>
@@ -955,14 +1039,14 @@ export function HomePage() {
                     <ul className="mt-2 space-y-1.5 text-sm text-nourish-ink">
                       {daySlots.map((s) => {
                         const open =
-                          s.mealType !== "Snack" && !s.recipeId && !s.isEatingOut && !s.isSkipped;
+                          s.mealType !== "Snack" && !s.recipeId && !s.isSkipped;
                         return (
                           <li key={s.id} className="flex justify-between gap-2">
                             <span className="text-nourish-muted">{s.mealType}</span>
                             <span
                               className={`min-w-0 text-right ${open ? "rounded-md bg-amber-100/90 px-2 py-0.5 font-medium text-amber-950" : ""}`}
                             >
-                              {s.isSkipped ? "Skipped" : s.isEatingOut ? "Eating out" : s.recipeName ?? "Open"}
+                              {s.isSkipped ? "Skipped" : s.recipeName ?? "Open"}
                             </span>
                           </li>
                         );
@@ -986,30 +1070,114 @@ export function HomePage() {
           </div>
         </BottomSheet>
 
-        <BottomSheet open={loadTemplateOpen} title="Saved weeks" onClose={() => setLoadTemplateOpen(false)}>
-          <div className="space-y-3">
-            {savedTemplates.map((t) => (
+        <BottomSheet
+          open={repeatAction != null}
+          title={repeatAction?.type === "swap" ? "Swap repeated meal?" : "Remove repeated meal?"}
+          onClose={() => setRepeatAction(null)}
+        >
+          {repeatAction ? (
+            <div className="space-y-4">
+              <p className="text-sm text-nourish-muted">
+                {repeatAction.slot.recipeName ?? "This meal"} appears on{" "}
+                {repeatAction.matchingSlots.map((slot) => slot.dayOfWeek).join(", ")} too.
+              </p>
+              <button type="button" className="button-primary w-full" onClick={() => confirmRepeatAction("single")}>
+                {repeatAction.type === "swap" ? `Only ${repeatAction.slot.dayOfWeek}` : `Remove only ${repeatAction.slot.dayOfWeek}`}
+              </button>
+              <button type="button" className="button-secondary w-full" onClick={() => confirmRepeatAction("all")}>
+                {repeatAction.type === "swap"
+                  ? `Also change ${repeatAction.matchingSlots.map((slot) => slot.dayOfWeek).join(", ")}`
+                  : `Remove from ${[repeatAction.slot, ...repeatAction.matchingSlots].map((slot) => slot.dayOfWeek).join(", ")}`}
+              </button>
+            </div>
+          ) : null}
+        </BottomSheet>
+
+        <BottomSheet
+          open={copyMealSlot != null}
+          title="Add to other days"
+          onClose={() => {
+            setCopyMealSlot(null);
+            setCopyTargetIds([]);
+          }}
+        >
+          {copyMealSlot ? (
+            <div className="space-y-4">
+              <p className="text-sm text-nourish-muted">
+                Add {copyMealSlot.recipeName} to more {copyMealSlot.mealType.toLowerCase()} slots this week.
+              </p>
+              <div className="space-y-2">
+                {slots
+                  .filter((entry) => entry.mealType === copyMealSlot.mealType && entry.id !== copyMealSlot.id)
+                  .map((entry) => (
+                    <label
+                      key={entry.id}
+                      className={cn(
+                        "flex items-center justify-between rounded-xl border px-3 py-2 text-sm",
+                        copyTargetIds.includes(entry.id) ? "border-nourish-sage bg-white" : "border-nourish-border bg-white/70",
+                      )}
+                    >
+                      <span className="text-nourish-ink">
+                        {entry.dayOfWeek}
+                        {entry.position > 0 ? ` · Snack ${entry.position + 1}` : ""}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        {entry.recipeName ? <span className="text-xs text-nourish-muted">{entry.recipeName}</span> : null}
+                        <input
+                          type="checkbox"
+                          checked={copyTargetIds.includes(entry.id)}
+                          onChange={() => toggleCopyTarget(entry.id)}
+                          className="h-4 w-4 rounded border-nourish-border text-nourish-sage focus:ring-nourish-sage"
+                        />
+                      </span>
+                    </label>
+                  ))}
+              </div>
+              <button type="button" className="button-primary w-full" onClick={applyCopyMeal} disabled={copyTargetIds.length === 0 || copyMealMutation.isPending}>
+                Add to {copyTargetIds.length} day{copyTargetIds.length === 1 ? "" : "s"}
+              </button>
+            </div>
+          ) : null}
+        </BottomSheet>
+
+        <BottomSheet open={loadTemplateOpen} title="Choose weekly template" onClose={() => setLoadTemplateOpen(false)}>
+          {savedTemplates.length > 0 ? (
+            <div className="space-y-3">
+              {savedTemplates.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className="w-full rounded-2xl border border-nourish-border bg-white p-4 text-left transition hover:border-nourish-sage/40 hover:bg-nourish-bg/60"
+                  onClick={() => applyTemplateMutation.mutate(t)}
+                  disabled={applyTemplateMutation.isPending}
+                >
+                  <p className="font-semibold text-nourish-ink">{t.name}</p>
+                  <p className="mt-2 line-clamp-2 text-xs text-nourish-muted">
+                    {t.slots
+                      .filter((s) => s.recipeName)
+                      .slice(0, 4)
+                      .map((s) => s.recipeName)
+                      .join(" · ")}
+                  </p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4 text-center">
+              <p className="text-sm text-nourish-muted">You don’t have any saved weekly templates yet.</p>
               <button
-                key={t.id}
                 type="button"
-                className="w-full rounded-2xl border border-nourish-border bg-white p-4 text-left transition hover:border-nourish-sage/40 hover:bg-nourish-bg/60"
+                className="button-primary w-full"
                 onClick={() => {
-                  setSlotOverrides(mergeSavedTemplateIntoSlots(t, week.id, week.weekStartDate, recipes));
                   setLoadTemplateOpen(false);
-                  pushToast(`Loaded “${t.name}” into this week.`);
+                  setTemplateNameDraft(`Week of ${format(parseISO(week.weekStartDate), "MMM d")}`);
+                  setSaveTemplateOpen(true);
                 }}
               >
-                <p className="font-semibold text-nourish-ink">{t.name}</p>
-                <p className="mt-2 line-clamp-2 text-xs text-nourish-muted">
-                  {t.slots
-                    .filter((s) => s.recipeName)
-                    .slice(0, 4)
-                    .map((s) => s.recipeName)
-                    .join(" · ")}
-                </p>
+                Save this week as your first template
               </button>
-            ))}
-          </div>
+            </div>
+          )}
         </BottomSheet>
 
         <BottomSheet open={clearWeekOpen} title="Clear this week?" onClose={() => setClearWeekOpen(false)}>
@@ -1020,15 +1188,43 @@ export function HomePage() {
             <button
               type="button"
               className="button-primary w-full"
-              onClick={() => {
-                setSlotOverrides(createBlankWeekSlots(week.id, [...mealTypes], week.weekStartDate));
-                setClearWeekOpen(false);
-                pushToast("Week cleared.");
-              }}
+              onClick={() => clearWeekMutation.mutate()}
+              disabled={clearWeekMutation.isPending}
             >
-              Clear all meals
+              Clear all meals and grocery
             </button>
             <button type="button" className="button-secondary w-full" onClick={() => setClearWeekOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </BottomSheet>
+
+        <BottomSheet open={saveTemplateOpen} title="Save as a Weekly Template" onClose={() => setSaveTemplateOpen(false)}>
+          <div className="space-y-4">
+            <p className="text-sm text-nourish-muted">
+              Save this week so you can drop it into a future planner with one tap.
+            </p>
+            <div className="space-y-2">
+              <label htmlFor="template-name" className="text-sm font-semibold text-nourish-ink">
+                Template name
+              </label>
+              <input
+                id="template-name"
+                className="input w-full"
+                value={templateNameDraft}
+                onChange={(event) => setTemplateNameDraft(event.target.value)}
+                placeholder="Weeknight staples"
+              />
+            </div>
+            <button
+              type="button"
+              className="button-primary w-full"
+              disabled={saveTemplateMutation.isPending || !templateNameDraft.trim()}
+              onClick={() => saveTemplateMutation.mutate(templateNameDraft.trim())}
+            >
+              Save template
+            </button>
+            <button type="button" className="button-secondary w-full" onClick={() => setSaveTemplateOpen(false)}>
               Cancel
             </button>
           </div>
@@ -1038,8 +1234,10 @@ export function HomePage() {
           open={swapDrawerOpen}
           slot={selectedSlot}
           recipes={recipes}
+          ingredients={ingredients}
           fridgeItems={fridgeItems}
           weekSlots={slots}
+          initialTargetIds={swapTargetIds}
           onClose={() => setSwapDrawerOpen(false)}
         />
       </div>

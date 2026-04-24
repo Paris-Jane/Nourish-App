@@ -6,12 +6,11 @@ This guide documents intended feature behavior for Nourish.
 
 ### Purpose
 
-Generate a full week of meals with minimal user effort.
+Help users build a full week of meals with low-friction suggestions and reusable saved weeks.
 
 ### Behavior
 
 - [x] a new week can start from:
-  - [x] auto generation
   - [x] a blank manual planner
   - [x] a saved week
 - [x] week contains meal slots across Monday–Sunday
@@ -24,7 +23,7 @@ Generate a full week of meals with minimal user effort.
 
 ### UX expectations
 
-- [x] users should see a complete plan immediately
+- [x] users should be able to start planning immediately
 - [x] swapping should be easy and in-context
 - [x] empty slots should still feel supported, not broken
 
@@ -56,7 +55,7 @@ Manual planning is part of the same experience, not a separate product mode.
 - [x] user can tap any slot to fill it
 - [x] app surfaces context-aware recommendations
 - [x] after selecting a recipe, user can apply it to multiple days
-- [x] app can fill only the remaining slots afterward
+- [x] saved weeks can act as a faster reusable starting point
 
 ## Snack Suggestions
 

@@ -15,7 +15,7 @@ For detailed supporting references, also see:
 
 The core idea is:
 
-- meal planning on autopilot
+- guided meal planning with smart suggestions
 - no calorie tracking, macro tracking, weight tracking, or body-focused features
 - nutrition logic happens invisibly in the backend
 - users get practical outputs: weekly plans, grocery lists, prep guidance, and fridge-aware recipe suggestions
@@ -60,8 +60,8 @@ Meal planning that actually saves time and money without turning food into homew
 
 These are the operating rules the product should follow.
 
-1. **Autopilot first**
-   The app should do as much planning as possible by default.
+1. **Guided planning first**
+   The app should make planning feel easy through smart suggestions, saved weeks, and low-friction editing.
 
 2. **Flexible, not rigid**
    Users should always be able to swap, skip, eat out, or manually fill a slot.
@@ -104,22 +104,17 @@ Instead:
 
 ### Planning mode decision
 
-There should **not** be a big “Auto vs Manual” mode selection before a user has seen the app work.
+The weekly planner should center on **manual planning with smart suggestions**, not a separate auto-plan mode.
 
 Instead:
 
-- the first experience can still be autopilot-first
-- when starting a **new week**, the user can choose how to begin:
-  - auto plan
-  - manual plan
-  - use a saved week
-- once a week exists, the experience should stay hybrid:
-  - every slot is editable
-  - users can replace any meal
-  - users can fill individual slots themselves
-  - users can partially build a week and use “fill the rest for me”
+- the weekly view opens as the main manual planning surface
+- users fill slots one by one with smart, context-aware recommendations
+- users can reuse previously saved weeks as a faster starting point
+- every slot stays editable
+- users can replace, skip, eat out, or customize meals at any time
 
-This keeps the product consistent with autopilot positioning while still supporting planners who want a blank canvas or a saved template.
+This keeps the product flexible while making the core experience clearer and more intentional.
 
 ### Nutrition decision
 
@@ -202,9 +197,9 @@ The app should not feel like:
 1. User creates an account.
 2. User completes lightweight onboarding.
 3. App calculates MyPlate targets invisibly.
-4. User selects week prep preferences.
-5. App generates a first weekly meal plan.
-6. User previews the week and can swap anything.
+4. User enters the current week planner.
+5. App helps the user start filling slots with smart recommendations.
+6. User can save favorite patterns into reusable weeks over time.
 7. User approves the week.
 8. App generates grocery list and prep guidance.
 
@@ -213,11 +208,12 @@ The app should not feel like:
 1. User opens the current week.
 2. User sees the current week as the main working surface.
 3. User can:
+   - add meals slot by slot
+   - use smart suggestions in context
+   - load a saved week
    - approve the week
    - swap individual meals
    - mark a slot as eating out
-   - manually fill some slots
-   - use “fill the rest for me”
 4. Once approved:
    - grocery list is generated
    - prep sheets can be generated
@@ -225,16 +221,9 @@ The app should not feel like:
 
 ### New week start flow
 
-When a user opens a new week, they can choose one of three starting paths:
+When a user starts a new week, the planner stays manual-first:
 
-#### Auto plan
-
-- app generates a week using stored preferences and current weekly inputs
-- user can inspect meals and swap anything before approving
-
-#### Manual plan
-
-- app starts with a blank week
+- app opens a blank current-week canvas
 - user fills slots one by one
 - recommendations are shown in context from categories like:
   - expiring soon
@@ -243,11 +232,7 @@ When a user opens a new week, they can choose one of three starting paths:
   - favorites
   - recent
 - user can search existing recipes or add a new one from the slot flow
-
-#### Use a saved week
-
-- app starts from a previously saved week
-- user can adapt that saved week for the current week before approving
+- user can also load a previously saved week as a starting point, then adapt it before approving
 
 ### Manual / hybrid planning flow
 

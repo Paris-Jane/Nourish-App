@@ -224,7 +224,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<WeekMealSlot>(b =>
         {
-            b.HasIndex(s => new { s.WeekId, s.DayOfWeek, s.MealType }).IsUnique();
+            b.HasIndex(s => new { s.WeekId, s.DayOfWeek, s.MealType, s.Position }).IsUnique();
             b.Property(s => s.DayOfWeek).HasConversion<string>();
             b.Property(s => s.MealType).HasConversion<string>();
             b.Property(s => s.SelectedModifierIngredientIds).HasColumnType("jsonb").HasConversion(intListConverter, intListComparer);

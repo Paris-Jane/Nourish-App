@@ -21,7 +21,8 @@ This guide breaks the Nourish roadmap into implementation phases.
 ### Phase 3: Basic weekly planning
 
 - [x] create weeks and slots
-- [x] auto-generate a simple week
+- [x] support blank week planning
+- [x] support context-aware slot suggestions
 - [x] support swap/skip/eating-out behavior
 - [x] support approval flow
 - [x] generate grocery list

@@ -1,6 +1,7 @@
-import { Heart } from "lucide-react";
+import { Heart, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { deleteSavedWeekTemplate } from "api/savedWeeks";
 import { useSavedWeeks } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
 import { cn } from "lib/utils";
@@ -15,6 +16,22 @@ export function SavedWeeksPage() {
   const toggleFavorite = useWeekPrefsStore((state) => state.toggleFavorite);
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      if (import.meta.env.VITE_API_BASE_URL) {
+        await deleteSavedWeekTemplate(id);
+      }
+    },
+    onSuccess: (_, id) => {
+      queryClient.setQueryData<SavedWeekTemplate[]>(["saved-weeks"], (prev) => (prev ?? []).filter((t) => t.id !== id));
+      setRenamingId((current) => (current === id ? null : current));
+      pushToast("Saved week deleted.");
+    },
+    onError: () => {
+      pushToast("Couldn’t delete this saved week. Try again.");
+    },
+  });
 
   const commitRename = (templateId: number) => {
     const name = renameDraft.trim();
@@ -40,7 +57,7 @@ export function SavedWeeksPage() {
       <div className="card flex min-h-[420px] flex-col items-center justify-center p-10 text-center">
         <div className="mb-4 h-24 w-24 rounded-full bg-gradient-to-br from-nourish-sage/20 to-nourish-terracotta/20" />
         <h1 className="mb-2 text-4xl">Saved Weeks</h1>
-        <p className="text-nourish-muted">Approve a week from Home to save it here automatically.</p>
+        <p className="text-nourish-muted">Save a week from Home when you want to reuse it later.</p>
       </div>
     );
   }
@@ -85,7 +102,7 @@ export function SavedWeeksPage() {
                   {new Date(template.createdAt).toLocaleDateString()}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   className={cn(
@@ -105,6 +122,24 @@ export function SavedWeeksPage() {
                     {isFavorite(template.id) ? "Favorited" : "Favorite"}
                   </span>
                 </button>
+                <button
+                  type="button"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-nourish-border text-nourish-muted transition hover:border-nourish-terracotta/40 hover:bg-nourish-terracotta/5 hover:text-nourish-terracotta disabled:opacity-50"
+                  aria-label={`Delete ${template.name}`}
+                  disabled={deleteMutation.isPending}
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        `Delete “${template.name}”? This removes it from your saved weeks and cannot be undone.`,
+                      )
+                    ) {
+                      return;
+                    }
+                    deleteMutation.mutate(template.id);
+                  }}
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
             </div>
             <div className="mb-5 grid grid-cols-7 gap-2 text-[11px] text-nourish-muted">
@@ -121,7 +156,10 @@ export function SavedWeeksPage() {
                 .slice(0, 6)
                 .join(" · ")}
             </p>
-            <button className="button-primary w-full" onClick={() => pushToast("Open Home and use ⋯ → Load a saved week to apply this template.")}>
+            <button
+              className="button-primary w-full"
+              onClick={() => pushToast("Open Home and use ⋯ → Choose weekly template to apply this saved week.")}
+            >
               How to use
             </button>
           </div>

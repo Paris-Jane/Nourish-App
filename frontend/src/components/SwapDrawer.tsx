@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRightLeft, Search, X } from "lucide-react";
+import { addRecipeModifier } from "api/recipes";
 import { swapSlot } from "api/weeks";
 import { useToast } from "hooks/useToast";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
@@ -8,7 +9,7 @@ import { cn, daysUntil } from "lib/utils";
 import { useWeekStore } from "store/weekStore";
 import { RecipeCard } from "./RecipeCard";
 import { TagPill } from "./TagPill";
-import type { FridgeItem, Recipe, WeekMealSlot } from "types/models";
+import type { FridgeItem, Ingredient, Recipe, WeekMealSlot } from "types/models";
 
 const filters = ["All suggestions", "Expiring soon", "In your fridge", "Ingredient overlap", "Favorites", "Recent"] as const;
 
@@ -16,8 +17,10 @@ interface SwapDrawerProps {
   open: boolean;
   slot?: WeekMealSlot;
   recipes: Recipe[];
+  ingredients?: Ingredient[];
   fridgeItems?: FridgeItem[];
   weekSlots?: WeekMealSlot[];
+  initialTargetIds?: number[];
   onClose: () => void;
 }
 
@@ -37,7 +40,16 @@ function recipesForSlotOrFallback(recipes: Recipe[], slot: WeekMealSlot | undefi
   return matched.length > 0 ? matched : recipes;
 }
 
-export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = [], onClose }: SwapDrawerProps) {
+export function SwapDrawer({
+  open,
+  slot,
+  recipes,
+  ingredients = [],
+  fridgeItems = [],
+  weekSlots = [],
+  initialTargetIds,
+  onClose,
+}: SwapDrawerProps) {
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
   const currentRecipe = recipes.find((recipe) => recipe.id === slot?.recipeId);
@@ -46,6 +58,7 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
   const [pendingRecipe, setPendingRecipe] = useState<Recipe | null>(null);
   const [selectedTargetIds, setSelectedTargetIds] = useState<number[]>([]);
   const [selectedModifierIds, setSelectedModifierIds] = useState<number[]>([]);
+  const [customModifierQuery, setCustomModifierQuery] = useState("");
   const isFavorite = useRecipePrefsStore((s) => s.isFavorite);
   const setSlotOverrides = useWeekStore((state) => state.setSlotOverrides);
 
@@ -54,10 +67,11 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
       setActiveFilter("All suggestions");
       setQuery("");
       setPendingRecipe(null);
-      setSelectedTargetIds(slot ? [slot.id] : []);
+      setSelectedTargetIds(initialTargetIds?.length ? initialTargetIds : slot ? [slot.id] : []);
       setSelectedModifierIds(slot?.selectedModifierIngredientIds ?? []);
+      setCustomModifierQuery("");
     }
-  }, [open, slot?.id]);
+  }, [initialTargetIds, open, slot?.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -131,6 +145,16 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
     [pendingRecipe],
   );
 
+  const customModifierResults = useMemo(() => {
+    if (!pendingRecipe) return [];
+    const q = customModifierQuery.trim().toLowerCase();
+    if (!q) return [];
+    const existingIds = new Set(pendingRecipe.ingredients.map((ingredient) => ingredient.ingredientId));
+    return ingredients
+      .filter((ingredient) => !existingIds.has(ingredient.id) && ingredient.name.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [customModifierQuery, ingredients, pendingRecipe]);
+
   const applyRecipeMutation = useMutation({
     mutationFn: async ({ recipeId, targetIds, modifierIds }: { recipeId: number; targetIds: number[]; modifierIds: number[] }) => {
       if (!slot) throw new Error("No slot selected");
@@ -172,6 +196,63 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
         pushToast(count > 1 ? `${recipe.name} added in preview mode to ${count} slots.` : `${recipe.name} added in preview mode.`);
       }
       onClose();
+    },
+  });
+
+  const addCustomModifierMutation = useMutation({
+    mutationFn: async (ingredient: Ingredient) => {
+      if (!pendingRecipe) throw new Error("No recipe selected");
+      return addRecipeModifier(pendingRecipe.id, {
+        ingredientId: ingredient.id,
+        quantity: ingredient.servingSize > 0 ? ingredient.servingSize : 1,
+        unit: ingredient.servingUnit || ingredient.purchaseUnit,
+        notes: "Added while planning this week",
+      });
+    },
+    onSuccess: async (modifier) => {
+      if (!pendingRecipe) return;
+      await queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      setPendingRecipe((current) =>
+        current
+          ? {
+              ...current,
+              ingredients: current.ingredients.some((ingredient) => ingredient.ingredientId === modifier.ingredientId)
+                ? current.ingredients
+                : [...current.ingredients, modifier],
+            }
+          : current,
+      );
+      setSelectedModifierIds((current) => (current.includes(modifier.ingredientId) ? current : [...current, modifier.ingredientId]));
+      setCustomModifierQuery("");
+      pushToast(`${modifier.ingredientName} added to optional add-ons.`);
+    },
+    onError: (_error, ingredient) => {
+      setPendingRecipe((current) =>
+        current
+          ? {
+              ...current,
+              ingredients: current.ingredients.some((entry) => entry.ingredientId === ingredient.id)
+                ? current.ingredients
+                : [
+                    ...current.ingredients,
+                    {
+                      id: 990_000 + ingredient.id,
+                      ingredientId: ingredient.id,
+                      ingredientName: ingredient.name,
+                      quantity: ingredient.servingSize > 0 ? ingredient.servingSize : 1,
+                      unit: ingredient.servingUnit || ingredient.purchaseUnit,
+                      isModifier: true,
+                      isOptional: true,
+                      substituteIngredientIds: [],
+                      notes: "Added while planning this week",
+                    },
+                  ],
+            }
+          : current,
+      );
+      setSelectedModifierIds((current) => (current.includes(ingredient.id) ? current : [...current, ingredient.id]));
+      setCustomModifierQuery("");
+      pushToast(`${ingredient.name} added in preview mode.`);
     },
   });
 
@@ -344,6 +425,39 @@ export function SwapDrawer({ open, slot, recipes, fridgeItems = [], weekSlots = 
                   </div>
                 </div>
               ) : null}
+              <div className="mt-4 rounded-2xl border border-nourish-border bg-white/80 p-3">
+                <div className="mb-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Add your own</p>
+                  <p className="mt-1 text-sm text-nourish-muted">Search ingredients to turn them into optional add-ons for this recipe.</p>
+                </div>
+                <div className="relative">
+                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-nourish-muted" />
+                  <input
+                    className="input pl-10"
+                    placeholder="Search ingredients"
+                    value={customModifierQuery}
+                    onChange={(event) => setCustomModifierQuery(event.target.value)}
+                  />
+                </div>
+                {customModifierResults.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {customModifierResults.map((ingredient) => (
+                      <button
+                        key={ingredient.id}
+                        type="button"
+                        className="flex w-full items-center justify-between rounded-xl border border-nourish-border px-3 py-2 text-left text-sm text-nourish-ink transition hover:border-nourish-sage/40 hover:bg-nourish-bg"
+                        onClick={() => addCustomModifierMutation.mutate(ingredient)}
+                        disabled={addCustomModifierMutation.isPending}
+                      >
+                        <span>{ingredient.name}</span>
+                        <span className="text-xs text-nourish-muted">{ingredient.servingSize} {ingredient.servingUnit}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : customModifierQuery.trim() ? (
+                  <p className="mt-3 text-sm text-nourish-muted">No matching ingredients found.</p>
+                ) : null}
+              </div>
               <div className="mt-4 flex gap-2">
                 <button type="button" className="button-primary flex-1" onClick={applyPendingRecipe} disabled={applyRecipeMutation.isPending}>
                   {applyRecipeMutation.isPending ? "Saving..." : `Add to ${selectedTargetIds.length} day${selectedTargetIds.length === 1 ? "" : "s"}`}

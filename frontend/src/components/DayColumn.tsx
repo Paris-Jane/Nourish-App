@@ -9,12 +9,22 @@ interface DayColumnProps {
   slots: WeekMealSlot[];
   recipes: Recipe[];
   isToday?: boolean;
-  onSlotSelect: (slotId: number) => void;
+  planningMode?: boolean;
+  onSlotPrimaryAction: (slot: WeekMealSlot) => void;
+  onSlotEdit: (slot: WeekMealSlot) => void;
+  onCopyMeal?: (slot: WeekMealSlot) => void;
   onSkipSlot?: (slotId: number) => void;
   onClearSlot?: (slotId: number) => void;
-  dayEatingOut?: boolean;
-  togglePending?: boolean;
-  onToggleEatingOut?: (next: boolean) => void;
+  onDeleteSlot?: (slotId: number) => void;
+  onAddSnack?: () => void;
+  dragState?: {
+    draggedSlotId: number | null;
+    dropTargetSlotId: number | null;
+    onDragStart: (slotId: number) => void;
+    onDragEnd: () => void;
+    onDragOver: (slotId: number) => void;
+    onDrop: (slotId: number) => void;
+  };
 }
 
 export function DayColumn({
@@ -22,14 +32,17 @@ export function DayColumn({
   slots,
   recipes,
   isToday,
-  onSlotSelect,
+  planningMode = false,
+  onSlotPrimaryAction,
+  onSlotEdit,
+  onCopyMeal,
   onSkipSlot,
   onClearSlot,
-  dayEatingOut = false,
-  togglePending = false,
-  onToggleEatingOut,
+  onDeleteSlot,
+  onAddSnack,
+  dragState,
 }: DayColumnProps) {
-  const hasGap = slots.some((slot) => slot.mealType !== "Snack" && !slot.recipeId && !slot.isEatingOut && !slot.isSkipped);
+  const hasGap = slots.some((slot) => slot.mealType !== "Snack" && !slot.recipeId && !slot.isSkipped);
   const [infoOpen, setInfoOpen] = useState(false);
   const infoId = useId();
   const infoWrapRef = useRef<HTMLDivElement>(null);
@@ -109,53 +122,36 @@ export function DayColumn({
       </div>
 
       <div className="relative min-h-0 flex-1 space-y-3">
-        {dayEatingOut ? (
-          <div
-            className="pointer-events-auto absolute inset-0 z-[5] flex flex-col items-center justify-center rounded-xl bg-nourish-ink/20 px-2 text-center backdrop-blur-[1px]"
-            aria-hidden
-          >
-            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-nourish-ink shadow-sm">Eating out</span>
-            <span className="mt-2 text-[11px] font-medium text-nourish-ink/90">Meals paused for this day</span>
-          </div>
-        ) : null}
-        <div className={cn("space-y-3", dayEatingOut && "opacity-40")}>
+        <div className="space-y-3">
           {slots.map((slot) => (
             <MealCard
               key={slot.id}
               slot={slot}
               recipe={recipes.find((recipe) => recipe.id === slot.recipeId)}
-              onSwap={() => onSlotSelect(slot.id)}
+              planningMode={planningMode}
+              onPrimaryAction={() => onSlotPrimaryAction(slot)}
+              onSwap={() => onSlotEdit(slot)}
+              onCopyMeal={onCopyMeal ? () => onCopyMeal(slot) : undefined}
               onDidntHappen={onSkipSlot ? () => onSkipSlot(slot.id) : undefined}
               onRemoveMeal={onClearSlot ? () => onClearSlot(slot.id) : undefined}
+              onDeleteSlot={slot.mealType === "Snack" && slot.position > 0 && onDeleteSlot ? () => onDeleteSlot(slot.id) : undefined}
+              draggable={slot.recipeId != null}
+              dropActive={dragState?.dropTargetSlotId === slot.id}
+              onDragStart={dragState ? () => dragState.onDragStart(slot.id) : undefined}
+              onDragEnd={dragState?.onDragEnd}
+              onDragOver={dragState ? () => dragState.onDragOver(slot.id) : undefined}
+              onDrop={dragState ? () => dragState.onDrop(slot.id) : undefined}
             />
           ))}
-        </div>
-      </div>
-
-      <div className="mt-3 shrink-0 border-t border-nourish-border/60 pt-3">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm text-nourish-muted">Eating out?</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={dayEatingOut}
-            disabled={togglePending}
-            onClick={() => onToggleEatingOut?.(!dayEatingOut)}
-            className={cn(
-              "relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nourish-sage",
-              dayEatingOut ? "border-nourish-sage bg-nourish-sage" : "border-nourish-border bg-nourish-bg",
-              togglePending && "pointer-events-none opacity-50",
-            )}
-          >
-            <span
-              className={cn(
-                "pointer-events-none absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-[left] duration-200 ease-out",
-                dayEatingOut ? "left-[calc(100%-1.625rem)]" : "left-0.5",
-              )}
-              aria-hidden
-            />
-            <span className="sr-only">{dayEatingOut ? "Eating out on" : "Eating out off"}</span>
-          </button>
+          {planningMode && onAddSnack ? (
+            <button
+              type="button"
+              className="w-full rounded-2xl border border-dashed border-nourish-sage/40 bg-nourish-sage/5 px-4 py-3 text-left text-sm font-medium text-nourish-sage transition hover:border-nourish-sage hover:bg-nourish-sage/10"
+              onClick={onAddSnack}
+            >
+              + Add another snack
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

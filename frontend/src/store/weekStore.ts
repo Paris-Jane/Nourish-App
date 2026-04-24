@@ -1,7 +1,7 @@
 import type { MealType, WeekMealSlot } from "types/models";
 import { create } from "zustand";
 
-type PlanningMode = "auto" | "manual" | "saved";
+type PlanningMode = "manual" | "saved";
 
 interface WeekState {
   activeWeekId: number | null;
@@ -28,7 +28,7 @@ export const useWeekStore = create<WeekState>((set) => ({
   visibleWeekStartDate: null,
   selectedSlotId: null,
   swapDrawerOpen: false,
-  planningMode: "auto",
+  planningMode: "manual",
   visibleMealTypes: ["Breakfast", "Lunch", "Dinner", "Snack"],
   slotOverrides: null,
   activeWeekLabel: null,
