@@ -6,6 +6,12 @@ export const registerSchema = z.object({
   password: z.string().min(8, "Use at least 8 characters."),
   householdName: z.string().min(2, "Add a household name."),
   householdSize: z.number().min(1).max(6),
+  age: z.number().min(13).max(120),
+  sex: z.string().min(1, "Choose the sex used for nutrition calculations."),
+  activityLevel: z.enum(["Sedentary", "Light", "Moderate", "Active"]),
+  heightFeet: z.number().min(3).max(8),
+  heightInches: z.number().min(0).max(11),
+  weightPounds: z.number().min(50).max(700),
 });
 
 export const signInSchema = z.object({
