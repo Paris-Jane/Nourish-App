@@ -256,11 +256,12 @@ export function SwapDrawer({
     },
   });
 
-  function applyRecipeNow(recipe: Recipe) {
+  function beginPlanningRecipe(recipe: Recipe) {
     if (!slot) return;
-    const modifierIds =
-      slot.recipeId === recipe.id ? (slot.selectedModifierIngredientIds ?? []) : [];
-    applyRecipeMutation.mutate({ recipeId: recipe.id, targetIds: [slot.id], modifierIds });
+    setPendingRecipe(recipe);
+    setSelectedTargetIds(initialTargetIds?.length ? initialTargetIds : [slot.id]);
+    setSelectedModifierIds(slot.recipeId === recipe.id ? (slot.selectedModifierIngredientIds ?? []) : []);
+    setCustomModifierQuery("");
   }
 
   function toggleTargetSlot(slotId: number) {
@@ -297,7 +298,9 @@ export function SwapDrawer({
         aria-modal="true"
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-nourish-border/70 px-5 pb-4 pt-5 lg:rounded-t-[28px] lg:border-b-0">
-          <h2 className="text-xl font-semibold text-nourish-ink sm:text-2xl">Swap this meal</h2>
+          <h2 className="text-xl font-semibold text-nourish-ink sm:text-2xl">
+            {slot?.recipeId ? "Plan this meal" : "Add a meal"}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -309,13 +312,13 @@ export function SwapDrawer({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6">
-          <div className="mb-4 rounded-2xl bg-nourish-bg p-4">
-            <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-nourish-muted">
-              <ArrowRightLeft size={14} aria-hidden />
-              Current pick
-            </div>
-            <h3 className="text-lg text-nourish-ink">{currentRecipe?.name ?? "Open slot"}</h3>
-            {slot ? <p className="mt-2 text-sm text-nourish-muted">{slot.dayOfWeek} · {slot.mealType}</p> : null}
+            <div className="mb-4 rounded-2xl bg-nourish-bg p-4">
+              <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-nourish-muted">
+                <ArrowRightLeft size={14} aria-hidden />
+                {slot?.recipeId ? "Current pick" : "Open slot"}
+              </div>
+              <h3 className="text-lg text-nourish-ink">{currentRecipe?.name ?? "Open slot"}</h3>
+              {slot ? <p className="mt-2 text-sm text-nourish-muted">{slot.dayOfWeek} · {slot.mealType}</p> : null}
           </div>
 
           <div
@@ -347,7 +350,9 @@ export function SwapDrawer({
               <div className="mb-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Ready to add</p>
                 <h3 className="mt-1 text-lg font-medium text-nourish-ink">{pendingRecipe.name}</h3>
-                <p className="mt-1 text-sm text-nourish-muted">Choose where to use it. We’ve preselected this slot.</p>
+                <p className="mt-1 text-sm text-nourish-muted">
+                  Start with {slot?.dayOfWeek}. Then decide whether this is just for that day or other {slot?.mealType.toLowerCase()} slots too.
+                </p>
               </div>
               <div className="space-y-2">
                 {eligibleTargetSlots.map((entry) => {
@@ -382,7 +387,7 @@ export function SwapDrawer({
                 <div className="mt-4 rounded-2xl border border-nourish-border bg-white/80 p-3">
                   <div className="mb-3">
                     <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Optional add-ons</p>
-                    <p className="mt-1 text-sm text-nourish-muted">Choose the version you actually want this week so grocery planning stays accurate.</p>
+                    <p className="mt-1 text-sm text-nourish-muted">Choose the version you actually want this week before saving so grocery planning and MyPlate math stay accurate.</p>
                   </div>
                   <div className="space-y-2">
                     {pendingModifiers.map((ingredient) => {
@@ -480,8 +485,8 @@ export function SwapDrawer({
                   key={recipe.id}
                   recipe={recipe}
                   compact
-                  onSelect={applyRecipeNow}
-                  actionLabel="Choose this recipe"
+                  onSelect={beginPlanningRecipe}
+                  actionLabel="Plan this recipe"
                 />
               ))}
             </div>

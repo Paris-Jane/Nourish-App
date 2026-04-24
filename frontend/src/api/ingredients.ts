@@ -1,8 +1,31 @@
 import { apiClient, unwrap } from "./client";
-import type { Ingredient, UserIngredientPref } from "types/models";
+import type { DefaultLocation, FoodGroup, Ingredient, StoreSection, UserIngredientPref } from "types/models";
 
 export function getIngredients() {
   return unwrap<Ingredient[]>(apiClient.get("/api/ingredients"));
+}
+
+export interface IngredientRequest {
+  name: string;
+  foodGroup: FoodGroup;
+  servingSize: number;
+  servingUnit: string;
+  purchaseUnit: string;
+  defaultLocation: DefaultLocation;
+  storeSection: StoreSection;
+  isPerishable: boolean;
+  isFlexibleGroup: boolean;
+  isMyPlateCounted: boolean;
+  shelfLifeDays: number;
+  typicalPackageSize?: number | null;
+  packageSizeUnit?: string | null;
+  isStaple?: boolean;
+  aliases?: string[];
+  notes?: string | null;
+}
+
+export function createIngredient(payload: IngredientRequest) {
+  return unwrap<Ingredient>(apiClient.post("/api/ingredients", payload));
 }
 
 export async function searchIngredients(query: string) {

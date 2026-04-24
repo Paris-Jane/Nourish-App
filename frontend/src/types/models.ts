@@ -1,10 +1,12 @@
 export type ActivityLevel = "Sedentary" | "Light" | "Moderate" | "Active";
 export type PrepStyle = "DayOf" | "OnePrepDay" | "TwoPrepDays";
 export type CookTime = "Under20" | "Under45" | "NoLimit";
-export type FoodGroup = "Grains" | "Protein" | "Vegetable" | "Fruit" | "Dairy" | "Legume";
+export type FoodGroup = "Grains" | "Protein" | "Vegetable" | "Fruit" | "Dairy" | "Legume" | "Other";
 export type ScalabilityTag = "Flexible" | "Rigid" | "Portioned";
 export type TimeTag = "Quick" | "Medium" | "Involved";
 export type RecipePrepStyleTag = "BatchFriendly" | "CookFresh" | "FreezerFriendly";
+export type DefaultLocation = "Fridge" | "Pantry" | "Freezer";
+export type StoreSection = "Produce" | "Protein" | "Dairy" | "Grains" | "Pantry" | "Frozen" | "Bakery" | "Other";
 export type WeekDay =
   | "Monday"
   | "Tuesday"
@@ -57,10 +59,17 @@ export interface Ingredient {
   servingSize: number;
   servingUnit: string;
   purchaseUnit: string;
-  storeSection: string;
+  defaultLocation?: DefaultLocation;
+  storeSection: StoreSection | string;
   isPerishable: boolean;
   isFlexibleGroup: boolean;
+  isMyPlateCounted?: boolean;
   shelfLifeDays: number;
+  typicalPackageSize?: number | null;
+  packageSizeUnit?: string | null;
+  isStaple?: boolean;
+  aliases?: string[];
+  notes?: string | null;
 }
 
 export interface UserIngredientPref {

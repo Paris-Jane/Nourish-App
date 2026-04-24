@@ -2,9 +2,10 @@ import { ArrowUpDown, MoreHorizontal, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BottomSheet } from "components/BottomSheet";
 import { useMatchMedia } from "hooks/useMatchMedia";
+import { getSelectedMealFoodGroups } from "lib/foodGroupMath";
 import { cn } from "lib/utils";
 import { NutritionDots } from "./NutritionDots";
-import type { MealType, Recipe, WeekMealSlot } from "types/models";
+import type { Ingredient, MealType, Recipe, WeekMealSlot } from "types/models";
 
 interface MealCardProps {
   slot: WeekMealSlot;
@@ -15,6 +16,7 @@ interface MealCardProps {
   onDidntHappen?: () => void;
   onRemoveMeal?: () => void;
   onDeleteSlot?: () => void;
+  ingredients?: Ingredient[];
   planningMode?: boolean;
   dropActive?: boolean;
   draggable?: boolean;
@@ -37,6 +39,7 @@ export function MealCard({
   onDidntHappen,
   onRemoveMeal,
   onDeleteSlot,
+  ingredients = [],
   planningMode = false,
   dropActive = false,
   draggable = false,
@@ -63,6 +66,7 @@ export function MealCard({
 
   const filled = !empty && !skipped;
   const showActions = planningMode && Boolean(onDidntHappen || onRemoveMeal || onSwap || onCopyMeal || onDeleteSlot);
+  const selectedFoodGroups = getSelectedMealFoodGroups(recipe, slot.selectedModifierIngredientIds ?? [], ingredients);
 
   function openActions() {
     if (isDesktop) setMenuOpen((o) => !o);
@@ -121,7 +125,7 @@ export function MealCard({
           ) : empty ? (
             <div className="flex items-center gap-2 text-sm text-nourish-muted">
               <Plus size={14} />
-              Add something gentle here
+              Add Meal
             </div>
           ) : (
             <>
@@ -136,7 +140,7 @@ export function MealCard({
                   </span>
                 ) : null}
               </div>
-              <NutritionDots foodGroups={Object.keys(recipe.foodGroupServings)} />
+              <NutritionDots foodGroups={selectedFoodGroups} />
             </>
           )}
         </button>

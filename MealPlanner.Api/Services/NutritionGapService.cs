@@ -16,6 +16,8 @@ public class NutritionGapService : INutritionGapService
         var week = await _db.Weeks
             .Include(w => w.MealSlots.Where(s => !s.IsSkipped && !s.IsEatingOut))
                 .ThenInclude(s => s.Recipe)
+                    .ThenInclude(r => r!.Ingredients)
+                        .ThenInclude(ri => ri.Ingredient)
             .Include(w => w.Household)
                 .ThenInclude(h => h.Preferences)
             .FirstOrDefaultAsync(w => w.Id == weekId);
@@ -44,9 +46,27 @@ public class NutritionGapService : INutritionGapService
 
                 foreach (var (group, servings) in recipe.FoodGroupServings)
                 {
-                    var key = group.ToLower();
+                    var key = NormalizeTargetKey(group);
                     if (totals.ContainsKey(key))
                         totals[key] += servings * scale;
+                }
+
+                if (slot.SelectedModifierIngredientIds.Count > 0)
+                {
+                    var selectedModifierIds = slot.SelectedModifierIngredientIds.ToHashSet();
+                    foreach (var ingredient in recipe.Ingredients.Where(i => selectedModifierIds.Contains(i.IngredientId)))
+                    {
+                        if (!ingredient.Ingredient.IsMyPlateCounted) continue;
+
+                        var key = NormalizeTargetKey(ingredient.Ingredient.FoodGroup.ToString());
+                        if (!totals.ContainsKey(key)) continue;
+                        if (ingredient.Ingredient.ServingSize <= 0) continue;
+
+                        var servings = ingredient.Quantity / ingredient.Ingredient.ServingSize;
+                        if (servings <= 0) continue;
+
+                        totals[key] += Math.Round(servings * scale, 2);
+                    }
                 }
             }
 
@@ -62,4 +82,16 @@ public class NutritionGapService : INutritionGapService
 
         return gaps;
     }
+
+    private static string NormalizeTargetKey(string group) =>
+        group.Trim().ToLowerInvariant() switch
+        {
+            "grain" or "grains" => "grains",
+            "protein" or "proteins" => "protein",
+            "vegetable" or "vegetables" => "vegetables",
+            "fruit" or "fruits" => "fruit",
+            "dairy" => "dairy",
+            "legume" or "legumes" => "protein",
+            _ => group.Trim().ToLowerInvariant()
+        };
 }

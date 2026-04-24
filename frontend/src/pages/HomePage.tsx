@@ -16,7 +16,7 @@ import {
 } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, CircleHelp, MoreHorizontal, PencilRuler } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleHelp, PencilRuler } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { applyWeekTemplate, approveWeek, clearWeek, createWeekSlot, deleteWeekSlot, saveWeekAsTemplate, swapSlot } from "api/weeks";
 import { BottomSheet } from "components/BottomSheet";
@@ -24,7 +24,6 @@ import { DayColumn } from "components/DayColumn";
 import { ErrorBoundary } from "components/ErrorBoundary";
 import { SwapDrawer } from "components/SwapDrawer";
 import { useCurrentWeek, useFridgeItems, useGroupedSlots, useIngredients, useRecipes, useSavedWeeks, useWeekSlots } from "hooks/useAppData";
-import { useMatchMedia } from "hooks/useMatchMedia";
 import { mergeSavedTemplateIntoSlots } from "lib/applySavedTemplate";
 import { cn, createBlankWeekSlots, formatWeekRange, mealTypes, weekDays } from "lib/utils";
 import { isWeekColumnToday } from "lib/weekCalendar";
@@ -53,7 +52,7 @@ function createEmptyGroceryList(weekId: number, householdId: number): GroceryLis
 export function HomePage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { week, anchorWeekStartDate } = useCurrentWeek();
+  const { week } = useCurrentWeek();
   const { slots } = useWeekSlots();
   const { grouped } = useGroupedSlots();
   const { recipes } = useRecipes();
@@ -67,10 +66,8 @@ export function HomePage() {
   const visibleMealTypes = useWeekStore((state) => state.visibleMealTypes);
   const setVisibleMealTypes = useWeekStore((state) => state.setVisibleMealTypes);
   const setSlotOverrides = useWeekStore((state) => state.setSlotOverrides);
-  const activeWeekLabel = useWeekStore((state) => state.activeWeekLabel);
   const setActiveWeekLabel = useWeekStore((state) => state.setActiveWeekLabel);
   const setVisibleWeekStartDate = useWeekStore((state) => state.setVisibleWeekStartDate);
-  const isDesktopNav = useMatchMedia("(min-width: 1024px)");
 
   const weekStartDate = useMemo(() => parseISO(week.weekStartDate), [week.weekStartDate]);
 
@@ -78,7 +75,6 @@ export function HomePage() {
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth(weekStartDate));
   const { savedTemplates } = useSavedWeeks();
   const [approveReviewOpen, setApproveReviewOpen] = useState(false);
-  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [loadTemplateOpen, setLoadTemplateOpen] = useState(false);
   const [clearWeekOpen, setClearWeekOpen] = useState(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
@@ -95,21 +91,11 @@ export function HomePage() {
   const weekScrollerRef = useRef<HTMLDivElement>(null);
   const [scrollDayIndex, setScrollDayIndex] = useState(0);
   const dayRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const headerMenuRef = useRef<HTMLDivElement>(null);
   const dotsHelpRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMonthCursor(startOfMonth(weekStartDate));
   }, [weekStartDate]);
-
-  useEffect(() => {
-    if (!headerMenuOpen) return;
-    const close = (e: MouseEvent) => {
-      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) setHeaderMenuOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [headerMenuOpen]);
 
   useEffect(() => {
     if (!dotsHelpOpen) return;
@@ -444,7 +430,7 @@ export function HomePage() {
 
   function openRecipeOrPlanner(slot: WeekMealSlot) {
     if (slot.recipeId && !planMode) {
-      navigate(`/recipes/${slot.recipeId}`);
+      navigate(`/recipes/${slot.recipeId}`, { state: { from: "/" } });
       return;
     }
 
@@ -624,7 +610,7 @@ export function HomePage() {
         <header className="sticky top-0 z-30 border-b border-nourish-border/80 bg-nourish-bg/95 px-4 py-3 backdrop-blur-md lg:relative lg:z-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
           <div className="mx-auto flex w-full max-w-[min(100%,1170px)] items-center gap-2">
             <h1 className="shrink-0 font-heading text-2xl tracking-tight text-nourish-ink sm:text-3xl lg:hidden">Nourish</h1>
-            <div className="flex min-w-0 flex-1 items-center justify-center gap-1 sm:gap-2">
+            <div className="flex min-w-0 flex-1 items-center justify-center gap-3 sm:gap-4">
               <button
                 type="button"
                 className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white text-nourish-ink shadow-sm transition hover:bg-nourish-bg"
@@ -635,9 +621,14 @@ export function HomePage() {
               >
                 <ChevronLeft size={22} />
               </button>
-              <p className="min-w-0 truncate px-1 text-center text-[11px] leading-tight text-nourish-muted sm:text-sm">
+              <button
+                type="button"
+                onClick={() => setViewMode("month")}
+                className="min-w-0 rounded-full border border-nourish-border bg-white px-4 py-2 text-center text-[11px] leading-tight text-nourish-muted shadow-sm transition hover:bg-nourish-bg sm:px-5 sm:text-sm"
+                aria-label={`Open month view for ${formatWeekRange(week.weekStartDate)}`}
+              >
                 {formatWeekRange(week.weekStartDate)}
-              </p>
+              </button>
               <button
                 type="button"
                 className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white text-nourish-ink shadow-sm transition hover:bg-nourish-bg"
@@ -649,118 +640,8 @@ export function HomePage() {
                 <ChevronRight size={22} />
               </button>
             </div>
-            <div className="relative shrink-0 justify-self-end" ref={headerMenuRef}>
-              <button
-                type="button"
-                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-nourish-muted transition hover:bg-nourish-border/40 hover:text-nourish-ink"
-                aria-expanded={headerMenuOpen}
-                aria-haspopup="menu"
-                aria-label="Menu"
-                onClick={() => setHeaderMenuOpen((o) => !o)}
-              >
-                <MoreHorizontal size={22} strokeWidth={2} />
-              </button>
-              {headerMenuOpen && isDesktopNav ? (
-                <div
-                  role="menu"
-                  className="absolute right-0 top-full z-40 mt-1 w-56 overflow-hidden rounded-xl border border-nourish-border bg-white py-1 text-sm shadow-lg"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="flex w-full px-4 py-3 text-left text-nourish-ink hover:bg-nourish-bg"
-                    onClick={() => {
-                      setHeaderMenuOpen(false);
-                      setViewMode("month");
-                    }}
-                  >
-                    View month
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="flex w-full px-4 py-3 text-left text-nourish-ink hover:bg-nourish-bg"
-                    onClick={() => {
-                      setHeaderMenuOpen(false);
-                      setClearWeekOpen(true);
-                    }}
-                  >
-                    Clear this week
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="flex w-full px-4 py-3 text-left text-nourish-ink hover:bg-nourish-bg"
-                    onClick={() => {
-                      setHeaderMenuOpen(false);
-                      setLoadTemplateOpen(true);
-                    }}
-                  >
-                    Choose weekly template
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="flex w-full px-4 py-3 text-left text-nourish-ink hover:bg-nourish-bg"
-                    onClick={() => {
-                      setHeaderMenuOpen(false);
-                      setTemplateNameDraft(week.templateName ?? `Week of ${format(parseISO(week.weekStartDate), "MMM d")}`);
-                      setSaveTemplateOpen(true);
-                    }}
-                  >
-                    Save as a weekly template
-                  </button>
-                </div>
-              ) : null}
-            </div>
           </div>
         </header>
-
-        <BottomSheet open={headerMenuOpen && !isDesktopNav} title="Menu" onClose={() => setHeaderMenuOpen(false)}>
-          <div className="space-y-2">
-            <button
-              type="button"
-              className="button-secondary w-full"
-              onClick={() => {
-                setHeaderMenuOpen(false);
-                setViewMode("month");
-              }}
-            >
-              View month
-            </button>
-            <button
-              type="button"
-              className="button-secondary w-full"
-              onClick={() => {
-                setHeaderMenuOpen(false);
-                setClearWeekOpen(true);
-              }}
-            >
-              Clear this week
-            </button>
-            <button
-              type="button"
-              className="button-secondary w-full"
-              onClick={() => {
-                setHeaderMenuOpen(false);
-                setLoadTemplateOpen(true);
-              }}
-            >
-              Choose weekly template
-            </button>
-            <button
-              type="button"
-              className="button-secondary w-full"
-              onClick={() => {
-                setHeaderMenuOpen(false);
-                setTemplateNameDraft(week.templateName ?? `Week of ${format(parseISO(week.weekStartDate), "MMM d")}`);
-                setSaveTemplateOpen(true);
-              }}
-            >
-              Save as a weekly template
-            </button>
-          </div>
-        </BottomSheet>
 
         {viewMode === "week" ? (
           <div className="mx-auto mb-2 flex max-w-[min(100%,1170px)] justify-between gap-0.5 px-4 lg:hidden">
@@ -839,6 +720,34 @@ export function HomePage() {
                   <PencilRuler size={16} />
                   {planMode ? "Plan mode on" : "Plan mode"}
                 </button>
+                {planMode ? (
+                  <>
+                    <button
+                      type="button"
+                      className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white px-4 text-sm font-medium text-nourish-ink transition hover:border-nourish-sage/40 hover:text-nourish-sage"
+                      onClick={() => setLoadTemplateOpen(true)}
+                    >
+                      Choose template
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white px-4 text-sm font-medium text-nourish-ink transition hover:border-nourish-sage/40 hover:text-nourish-sage"
+                      onClick={() => {
+                        setTemplateNameDraft(week.templateName ?? `Week of ${format(parseISO(week.weekStartDate), "MMM d")}`);
+                        setSaveTemplateOpen(true);
+                      }}
+                    >
+                      Save template
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white px-4 text-sm font-medium text-nourish-ink transition hover:border-nourish-terracotta/40 hover:text-nourish-terracotta"
+                      onClick={() => setClearWeekOpen(true)}
+                    >
+                      Clear this week
+                    </button>
+                  </>
+                ) : null}
                 <div className="relative z-10 ml-auto" ref={dotsHelpRef}>
                   <button
                     type="button"
@@ -850,11 +759,22 @@ export function HomePage() {
                     <CircleHelp size={18} />
                   </button>
                   {dotsHelpOpen ? (
-                    <div className="absolute right-0 top-full mt-1 w-56 rounded-xl border border-nourish-border bg-white p-3 text-left text-xs leading-relaxed text-nourish-ink shadow-lg">
-                      <p className="font-semibold text-nourish-ink">Dots under meals</p>
-                      <p className="mt-1 text-nourish-muted">
-                        Each dot is a food group in that recipe (grains, protein, vegetables, fruit, dairy, legumes).
-                      </p>
+                    <div className="absolute right-0 top-full mt-1 w-72 rounded-xl border border-nourish-border bg-white p-4 text-left text-xs leading-relaxed text-nourish-ink shadow-lg">
+                      <p className="font-semibold text-nourish-ink">Weekly planner guide</p>
+                      <div className="mt-3 space-y-3 text-nourish-muted">
+                        <div>
+                          <p className="font-semibold text-nourish-ink">Amber dot on a day</p>
+                          <p className="mt-1">This day has a nutrition gap. Add or adjust meals and snacks to round it out.</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-nourish-ink">Colored dots under meals</p>
+                          <p className="mt-1">Each dot is a MyPlate-style food group in that meal, including any add-ons you selected.</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-nourish-ink">Plan mode</p>
+                          <p className="mt-1">Use plan mode to add meals, drag them between days, load templates, or clear the week.</p>
+                        </div>
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -877,6 +797,7 @@ export function HomePage() {
                         day={day}
                         slots={grouped[day] ?? []}
                         recipes={recipes}
+                        ingredients={ingredients}
                         isToday={isWeekColumnToday(week.weekStartDate, day as WeekDay)}
                         planningMode={planMode}
                         onSlotPrimaryAction={openRecipeOrPlanner}
@@ -1006,10 +927,12 @@ export function HomePage() {
                 </Link>
               ) : unplannedMainSlots === 0 ? (
                 <span>Ready to approve</span>
-              ) : (
+              ) : planMode ? (
                 <span>
                   {unplannedMainSlots} meal{unplannedMainSlots === 1 ? "" : "s"} unplanned this week
                 </span>
+              ) : (
+                <span>Keep planning this week when you’re ready.</span>
               )}
             </div>
             {!isApproved && unplannedMainSlots === 0 ? (
