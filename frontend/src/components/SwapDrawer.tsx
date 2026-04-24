@@ -320,7 +320,7 @@ export function SwapDrawer({
             onClick={() => {
               if (!currentRecipe) return;
               onClose();
-              navigate(`/recipes/${currentRecipe.id}`, { state: { from: "/" } });
+              navigate(`/recipes/${currentRecipe.id}`);
             }}
             className={cn(
               "mb-4 w-full rounded-2xl bg-nourish-bg p-4 text-left transition",

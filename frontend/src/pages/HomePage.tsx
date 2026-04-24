@@ -430,7 +430,7 @@ export function HomePage() {
 
   function openRecipeOrPlanner(slot: WeekMealSlot) {
     if (slot.recipeId && !planMode) {
-      navigate(`/recipes/${slot.recipeId}`, { state: { from: "/" } });
+      navigate(`/recipes/${slot.recipeId}`);
       return;
     }
 

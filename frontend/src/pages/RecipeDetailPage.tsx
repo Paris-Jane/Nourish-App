@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Heart, Pencil, Plus, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { createIngredient } from "api/ingredients";
 import { addRecipeModifier, getRecipePreference, removeRecipeModifier, upsertRecipePreference } from "api/recipes";
 import { StepList } from "components/StepList";
@@ -22,8 +22,6 @@ const emptyPreference = (recipeId: number): UserRecipePref => ({
   lastUsedAt: null,
 });
 
-type RecipeDetailLocationState = { from?: string };
-
 function upsertRecipeInCache(recipes: Recipe[] | undefined, recipeId: number, updater: (recipe: Recipe) => Recipe) {
   if (!recipes) return recipes;
   return recipes.map((recipe) => (recipe.id === recipeId ? updater(recipe) : recipe));
@@ -31,10 +29,7 @@ function upsertRecipeInCache(recipes: Recipe[] | undefined, recipeId: number, up
 
 export function RecipeDetailPage() {
   const { id } = useParams();
-  const location = useLocation();
-  const fromPath = (location.state as RecipeDetailLocationState | null)?.from;
-  const backPath = fromPath === "/" ? "/" : "/recipes";
-  const backLabel = backPath === "/" ? "Back to planner" : "Back to recipes";
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { recipes } = useRecipes();
   const { ingredients } = useIngredients();
@@ -218,10 +213,14 @@ export function RecipeDetailPage() {
     return (
       <div className="card p-8">
         <p className="mb-4">Recipe not found.</p>
-        <Link to={backPath} className="inline-flex items-center gap-2 text-sm font-medium text-nourish-sage underline-offset-4 hover:underline">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-2 text-sm font-medium text-nourish-sage underline-offset-4 hover:underline"
+        >
           <ArrowLeft size={16} aria-hidden />
-          {backLabel}
-        </Link>
+          Back
+        </button>
       </div>
     );
   }
@@ -289,13 +288,14 @@ export function RecipeDetailPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          to={backPath}
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
           className="inline-flex items-center gap-2 rounded-full border border-nourish-border bg-white px-3 py-2 text-sm font-medium text-nourish-ink shadow-sm transition hover:border-nourish-sage/40 hover:bg-nourish-bg"
         >
           <ArrowLeft size={18} aria-hidden />
-          {backLabel}
-        </Link>
+          Back
+        </button>
         <button
           type="button"
           onClick={() => {
