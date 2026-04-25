@@ -7,6 +7,14 @@ export type TimeTag = "Quick" | "Medium" | "Involved";
 export type RecipePrepStyleTag = "BatchFriendly" | "CookFresh" | "FreezerFriendly";
 export type DefaultLocation = "Fridge" | "Pantry" | "Freezer";
 export type StoreSection = "Produce" | "Protein" | "Dairy" | "Grains" | "Pantry" | "Frozen" | "Bakery" | "Other";
+export type PrepStepCategory =
+  | "WashChop"
+  | "MixSauce"
+  | "CookStarch"
+  | "CookProtein"
+  | "RoastBake"
+  | "AssemblePortion"
+  | "FreshFinish";
 export type WeekDay =
   | "Monday"
   | "Tuesday"
@@ -35,6 +43,8 @@ export interface User {
   age?: number;
   sex?: string;
   activityLevel?: ActivityLevel;
+  heightInches?: number;
+  weightPounds?: number;
   role?: UserRole;
   createdAt?: string;
 }
@@ -124,6 +134,9 @@ export interface RecipeStep {
   timingTag: TimingTag;
   durationMinutes: number;
   isPassive: boolean;
+  prepCategory?: PrepStepCategory;
+  linkedIngredientIds?: number[];
+  scaleByLinkedIngredients?: boolean;
 }
 
 export interface Recipe {

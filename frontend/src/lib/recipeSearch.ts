@@ -12,7 +12,7 @@ export function recipeSearchText(recipe: Recipe): string {
     recipe.isCookFreshOnly ? "cook fresh" : "",
     ...recipe.mealTypeTags,
     ...recipe.ingredients.flatMap((i) => [i.ingredientName, i.unit, String(i.quantity), i.notes ?? ""]),
-    ...recipe.steps.flatMap((s) => [s.instruction, s.timingTag]),
+    ...recipe.steps.flatMap((s) => [s.instruction, s.timingTag, s.prepCategory ?? "", ...(s.linkedIngredientIds ?? []).map(String)]),
     ...Object.keys(recipe.foodGroupServings),
     ...Object.entries(recipe.foodGroupServings).flatMap(([k, v]) => [k, String(v)]),
   ];

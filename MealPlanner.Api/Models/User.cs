@@ -9,6 +9,8 @@ public class User
     public int Age { get; set; }
     public string Sex { get; set; } = string.Empty;
     public ActivityLevel ActivityLevel { get; set; }
+    public int HeightInches { get; set; }
+    public decimal WeightPounds { get; set; }
     public UserRole Role { get; set; }
     public DateTime CreatedAt { get; set; }
     public string PasswordHash { get; set; } = string.Empty;

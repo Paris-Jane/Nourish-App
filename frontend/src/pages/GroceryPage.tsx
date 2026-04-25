@@ -11,8 +11,10 @@ import { ProgressBar } from "components/ProgressBar";
 import { SectionHeader } from "components/SectionHeader";
 import { useGroceryList, useIngredients, useRecipes } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
+import { mergeGroceryCheckIntoFridge, removeGroceryCheckFromFridge } from "lib/fridgeFromGrocery";
+import { mockFridgeItems } from "lib/mockData";
 import { cn } from "lib/utils";
-import type { GroceryListItem } from "types/models";
+import type { FridgeItem, GroceryListItem } from "types/models";
 
 const icons: Record<string, string> = {
   Produce: "🥦",
@@ -177,6 +179,19 @@ export function GroceryPage() {
     addForm.setValue("plannedUnit", selectedIngredient.purchaseUnit || "item");
   }, [addForm, selectedIngredient]);
 
+  const syncFridgeWithGroceryCheck = useCallback(
+    (itemId: number, isChecked: boolean, qty: number) => {
+      const list = localItems ?? groceryList.items;
+      const row = list.find((i) => i.id === itemId);
+      if (!row) return;
+      queryClient.setQueryData<FridgeItem[]>(["fridge-items"], (prev) => {
+        const fridge = prev ?? mockFridgeItems;
+        return isChecked ? mergeGroceryCheckIntoFridge(fridge, row, qty, ingredients) : removeGroceryCheckFromFridge(fridge, row, qty);
+      });
+    },
+    [groceryList.items, ingredients, localItems, queryClient],
+  );
+
   const bumpQty = useCallback((id: number, delta: number) => {
     setActualQty((prev) => {
       const row = items.find((i) => i.id === id);
@@ -215,24 +230,41 @@ export function GroceryPage() {
     }, 450);
   }, [actualQty, groceryList.items, items, quantityMutation]);
 
-  const toggleItem = useCallback((id: number) => {
-    const nextChecked = !checked[id];
-    setChecked((current) => ({ ...current, [id]: nextChecked }));
-    setDeleteRevealedId(null);
+  const toggleItem = useCallback(
+    (id: number) => {
+      const row = items.find((i) => i.id === id);
+      if (!row) return;
+      const nextChecked = !checked[id];
+      const qty = actualQty[id] ?? row.purchasedQuantity ?? row.plannedQuantity;
+      setChecked((current) => ({ ...current, [id]: nextChecked }));
+      setDeleteRevealedId(null);
 
-    checkMutation.mutate(
-      { itemId: id, isChecked: nextChecked },
-      {
-        onSuccess: (updated) => {
-          setLocalItems((prev) => (prev ?? groceryList.items).map((item) => (item.id === id ? { ...item, ...updated } : item)));
-          pushToast(nextChecked ? `${updated.ingredientName} checked off and added to your kitchen.` : `${updated.ingredientName} moved back to your active list.`);
+      checkMutation.mutate(
+        { itemId: id, isChecked: nextChecked },
+        {
+          onSuccess: (updated) => {
+            setLocalItems((prev) => (prev ?? groceryList.items).map((item) => (item.id === id ? { ...item, ...updated } : item)));
+            syncFridgeWithGroceryCheck(id, updated.isChecked, qty);
+            pushToast(
+              nextChecked
+                ? `${updated.ingredientName} checked off and added to your kitchen.`
+                : `${updated.ingredientName} moved back to your active list.`,
+            );
+          },
+          onError: () => {
+            setLocalItems((prev) =>
+              (prev ?? groceryList.items).map((item) =>
+                item.id === id ? { ...item, isChecked: nextChecked, addedToFridge: nextChecked } : item,
+              ),
+            );
+            syncFridgeWithGroceryCheck(id, nextChecked, qty);
+            pushToast(nextChecked ? "Checked off in preview mode." : "Unchecked in preview mode.");
+          },
         },
-        onError: () => {
-          pushToast(nextChecked ? "Checked off in preview mode." : "Unchecked in preview mode.");
-        },
-      },
-    );
-  }, [checkMutation, checked, groceryList.items, pushToast]);
+      );
+    },
+    [actualQty, checkMutation, checked, groceryList.items, items, pushToast, syncFridgeWithGroceryCheck],
+  );
 
   const handleDeleteItem = (id: number) => {
     deleteMutation.mutate(id, {

@@ -51,6 +51,19 @@ export function useWeekSlots(): { slots: WeekMealSlot[]; isLoading: boolean } {
   return { slots: slotOverrides ?? slotsForDisplayedWeek, isLoading: query.isLoading };
 }
 
+/** Anchor week meal cells (ignores “browse another week” blank planner) — for inventory / consumption logic. */
+export function usePlannerAnchorSlots(): { slots: WeekMealSlot[]; isLoading: boolean } {
+  const activeWeekId = useWeekStore((state) => state.activeWeekId) ?? 1;
+  const slotOverrides = useWeekStore((state) => state.slotOverrides);
+  const query = usePreviewQuery({
+    queryKey: ["week-slots", activeWeekId],
+    queryFn: () => getWeekSlots(activeWeekId),
+    fallbackData: mockSlots,
+  });
+  const anchorSlots = query.data ?? mockSlots;
+  return { slots: slotOverrides ?? anchorSlots, isLoading: query.isLoading };
+}
+
 export function useRecipes(): { recipes: Recipe[]; isLoading: boolean } {
   const query = usePreviewQuery({
     queryKey: ["recipes"],

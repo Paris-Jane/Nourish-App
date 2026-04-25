@@ -18,16 +18,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, CircleHelp, PencilRuler } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { applyWeekTemplate, approveWeek, clearWeek, createWeekSlot, deleteWeekSlot, saveWeekAsTemplate, swapSlot } from "api/weeks";
+import { generateGroceryList } from "api/groceryList";
+import { applyWeekTemplate, clearWeek, createWeekSlot, deleteWeekSlot, saveWeekAsTemplate, swapSlot } from "api/weeks";
 import { BottomSheet } from "components/BottomSheet";
 import { DayColumn } from "components/DayColumn";
 import { ErrorBoundary } from "components/ErrorBoundary";
 import { SwapDrawer } from "components/SwapDrawer";
 import { useCurrentWeek, useFridgeItems, useGroupedSlots, useIngredients, useRecipes, useSavedWeeks, useWeekSlots } from "hooks/useAppData";
 import { mergeSavedTemplateIntoSlots } from "lib/applySavedTemplate";
+import { buildPreviewGroceryListFromPlan } from "lib/groceryFromPlan";
+import { buildWeeklyFoodProgress, generateSnackRecommendations } from "lib/plannerNutrition";
 import { cn, createBlankWeekSlots, formatWeekRange, mealTypes, weekDays } from "lib/utils";
 import { isWeekColumnToday } from "lib/weekCalendar";
 import { useToast } from "hooks/useToast";
+import { useAuthStore } from "store/authStore";
 import { useWeekStore } from "store/weekStore";
 import type { GroceryList, Ingredient, MealType, SavedWeekTemplate, Week, WeekDay, WeekMealSlot } from "types/models";
 
@@ -58,6 +62,7 @@ export function HomePage() {
   const { recipes } = useRecipes();
   const { ingredients } = useIngredients();
   const { items: fridgeItems } = useFridgeItems();
+  const householdPreferences = useAuthStore((state) => state.householdPreferences);
   const { pushToast } = useToast();
   const selectedSlotId = useWeekStore((state) => state.selectedSlotId);
   const selectSlot = useWeekStore((state) => state.selectSlot);
@@ -74,7 +79,6 @@ export function HomePage() {
   const [viewMode, setViewMode] = useState<HomeViewMode>("week");
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth(weekStartDate));
   const { savedTemplates } = useSavedWeeks();
-  const [approveReviewOpen, setApproveReviewOpen] = useState(false);
   const [loadTemplateOpen, setLoadTemplateOpen] = useState(false);
   const [clearWeekOpen, setClearWeekOpen] = useState(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
@@ -127,14 +131,6 @@ export function HomePage() {
     [grouped, selectedSlotId],
   );
 
-  const mainSlots = useMemo(() => slots.filter((slot) => slot.mealType !== "Snack"), [slots]);
-  const coveredMainSlots = useMemo(
-    () => mainSlots.filter((slot) => slot.recipeId || slot.isSkipped).length,
-    [mainSlots],
-  );
-  const unplannedMainSlots = Math.max(0, mainSlots.length - coveredMainSlots);
-  const isApproved = week.status === "Confirmed";
-
   const monthDays = useMemo(
     () =>
       eachDayOfInterval({
@@ -157,21 +153,15 @@ export function HomePage() {
     [slots],
   );
 
-  const approveWeekMutation = useMutation({
-    mutationFn: () => approveWeek(week.id),
-    onSuccess: (approvedWeek) => {
-      const enriched: Week = { ...approvedWeek, status: "Confirmed" };
-      queryClient.setQueryData(["week", enriched.id], enriched);
-      setApproveReviewOpen(false);
-      pushToast("Week approved.");
-    },
-    onError: () => {
-      const enriched: Week = { ...week, status: "Confirmed" };
-      queryClient.setQueryData(["week", enriched.id], enriched);
-      setApproveReviewOpen(false);
-      pushToast("Week approved in preview mode.");
-    },
-  });
+  async function refreshDerivedWeekData(nextSlots?: WeekMealSlot[]) {
+    try {
+      const grocery = await generateGroceryList(week.id);
+      queryClient.setQueryData(["grocery-list", week.id], grocery);
+    } catch {
+      const previewGrocery = buildPreviewGroceryListFromPlan(week, nextSlots ?? slots, recipes, ingredients, fridgeItems);
+      queryClient.setQueryData(["grocery-list", week.id], previewGrocery);
+    }
+  }
 
   const clearSlotMutation = useMutation({
     mutationFn: async (slotIds: number[]) => {
@@ -189,6 +179,7 @@ export function HomePage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
       setSlotOverrides(null);
+      await refreshDerivedWeekData();
       pushToast("Meal removed.");
     },
     onError: (_err, slotIds) => {
@@ -199,6 +190,7 @@ export function HomePage() {
           : s,
       );
       setSlotOverrides(next);
+      void refreshDerivedWeekData(next);
       pushToast(targetIds.size > 1 ? "Meals cleared in preview mode." : "Meal cleared in preview mode.");
     },
   });
@@ -221,6 +213,7 @@ export function HomePage() {
       setSlotOverrides(null);
       setCopyMealSlot(null);
       setCopyTargetIds([]);
+      await refreshDerivedWeekData();
       pushToast(`Meal added to ${targetIds.length} more day${targetIds.length === 1 ? "" : "s"}.`);
     },
     onError: (_error, { sourceSlot, targetIds }) => {
@@ -241,6 +234,7 @@ export function HomePage() {
       setSlotOverrides(nextSlots);
       setCopyMealSlot(null);
       setCopyTargetIds([]);
+      void refreshDerivedWeekData(nextSlots);
       pushToast("Meal copied in preview mode.");
     },
   });
@@ -255,6 +249,7 @@ export function HomePage() {
     onSuccess: async (_, day) => {
       await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
       setSlotOverrides(null);
+      await refreshDerivedWeekData();
       pushToast(`Added another snack slot for ${day}.`);
     },
     onError: (_error, day) => {
@@ -279,6 +274,7 @@ export function HomePage() {
         markedSkippedAt: null,
       };
       setSlotOverrides([...slots, nextSlot]);
+      void refreshDerivedWeekData([...slots, nextSlot]);
       pushToast(`Added another snack slot for ${day} in preview mode.`);
     },
   });
@@ -290,10 +286,13 @@ export function HomePage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
       setSlotOverrides(null);
+      await refreshDerivedWeekData();
       pushToast("Snack row removed.");
     },
     onError: (_error, slotId) => {
-      setSlotOverrides(slots.filter((slot) => slot.id !== slotId));
+      const next = slots.filter((slot) => slot.id !== slotId);
+      setSlotOverrides(next);
+      void refreshDerivedWeekData(next);
       pushToast("Snack row removed in preview mode.");
     },
   });
@@ -310,13 +309,15 @@ export function HomePage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
       setSlotOverrides(null);
-      pushToast("Marked as didn’t happen. Fridge assumptions updated (preview).");
+      await refreshDerivedWeekData();
+      pushToast("Meal marked as didn’t happen.");
     },
     onError: (_err, slotId) => {
       const next = slots.map((s) =>
         s.id === slotId ? { ...s, isSkipped: true, recipeId: null, recipeName: null, selectedModifierIngredientIds: [], isEatingOut: false } : s,
       );
       setSlotOverrides(next);
+      void refreshDerivedWeekData(next);
       pushToast("Marked as didn’t happen (preview).");
     },
   });
@@ -328,7 +329,7 @@ export function HomePage() {
       queryClient.setQueryData(["grocery-list", week.id], createEmptyGroceryList(week.id, week.householdId));
       setSlotOverrides(null);
       setClearWeekOpen(false);
-      pushToast("Week cleared. Grocery list reset too.");
+      pushToast("Week cleared.");
     },
     onError: () => {
       setSlotOverrides(createBlankWeekSlots(week.id, [...mealTypes], week.weekStartDate));
@@ -345,17 +346,18 @@ export function HomePage() {
     },
     onSuccess: async (template) => {
       await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
-      queryClient.setQueryData(["grocery-list", week.id], createEmptyGroceryList(week.id, week.householdId));
       setSlotOverrides(null);
       setLoadTemplateOpen(false);
       setActiveWeekLabel(template.name);
-      pushToast(`Loaded “${template.name}” into this week. Grocery list cleared so it can refresh from the new plan.`);
+      await refreshDerivedWeekData();
+      pushToast(`Loaded “${template.name}” into this week.`);
     },
     onError: (_error, template) => {
-      setSlotOverrides(mergeSavedTemplateIntoSlots(template, week.id, week.weekStartDate, recipes));
-      queryClient.setQueryData(["grocery-list", week.id], createEmptyGroceryList(week.id, week.householdId));
+      const mergedSlots = mergeSavedTemplateIntoSlots(template, week.id, week.weekStartDate, recipes);
+      setSlotOverrides(mergedSlots);
       setLoadTemplateOpen(false);
       setActiveWeekLabel(template.name);
+      void refreshDerivedWeekData(mergedSlots);
       pushToast(`Loaded “${template.name}” in preview mode.`);
     },
   });
@@ -535,6 +537,7 @@ export function HomePage() {
       .then(async () => {
         await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
         setSlotOverrides(null);
+        await refreshDerivedWeekData();
         pushToast(targetRecipeId ? "Meals swapped." : "Meal moved.");
       })
       .catch(() => {
@@ -562,6 +565,7 @@ export function HomePage() {
           return entry;
         });
         setSlotOverrides(nextSlots);
+        void refreshDerivedWeekData(nextSlots);
         pushToast(targetRecipeId ? "Meals swapped in preview mode." : "Meal moved in preview mode.");
       })
       .finally(() => {
@@ -571,6 +575,18 @@ export function HomePage() {
   }
   const todayDayKey = weekDays.find((d) => isWeekColumnToday(week.weekStartDate, d as WeekDay));
   const todayColumnIndex = todayDayKey ? weekDays.indexOf(todayDayKey as (typeof weekDays)[number]) : -1;
+  const weeklyFoodProgress = useMemo(
+    () => buildWeeklyFoodProgress(slots, recipes, ingredients, householdPreferences.myPlateTargets),
+    [slots, recipes, ingredients, householdPreferences.myPlateTargets],
+  );
+  const dailySnackRecommendations = useMemo(
+    () =>
+      weekDays.reduce<Record<WeekDay, ReturnType<typeof generateSnackRecommendations>>>((acc, day) => {
+        acc[day] = generateSnackRecommendations(weeklyFoodProgress[day], fridgeItems);
+        return acc;
+      }, {} as Record<WeekDay, ReturnType<typeof generateSnackRecommendations>>),
+    [fridgeItems, weeklyFoodProgress],
+  );
 
   useEffect(() => {
     const el = weekScrollerRef.current;
@@ -800,6 +816,8 @@ export function HomePage() {
                         ingredients={ingredients}
                         isToday={isWeekColumnToday(week.weekStartDate, day as WeekDay)}
                         planningMode={planMode}
+                        foodProgress={weeklyFoodProgress[day as WeekDay]}
+                        snackRecommendations={dailySnackRecommendations[day as WeekDay]}
                         onSlotPrimaryAction={openRecipeOrPlanner}
                         onSlotEdit={startSwap}
                         onCopyMeal={openCopyMeal}
@@ -917,78 +935,6 @@ export function HomePage() {
             </div>
           </section>
         )}
-
-        {isApproved || unplannedMainSlots === 0 ? (
-          <div className="pointer-events-none fixed inset-x-0 z-[26] flex justify-center px-4 pt-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] lg:bottom-8 lg:px-8">
-            <div className="pointer-events-auto flex w-full max-w-[min(100%,1170px)] items-center justify-between gap-3 rounded-2xl border border-nourish-border bg-white/95 px-4 py-3 shadow-lg backdrop-blur-md">
-              {isApproved ? (
-                <Link
-                  to="/prep-sheet"
-                  className="min-w-0 flex-1 text-sm font-medium text-nourish-sage underline-offset-2 hover:underline"
-                >
-                  Approved · View prep sheet →
-                </Link>
-              ) : (
-                <>
-                  <span className="min-w-0 flex-1 text-sm text-nourish-ink">Ready to approve</span>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-full bg-nourish-sage px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-nourish-sage/90"
-                    onClick={() => {
-                      setSwapDrawerOpen(false);
-                      setApproveReviewOpen(true);
-                    }}
-                  >
-                    Approve →
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        ) : null}
-
-        <BottomSheet open={approveReviewOpen} title="Confirm week" onClose={() => setApproveReviewOpen(false)}>
-          <div className="space-y-4">
-            <p className="text-sm text-nourish-muted">Review this week before saving it to your library.</p>
-            <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
-              {weekDays.map((day) => {
-                const daySlots = slots.filter((s) => s.dayOfWeek === day);
-                return (
-                  <div key={day} className="rounded-xl border border-nourish-border bg-nourish-bg/40 p-3">
-                    <p className="text-xs font-semibold tracking-wide text-nourish-muted">{day}</p>
-                    <ul className="mt-2 space-y-1.5 text-sm text-nourish-ink">
-                      {daySlots.map((s) => {
-                        const open =
-                          s.mealType !== "Snack" && !s.recipeId && !s.isSkipped;
-                        return (
-                          <li key={s.id} className="flex justify-between gap-2">
-                            <span className="text-nourish-muted">{s.mealType}</span>
-                            <span
-                              className={`min-w-0 text-right ${open ? "rounded-md bg-amber-100/90 px-2 py-0.5 font-medium text-amber-950" : ""}`}
-                            >
-                              {s.isSkipped ? "Skipped" : s.recipeName ?? "Open"}
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
-            <button
-              type="button"
-              className="button-primary w-full"
-              onClick={() => approveWeekMutation.mutate()}
-              disabled={approveWeekMutation.isPending}
-            >
-              Confirm & approve
-            </button>
-            <button type="button" className="button-secondary w-full" onClick={() => setApproveReviewOpen(false)}>
-              Keep editing
-            </button>
-          </div>
-        </BottomSheet>
 
         <BottomSheet
           open={repeatAction != null}
@@ -1157,6 +1103,7 @@ export function HomePage() {
           ingredients={ingredients}
           fridgeItems={fridgeItems}
           weekSlots={slots}
+          week={week}
           initialTargetIds={swapTargetIds}
           onClose={() => setSwapDrawerOpen(false)}
         />

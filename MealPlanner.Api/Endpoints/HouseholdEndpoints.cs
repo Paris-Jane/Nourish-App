@@ -51,7 +51,7 @@ public static class HouseholdEndpoints
         var owner = await db.Users
             .FirstOrDefaultAsync(u => u.HouseholdId == id && u.Role == UserRole.Owner);
         if (owner != null)
-            prefs.MyPlateTargets = myPlate.Calculate(owner.Age, owner.Sex, owner.ActivityLevel);
+            prefs.MyPlateTargets = myPlate.Calculate(owner.Age, owner.Sex, owner.ActivityLevel, owner.HeightInches, owner.WeightPounds);
 
         await db.SaveChangesAsync();
 

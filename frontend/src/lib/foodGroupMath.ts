@@ -94,7 +94,7 @@ export function getSelectedMealFoodGroups(
       .filter((ingredient) => selectedIds.has(ingredient.ingredientId))
       .forEach((ingredient) => {
         const lookup = ingredientMap.get(ingredient.ingredientId);
-        if (!lookup) return;
+        if (!lookup || lookup.isMyPlateCounted === false || lookup.servingSize <= 0) return;
         const normalized = normalizeDisplayGroup(lookup.foodGroup);
         if (normalized) groups.add(normalized);
       });

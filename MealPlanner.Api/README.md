@@ -83,6 +83,8 @@ Content-Type: application/json
   "age": 35,
   "sex": "Female",
   "activityLevel": "Moderate",
+  "heightInches": 65,
+  "weightPounds": 150,
   "householdName": "Smith Family",
   "householdSize": 4,
   "timezone": "America/New_York"

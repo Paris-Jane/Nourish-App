@@ -36,7 +36,7 @@ public static class AuthEndpoints
         db.Households.Add(household);
         await db.SaveChangesAsync();
 
-        var targets = myPlate.Calculate(req.Age, req.Sex, req.ActivityLevel);
+        var targets = myPlate.Calculate(req.Age, req.Sex, req.ActivityLevel, req.HeightInches, req.WeightPounds);
         var prefs = new HouseholdPreferences
         {
             HouseholdId = household.Id,
@@ -58,6 +58,8 @@ public static class AuthEndpoints
             Age = req.Age,
             Sex = req.Sex,
             ActivityLevel = req.ActivityLevel,
+            HeightInches = req.HeightInches,
+            WeightPounds = req.WeightPounds,
             Role = UserRole.Owner,
             CreatedAt = DateTime.UtcNow,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password)

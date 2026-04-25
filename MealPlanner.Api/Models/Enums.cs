@@ -18,3 +18,4 @@ public enum FridgeLocation { Fridge, Pantry, Freezer }
 public enum AddedVia { GroceryList, ReceiptScan, Manual, Leftover }
 public enum SheetType { BatchPrepDay, NightOf }
 public enum TimingTag { PrepAhead, DayOfActive, DayOfPassive }
+public enum PrepStepCategory { WashChop, MixSauce, CookStarch, CookProtein, RoastBake, AssemblePortion, FreshFinish }

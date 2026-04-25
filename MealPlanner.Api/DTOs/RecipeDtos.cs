@@ -32,7 +32,10 @@ public record RecipeStepRequest(
     string Instruction,
     TimingTag TimingTag,
     int DurationMinutes,
-    bool IsPassive = false
+    bool IsPassive = false,
+    PrepStepCategory PrepCategory = PrepStepCategory.AssemblePortion,
+    List<int>? LinkedIngredientIds = null,
+    bool ScaleByLinkedIngredients = false
 );
 
 public record RecipeResponse(
@@ -73,7 +76,10 @@ public record RecipeStepResponse(
     string Instruction,
     TimingTag TimingTag,
     int DurationMinutes,
-    bool IsPassive
+    bool IsPassive,
+    PrepStepCategory PrepCategory,
+    List<int> LinkedIngredientIds,
+    bool ScaleByLinkedIngredients
 );
 
 public record RecipePreferenceRequest(

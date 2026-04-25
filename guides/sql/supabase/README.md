@@ -11,6 +11,8 @@ Run them in this order in the Supabase SQL editor:
 5. `05_add_recipe_modifier_preferences.sql`
 6. `06_add_slot_modifier_preferences.sql`
 7. `07_add_week_slot_position.sql`
+8. `08_add_recipe_step_prep_metadata.sql`
+9. `09_add_user_body_metrics.sql`
 
 After that, start the backend normally.
 
@@ -33,3 +35,5 @@ Incremental updates for an existing Supabase project:
 - `04_add_favorites_tables.sql` adds user-level favorites tables for ingredients and weeks without recreating the base schema
 - `05_add_recipe_modifier_preferences.sql` adds persistent selected add-on storage for recipe preferences
 - `07_add_week_slot_position.sql` adds slot ordering so a single day can hold multiple snack rows
+- `08_add_recipe_step_prep_metadata.sql` adds step categorization and linked-ingredient metadata so weekly prep can scale tasks like boiling eggs only when those modifiers were actually selected
+- `09_add_user_body_metrics.sql` adds `HeightInches` and `WeightPounds` to users so MyPlate targets can use a more personalized calorie estimate for adults

@@ -38,6 +38,9 @@ export function ProfilePage() {
   const [age, setAge] = useState("");
   const [sex, setSex] = useState("");
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>("Moderate");
+  const [heightFeet, setHeightFeet] = useState("");
+  const [heightInches, setHeightInches] = useState("");
+  const [weightPounds, setWeightPounds] = useState("");
   const [role, setRole] = useState<UserRole>("Owner");
   const [createdAt, setCreatedAt] = useState("");
 
@@ -62,6 +65,10 @@ export function ProfilePage() {
     setAge(String(user?.age ?? ""));
     setSex(user?.sex ?? "");
     setActivityLevel(user?.activityLevel ?? "Moderate");
+    const totalHeightInches = user?.heightInches ?? 0;
+    setHeightFeet(totalHeightInches > 0 ? String(Math.floor(totalHeightInches / 12)) : "");
+    setHeightInches(totalHeightInches > 0 ? String(totalHeightInches % 12) : "");
+    setWeightPounds(user?.weightPounds != null ? String(user.weightPounds) : "");
     setRole(user?.role ?? "Owner");
     setCreatedAt(user?.createdAt ?? "");
 
@@ -86,6 +93,10 @@ export function ProfilePage() {
     const hid = householdId ?? household.id;
     const ageNum = Number.parseInt(age, 10);
     const sizeNum = Number.parseInt(householdSize, 10);
+    const heightFeetNum = Number.parseInt(heightFeet, 10);
+    const heightInchesNum = Number.parseInt(heightInches, 10);
+    const weightPoundsNum = Number.parseFloat(weightPounds);
+    const totalHeightInches = (Number.isFinite(heightFeetNum) ? heightFeetNum : 0) * 12 + (Number.isFinite(heightInchesNum) ? heightInchesNum : 0);
 
     const nextUser: User = {
       id: user?.id ?? 1,
@@ -95,6 +106,8 @@ export function ProfilePage() {
       age: Number.isFinite(ageNum) ? ageNum : user?.age ?? 30,
       sex: sex.trim() || "Unspecified",
       activityLevel,
+      heightInches: totalHeightInches > 0 ? totalHeightInches : user?.heightInches,
+      weightPounds: Number.isFinite(weightPoundsNum) ? weightPoundsNum : user?.weightPounds,
       role,
       createdAt: user?.createdAt ?? (createdAt.trim() ? createdAt : new Date().toISOString()),
     };
@@ -215,6 +228,21 @@ export function ProfilePage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted" htmlFor="pf-height-feet">
+                Height
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <input id="pf-height-feet" type="number" min={3} max={8} className="input w-full" value={heightFeet} onChange={(e) => setHeightFeet(e.target.value)} placeholder="ft" />
+                <input id="pf-height-inches" type="number" min={0} max={11} className="input w-full" value={heightInches} onChange={(e) => setHeightInches(e.target.value)} placeholder="in" />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted" htmlFor="pf-weight">
+                Weight (lb)
+              </label>
+              <input id="pf-weight" type="number" min={50} max={700} className="input w-full" value={weightPounds} onChange={(e) => setWeightPounds(e.target.value)} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted" htmlFor="pf-role">

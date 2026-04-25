@@ -9,6 +9,9 @@ public class RecipeStep
     public TimingTag TimingTag { get; set; }
     public int DurationMinutes { get; set; }
     public bool IsPassive { get; set; }
+    public PrepStepCategory PrepCategory { get; set; } = PrepStepCategory.AssemblePortion;
+    public List<int> LinkedIngredientIds { get; set; } = new();
+    public bool ScaleByLinkedIngredients { get; set; }
 
     public Recipe Recipe { get; set; } = null!;
     public ICollection<PrepSheetStep> PrepSheetSteps { get; set; } = new List<PrepSheetStep>();

@@ -2,7 +2,11 @@ namespace MealPlanner.Api.Services;
 
 public interface INutritionGapService
 {
+    /// <summary>Returns per-day food groups that are under target (keys only, no amounts).</summary>
     Task<Dictionary<WeekDay, List<string>>> GetDailyGapsAsync(int weekId);
+
+    /// <summary>Returns per-day gap amounts: {WeekDay → {foodGroup → servings short}}. Only groups with a real gap are included.</summary>
+    Task<Dictionary<WeekDay, Dictionary<string, decimal>>> GetDailyGapAmountsAsync(int weekId);
 }
 
 public class NutritionGapService : INutritionGapService
@@ -12,6 +16,12 @@ public class NutritionGapService : INutritionGapService
     public NutritionGapService(AppDbContext db) => _db = db;
 
     public async Task<Dictionary<WeekDay, List<string>>> GetDailyGapsAsync(int weekId)
+    {
+        var amounts = await GetDailyGapAmountsAsync(weekId);
+        return amounts.ToDictionary(kv => kv.Key, kv => kv.Value.Keys.ToList());
+    }
+
+    public async Task<Dictionary<WeekDay, Dictionary<string, decimal>>> GetDailyGapAmountsAsync(int weekId)
     {
         var week = await _db.Weeks
             .Include(w => w.MealSlots.Where(s => !s.IsSkipped && !s.IsEatingOut))
@@ -23,10 +33,10 @@ public class NutritionGapService : INutritionGapService
             .FirstOrDefaultAsync(w => w.Id == weekId);
 
         if (week?.Household.Preferences?.MyPlateTargets == null)
-            return new Dictionary<WeekDay, List<string>>();
+            return Enum.GetValues<WeekDay>().ToDictionary(d => d, _ => new Dictionary<string, decimal>());
 
         var targets = week.Household.Preferences.MyPlateTargets;
-        var gaps = new Dictionary<WeekDay, List<string>>();
+        var result = new Dictionary<WeekDay, Dictionary<string, decimal>>();
 
         foreach (var day in Enum.GetValues<WeekDay>())
         {
@@ -57,41 +67,38 @@ public class NutritionGapService : INutritionGapService
                     foreach (var ingredient in recipe.Ingredients.Where(i => selectedModifierIds.Contains(i.IngredientId)))
                     {
                         if (!ingredient.Ingredient.IsMyPlateCounted) continue;
-
                         var key = NormalizeTargetKey(ingredient.Ingredient.FoodGroup.ToString());
                         if (!totals.ContainsKey(key)) continue;
                         if (ingredient.Ingredient.ServingSize <= 0) continue;
-
                         var servings = ingredient.Quantity / ingredient.Ingredient.ServingSize;
                         if (servings <= 0) continue;
-
                         totals[key] += Math.Round(servings * scale, 2);
                     }
                 }
             }
 
-            var dayGaps = new List<string>();
-            if (totals["grains"] < targets.Grains)         dayGaps.Add("grains");
-            if (totals["protein"] < targets.Protein)       dayGaps.Add("protein");
-            if (totals["vegetables"] < targets.Vegetables) dayGaps.Add("vegetables");
-            if (totals["fruit"] < targets.Fruit)           dayGaps.Add("fruit");
-            if (totals["dairy"] < targets.Dairy)           dayGaps.Add("dairy");
+            var gaps = new Dictionary<string, decimal>();
+            if (totals["grains"] < targets.Grains)         gaps["grains"]     = Math.Round(targets.Grains - totals["grains"], 2);
+            if (totals["protein"] < targets.Protein)       gaps["protein"]    = Math.Round(targets.Protein - totals["protein"], 2);
+            if (totals["vegetables"] < targets.Vegetables) gaps["vegetables"] = Math.Round(targets.Vegetables - totals["vegetables"], 2);
+            if (totals["fruit"] < targets.Fruit)           gaps["fruit"]      = Math.Round(targets.Fruit - totals["fruit"], 2);
+            if (totals["dairy"] < targets.Dairy)           gaps["dairy"]      = Math.Round(targets.Dairy - totals["dairy"], 2);
 
-            gaps[day] = dayGaps;
+            result[day] = gaps;
         }
 
-        return gaps;
+        return result;
     }
 
     private static string NormalizeTargetKey(string group) =>
         group.Trim().ToLowerInvariant() switch
         {
-            "grain" or "grains" => "grains",
-            "protein" or "proteins" => "protein",
+            "grain" or "grains"         => "grains",
+            "protein" or "proteins"     => "protein",
             "vegetable" or "vegetables" => "vegetables",
-            "fruit" or "fruits" => "fruit",
-            "dairy" => "dairy",
-            "legume" or "legumes" => "protein",
-            _ => group.Trim().ToLowerInvariant()
+            "fruit" or "fruits"         => "fruit",
+            "dairy"                     => "dairy",
+            "legume" or "legumes"       => "protein",
+            _                           => group.Trim().ToLowerInvariant()
         };
 }

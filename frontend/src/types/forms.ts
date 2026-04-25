@@ -43,6 +43,9 @@ export const recipeFormSchema = z.object({
       instruction: z.string().min(3),
       timingTag: z.enum(["PrepAhead", "DayOfActive", "DayOfPassive"]),
       durationMinutes: z.number().min(0),
+      prepCategory: z.enum(["WashChop", "MixSauce", "CookStarch", "CookProtein", "RoastBake", "AssemblePortion", "FreshFinish"]),
+      linkedIngredientIds: z.array(z.number().min(1)).default([]),
+      scaleByLinkedIngredients: z.boolean(),
     }),
   ),
 });

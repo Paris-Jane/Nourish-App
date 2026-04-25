@@ -2,15 +2,17 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRightLeft, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { generateGroceryList } from "api/groceryList";
 import { addRecipeModifier } from "api/recipes";
 import { swapSlot } from "api/weeks";
 import { useToast } from "hooks/useToast";
+import { buildPreviewGroceryListFromPlan } from "lib/groceryFromPlan";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
 import { cn, daysUntil } from "lib/utils";
 import { useWeekStore } from "store/weekStore";
 import { RecipeCard } from "./RecipeCard";
 import { TagPill } from "./TagPill";
-import type { FridgeItem, Ingredient, Recipe, WeekMealSlot } from "types/models";
+import type { FridgeItem, Ingredient, Recipe, Week, WeekMealSlot } from "types/models";
 
 const filters = ["All suggestions", "Expiring soon", "In your fridge", "Ingredient overlap", "Favorites", "Recent"] as const;
 
@@ -21,6 +23,7 @@ interface SwapDrawerProps {
   ingredients?: Ingredient[];
   fridgeItems?: FridgeItem[];
   weekSlots?: WeekMealSlot[];
+  week: Pick<Week, "id" | "householdId">;
   initialTargetIds?: number[];
   onClose: () => void;
 }
@@ -48,6 +51,7 @@ export function SwapDrawer({
   ingredients = [],
   fridgeItems = [],
   weekSlots = [],
+  week,
   initialTargetIds,
   onClose,
 }: SwapDrawerProps) {
@@ -176,6 +180,7 @@ export function SwapDrawer({
       if (!slot) return;
       await queryClient.invalidateQueries({ queryKey: ["week-slots", slot.weekId] });
       setSlotOverrides(null);
+      await refreshDerivedWeekData();
       const recipe = recipes.find((entry) => entry.id === recipeId);
       if (recipe) {
         const count = targetIds.length;
@@ -193,6 +198,7 @@ export function SwapDrawer({
           : entry,
       );
       setSlotOverrides(nextSlots);
+      void refreshDerivedWeekData(nextSlots);
       if (recipe) {
         const count = targetIds.length;
         pushToast(count > 1 ? `${recipe.name} added in preview mode to ${count} slots.` : `${recipe.name} added in preview mode.`);
@@ -257,6 +263,16 @@ export function SwapDrawer({
       pushToast(`${ingredient.name} added in preview mode.`);
     },
   });
+
+  async function refreshDerivedWeekData(nextSlots?: WeekMealSlot[]) {
+    try {
+      const grocery = await generateGroceryList(week.id);
+      queryClient.setQueryData(["grocery-list", week.id], grocery);
+    } catch {
+      const previewGrocery = buildPreviewGroceryListFromPlan(week, nextSlots ?? weekSlots, recipes, ingredients, fridgeItems);
+      queryClient.setQueryData(["grocery-list", week.id], previewGrocery);
+    }
+  }
 
   function beginPlanningRecipe(recipe: Recipe) {
     if (!slot) return;

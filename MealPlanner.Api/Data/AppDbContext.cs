@@ -187,6 +187,8 @@ public class AppDbContext : DbContext
         {
             b.HasIndex(s => new { s.RecipeId, s.StepNumber });
             b.Property(s => s.TimingTag).HasConversion<string>();
+            b.Property(s => s.PrepCategory).HasConversion<string>();
+            b.Property(s => s.LinkedIngredientIds).HasColumnType("jsonb").HasConversion(intListConverter, intListComparer);
         });
 
         // ── UserRecipePref ────────────────────────────────────────────────────

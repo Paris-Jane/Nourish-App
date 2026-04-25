@@ -137,7 +137,10 @@ public static class RecipeEndpoints
                 Instruction = step.Instruction,
                 TimingTag = step.TimingTag,
                 DurationMinutes = step.DurationMinutes,
-                IsPassive = step.IsPassive
+                IsPassive = step.IsPassive,
+                PrepCategory = step.PrepCategory,
+                LinkedIngredientIds = step.LinkedIngredientIds ?? new List<int>(),
+                ScaleByLinkedIngredients = step.ScaleByLinkedIngredients
             });
         }
         await db.SaveChangesAsync();
@@ -197,7 +200,10 @@ public static class RecipeEndpoints
                 Instruction = step.Instruction,
                 TimingTag = step.TimingTag,
                 DurationMinutes = step.DurationMinutes,
-                IsPassive = step.IsPassive
+                IsPassive = step.IsPassive,
+                PrepCategory = step.PrepCategory,
+                LinkedIngredientIds = step.LinkedIngredientIds ?? new List<int>(),
+                ScaleByLinkedIngredients = step.ScaleByLinkedIngredients
             });
         }
         await db.SaveChangesAsync();
@@ -231,7 +237,7 @@ public static class RecipeEndpoints
             .ToListAsync();
 
         return Results.Ok(steps.Select(s => new RecipeStepResponse(
-            s.Id, s.StepNumber, s.Instruction, s.TimingTag, s.DurationMinutes, s.IsPassive)));
+            s.Id, s.StepNumber, s.Instruction, s.TimingTag, s.DurationMinutes, s.IsPassive, s.PrepCategory, s.LinkedIngredientIds, s.ScaleByLinkedIngredients)));
     }
 
     private static async Task<IResult> AddStep(int id, RecipeStepRequest req, AppDbContext db, ClaimsPrincipal user)
@@ -247,13 +253,16 @@ public static class RecipeEndpoints
             Instruction = req.Instruction,
             TimingTag = req.TimingTag,
             DurationMinutes = req.DurationMinutes,
-            IsPassive = req.IsPassive
+            IsPassive = req.IsPassive,
+            PrepCategory = req.PrepCategory,
+            LinkedIngredientIds = req.LinkedIngredientIds ?? new List<int>(),
+            ScaleByLinkedIngredients = req.ScaleByLinkedIngredients
         };
         db.RecipeSteps.Add(step);
         await db.SaveChangesAsync();
 
         return Results.Created($"/api/recipes/{id}/steps",
-            new RecipeStepResponse(step.Id, step.StepNumber, step.Instruction, step.TimingTag, step.DurationMinutes, step.IsPassive));
+            new RecipeStepResponse(step.Id, step.StepNumber, step.Instruction, step.TimingTag, step.DurationMinutes, step.IsPassive, step.PrepCategory, step.LinkedIngredientIds, step.ScaleByLinkedIngredients));
     }
 
     private static async Task<IResult> AddModifier(int id, AddRecipeModifierRequest req, AppDbContext db, ClaimsPrincipal user)
@@ -375,6 +384,6 @@ public static class RecipeEndpoints
             i.Quantity, i.Unit, i.IsModifier, i.IsOptional,
             i.SubstituteIngredientIds, i.Notes)).ToList(),
         r.Steps.OrderBy(s => s.StepNumber).Select(s => new RecipeStepResponse(
-            s.Id, s.StepNumber, s.Instruction, s.TimingTag, s.DurationMinutes, s.IsPassive)).ToList()
+            s.Id, s.StepNumber, s.Instruction, s.TimingTag, s.DurationMinutes, s.IsPassive, s.PrepCategory, s.LinkedIngredientIds, s.ScaleByLinkedIngredients)).ToList()
     );
 }

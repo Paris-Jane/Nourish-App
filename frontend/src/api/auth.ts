@@ -8,6 +8,8 @@ export interface RegisterRequest {
   age: number;
   sex: string;
   activityLevel: ActivityLevel;
+  heightInches: number;
+  weightPounds: number;
   householdName: string;
   householdSize: number;
   timezone: string;

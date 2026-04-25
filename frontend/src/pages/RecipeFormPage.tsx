@@ -11,6 +11,15 @@ import { recipeFormSchema, type RecipeFormValues } from "types/forms";
 import type { MealType, Recipe } from "types/models";
 
 const mealTypeOptions: MealType[] = ["Breakfast", "Lunch", "Dinner", "Snack"];
+const prepCategoryOptions = [
+  { value: "WashChop", label: "Wash & chop" },
+  { value: "MixSauce", label: "Mix sauces / bases" },
+  { value: "CookStarch", label: "Cook grains / starches" },
+  { value: "CookProtein", label: "Cook proteins" },
+  { value: "RoastBake", label: "Roast / bake" },
+  { value: "AssemblePortion", label: "Assemble / portion" },
+  { value: "FreshFinish", label: "Fresh finish" },
+] as const;
 
 export function RecipeFormPage() {
   const { id } = useParams();
@@ -47,7 +56,10 @@ export function RecipeFormPage() {
           instruction: step.instruction,
           timingTag: step.timingTag,
           durationMinutes: step.durationMinutes,
-        })) ?? [{ instruction: "", timingTag: "PrepAhead", durationMinutes: 10 }],
+          prepCategory: step.prepCategory ?? "AssemblePortion",
+          linkedIngredientIds: step.linkedIngredientIds ?? [],
+          scaleByLinkedIngredients: step.scaleByLinkedIngredients ?? false,
+        })) ?? [{ instruction: "", timingTag: "PrepAhead", durationMinutes: 10, prepCategory: "AssemblePortion", linkedIngredientIds: [], scaleByLinkedIngredients: false }],
     },
   });
 
@@ -92,6 +104,9 @@ export function RecipeFormPage() {
           timingTag: step.timingTag,
           durationMinutes: step.durationMinutes,
           isPassive: step.timingTag === "PrepAhead" || step.timingTag === "DayOfPassive",
+          prepCategory: step.prepCategory,
+          linkedIngredientIds: step.linkedIngredientIds,
+          scaleByLinkedIngredients: step.scaleByLinkedIngredients,
         })),
       };
 
@@ -155,6 +170,9 @@ export function RecipeFormPage() {
           timingTag: step.timingTag,
           durationMinutes: step.durationMinutes,
           isPassive: step.timingTag === "PrepAhead" || step.timingTag === "DayOfPassive",
+          prepCategory: step.prepCategory,
+          linkedIngredientIds: step.linkedIngredientIds,
+          scaleByLinkedIngredients: step.scaleByLinkedIngredients,
         })),
       };
 
@@ -286,7 +304,16 @@ export function RecipeFormPage() {
             <button
               type="button"
               className="button-secondary"
-              onClick={() => stepFields.append({ instruction: "", timingTag: "DayOfActive", durationMinutes: 10 })}
+              onClick={() =>
+                stepFields.append({
+                  instruction: "",
+                  timingTag: "DayOfActive",
+                  durationMinutes: 10,
+                  prepCategory: "AssemblePortion",
+                  linkedIngredientIds: [],
+                  scaleByLinkedIngredients: false,
+                })
+              }
             >
               Add step
             </button>
@@ -295,13 +322,60 @@ export function RecipeFormPage() {
             {stepFields.fields.map((field, index) => (
               <div key={field.id} className="rounded-2xl bg-nourish-bg p-4">
                 <textarea className="input min-h-24" placeholder="Instruction" {...form.register(`steps.${index}.instruction`)} />
-                <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                <div className="mt-3 grid gap-3 lg:grid-cols-3">
                   <select className="input" {...form.register(`steps.${index}.timingTag`)}>
                     <option value="PrepAhead">Prep-ahead</option>
                     <option value="DayOfActive">Day-of active</option>
                     <option value="DayOfPassive">Day-of passive</option>
                   </select>
+                  <select className="input" {...form.register(`steps.${index}.prepCategory`)}>
+                    {prepCategoryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                   <input className="input" type="number" {...form.register(`steps.${index}.durationMinutes`, { valueAsNumber: true })} />
+                </div>
+                <div className="mt-3 rounded-2xl border border-nourish-border/70 bg-white p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Linked ingredients</p>
+                  <p className="mt-1 text-xs text-nourish-muted">
+                    Link this step to the ingredients it prepares. If it uses a modifier ingredient, it will only show in the weekly prep plan when that modifier is selected.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {form.watch("ingredients").map((ingredient, ingredientIndex) => {
+                      const ingredientMeta = ingredients.find((item) => item.id === ingredient.ingredientId);
+                      const currentLinks = form.watch(`steps.${index}.linkedIngredientIds`) ?? [];
+                      const linked = currentLinks.includes(ingredient.ingredientId);
+                      return (
+                        <button
+                          key={`${field.id}-${ingredient.ingredientId}-${ingredientIndex}`}
+                          type="button"
+                          className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                            linked
+                              ? "bg-nourish-sage text-white"
+                              : "border border-nourish-border bg-white text-nourish-muted"
+                          }`}
+                          onClick={() => {
+                            const next = linked
+                              ? currentLinks.filter((id) => id !== ingredient.ingredientId)
+                              : [...currentLinks, ingredient.ingredientId];
+                            form.setValue(`steps.${index}.linkedIngredientIds`, next, { shouldDirty: true, shouldValidate: true });
+                          }}
+                        >
+                          {ingredientMeta?.name ?? `Ingredient ${ingredientIndex + 1}`}
+                          {ingredient.isModifier || ingredient.isOptional ? " (modifier)" : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <label className="mt-3 flex items-center gap-2 text-sm text-nourish-muted">
+                    <input type="checkbox" {...form.register(`steps.${index}.scaleByLinkedIngredients`)} />
+                    Scale this step using the linked ingredient quantities for the whole week
+                  </label>
+                  <p className="mt-2 text-xs text-nourish-muted">
+                    Tip: for combined prep, write instructions like <span className="font-medium text-nourish-ink">“Boil {'{quantity}'} {'{ingredient}'}”</span> or <span className="font-medium text-nourish-ink">“Chop {'{ingredients}'}”</span>.
+                  </p>
                 </div>
               </div>
             ))}

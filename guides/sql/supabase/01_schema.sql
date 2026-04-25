@@ -77,6 +77,8 @@ create table if not exists "Users" (
   "Age" integer not null,
   "Sex" text not null,
   "ActivityLevel" text not null,
+  "HeightInches" integer not null,
+  "WeightPounds" numeric not null,
   "Role" text not null,
   "CreatedAt" timestamp with time zone not null,
   "PasswordHash" text not null,
@@ -141,6 +143,9 @@ create table if not exists "RecipeSteps" (
   "TimingTag" text not null,
   "DurationMinutes" integer not null,
   "IsPassive" boolean not null,
+  "PrepCategory" text not null default 'AssemblePortion',
+  "LinkedIngredientIds" jsonb not null default '[]'::jsonb,
+  "ScaleByLinkedIngredients" boolean not null default false,
   constraint "FK_RecipeSteps_Recipes_RecipeId"
     foreign key ("RecipeId") references "Recipes" ("Id") on delete cascade
 );

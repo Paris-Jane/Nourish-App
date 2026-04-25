@@ -25,6 +25,9 @@ export interface RecipeRequest {
     timingTag: Recipe["steps"][number]["timingTag"];
     durationMinutes: number;
     isPassive?: boolean;
+    prepCategory?: Recipe["steps"][number]["prepCategory"];
+    linkedIngredientIds?: number[];
+    scaleByLinkedIngredients?: boolean;
   }>;
 }
 

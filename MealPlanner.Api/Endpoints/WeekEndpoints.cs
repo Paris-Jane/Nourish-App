@@ -239,7 +239,7 @@ public static class WeekEndpoints
         var recipeChanged = false;
         if (req.RecipeId.HasValue)
         {
-            var nextRecipeId = req.RecipeId.Value == 0 ? null : req.RecipeId.Value;
+            var nextRecipeId = req.RecipeId.Value == 0 ? (int?)null : req.RecipeId.Value;
             recipeChanged = slot.RecipeId != nextRecipeId;
             slot.RecipeId = nextRecipeId;
             if (recipeChanged && req.SelectedModifierIngredientIds == null)

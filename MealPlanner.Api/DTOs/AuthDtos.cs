@@ -7,6 +7,8 @@ public record RegisterRequest(
     int Age,
     string Sex,
     ActivityLevel ActivityLevel,
+    int HeightInches,
+    decimal WeightPounds,
     string HouseholdName,
     int HouseholdSize,
     string Timezone = "UTC"

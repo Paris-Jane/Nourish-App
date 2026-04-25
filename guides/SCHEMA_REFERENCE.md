@@ -157,6 +157,16 @@ Enums are intended to be stored as strings in PostgreSQL for readability and sta
 - `DayOfActive`
 - `DayOfPassive`
 
+### PrepStepCategory
+
+- `WashChop`
+- `MixSauce`
+- `CookStarch`
+- `CookProtein`
+- `RoastBake`
+- `AssemblePortion`
+- `FreshFinish`
+
 ## Core Entities
 
 ## Household
@@ -195,6 +205,8 @@ Fields:
 - `Age: int` — required
 - `Sex: string` — required
 - `ActivityLevel: ActivityLevel` — enum, required
+- `HeightInches: int` — required
+- `WeightPounds: decimal` — required
 - `Role: UserRole` — enum, required
 - `CreatedAt: DateTime` — required
 - `PasswordHash: string` — required
@@ -242,6 +254,11 @@ Fields:
 - `Vegetables: decimal`
 - `Fruit: decimal`
 - `Dairy: decimal`
+
+Target generation notes:
+
+- adult targets can be derived from age, sex, activity level, height, and weight
+- fallback lookup targets can be used when body metrics are unavailable
 
 ## Ingredient and Recipe Entities
 
@@ -346,6 +363,9 @@ Fields:
 - `TimingTag: TimingTag` — enum, required
 - `DurationMinutes: int` — required
 - `IsPassive: bool` — required
+- `PrepCategory: PrepStepCategory` — enum, required
+- `LinkedIngredientIds: List<int>` — required, stored as `jsonb`
+- `ScaleByLinkedIngredients: bool` — required
 
 Relationships:
 

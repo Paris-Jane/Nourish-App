@@ -2,7 +2,7 @@ namespace MealPlanner.Api.Services;
 
 public interface IMyPlateService
 {
-    MyPlateTargets Calculate(int age, string sex, ActivityLevel activityLevel);
+    MyPlateTargets Calculate(int age, string sex, ActivityLevel activityLevel, int? heightInches = null, decimal? weightPounds = null);
 }
 
 public class MyPlateService : IMyPlateService
@@ -36,13 +36,31 @@ public class MyPlateService : IMyPlateService
         [ActivityLevel.Active]    = 1.35m,
     };
 
-    public MyPlateTargets Calculate(int age, string sex, ActivityLevel activityLevel)
+    private static readonly (int Calories, decimal Grains, decimal Protein, decimal Vegetables, decimal Fruit, decimal Dairy)[] AdultCalorieBands =
+    [
+        (1600, 5m, 5m, 2m,   1.5m, 3m),
+        (1800, 6m, 5m, 2.5m, 1.5m, 3m),
+        (2000, 6m, 5.5m, 2.5m, 2m, 3m),
+        (2200, 7m, 6m, 3m,   2m, 3m),
+        (2400, 8m, 6.5m, 3m, 2m, 3m),
+        (2600, 9m, 6.5m, 3.5m, 2m, 3m),
+        (2800, 10m, 7m, 3.5m, 2.5m, 3m),
+        (3000, 10m, 7m, 4m,   2.5m, 3m),
+    ];
+
+    public MyPlateTargets Calculate(int age, string sex, ActivityLevel activityLevel, int? heightInches = null, decimal? weightPounds = null)
     {
         var normalizedSex = sex.Trim().ToLower() switch
         {
             "male" or "m" => "Male",
             _ => "Female"
         };
+
+        if (age >= 18 && heightInches.GetValueOrDefault() > 0 && weightPounds.GetValueOrDefault() > 0)
+        {
+            var calories = EstimateAdultCalories(age, normalizedSex, activityLevel, heightInches!.Value, weightPounds!.Value);
+            return TargetsForCalories(calories);
+        }
 
         var row = BaseLookup.FirstOrDefault(r =>
             r.Sex == normalizedSex && age >= r.MinAge && age <= r.MaxAge);
@@ -60,6 +78,41 @@ public class MyPlateService : IMyPlateService
             Vegetables = Math.Round(row.Vegetables * mult, 1),
             Fruit      = Math.Round(row.Fruit      * mult, 1),
             Dairy      = Math.Round(row.Dairy      * mult, 1),
+        };
+    }
+
+    private static int EstimateAdultCalories(int age, string sex, ActivityLevel activityLevel, int heightInches, decimal weightPounds)
+    {
+        var weightKg = (double)weightPounds * 0.45359237d;
+        var heightCm = heightInches * 2.54d;
+
+        var bmr = sex == "Male"
+            ? 10d * weightKg + 6.25d * heightCm - 5d * age + 5d
+            : 10d * weightKg + 6.25d * heightCm - 5d * age - 161d;
+
+        var activityFactor = activityLevel switch
+        {
+            ActivityLevel.Sedentary => 1.2d,
+            ActivityLevel.Light => 1.375d,
+            ActivityLevel.Moderate => 1.55d,
+            ActivityLevel.Active => 1.725d,
+            _ => 1.2d
+        };
+
+        var estimated = (int)Math.Round(bmr * activityFactor / 50d) * 50;
+        return Math.Max(1600, Math.Min(3000, estimated));
+    }
+
+    private static MyPlateTargets TargetsForCalories(int calories)
+    {
+        var band = AdultCalorieBands.OrderBy(entry => Math.Abs(entry.Calories - calories)).First();
+        return new MyPlateTargets
+        {
+            Grains = band.Grains,
+            Protein = band.Protein,
+            Vegetables = band.Vegetables,
+            Fruit = band.Fruit,
+            Dairy = band.Dairy,
         };
     }
 }
