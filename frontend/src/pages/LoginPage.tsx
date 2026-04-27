@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import axios from "axios";
 import { ArrowRight, Ruler, Scale, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -10,10 +11,29 @@ import { registerSchema, signInSchema, type RegisterFormValues, type SignInFormV
 import type { ActivityLevel, User } from "types/models";
 
 const ACTIVITY_LEVELS: ActivityLevel[] = ["Sedentary", "Light", "Moderate", "Active"];
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+function apiErrorMessage(error: unknown, fallback: string) {
+  if (!axios.isAxiosError(error)) return fallback;
+  if (error.response?.status === 400) {
+    const message = typeof error.response.data === "string" ? error.response.data : "The submitted details were not accepted.";
+    return message;
+  }
+  if (error.response?.status === 401) return "That email/password did not match an account.";
+  if (error.response) return `${fallback} Backend returned ${error.response.status}.`;
+  if (error.request) return `${fallback} The frontend could not reach the backend API.`;
+  return fallback;
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="mt-1 text-sm text-red-700">{message}</p>;
+}
 
 export function LoginPage() {
   const [tab, setTab] = useState<"signin" | "register">("signin");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const navigate = useNavigate();
   const enablePreviewMode = useAuthStore((state) => state.enablePreviewMode);
   const disablePreviewMode = useAuthStore((state) => state.disablePreviewMode);
@@ -44,6 +64,7 @@ export function LoginPage() {
   });
 
   function continueInPreview() {
+    setFormError(null);
     enablePreviewMode();
     pushToast("Preview mode is on, so you can keep testing without signing in.");
     navigate("/");
@@ -61,20 +82,32 @@ export function LoginPage() {
   }
 
   async function handleSignIn(values: SignInFormValues) {
+    setFormError(null);
+    if (!apiBaseUrl && !import.meta.env.DEV) {
+      setFormError("The frontend is missing VITE_API_BASE_URL, so it cannot reach the backend.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const response = await login(values);
       completeAuthSession(response);
       pushToast(`Welcome back, ${response.displayName}.`);
       navigate("/");
-    } catch {
-      pushToast("Sign-in failed. Check your email/password and confirm the backend URL is reachable.");
+    } catch (error) {
+      const message = apiErrorMessage(error, "Sign-in failed.");
+      setFormError(message);
+      pushToast(message);
     } finally {
       setIsSubmitting(false);
     }
   }
 
   async function handleRegister(values: RegisterFormValues) {
+    setFormError(null);
+    if (!apiBaseUrl && !import.meta.env.DEV) {
+      setFormError("The frontend is missing VITE_API_BASE_URL, so it cannot reach the backend.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const heightInches = values.heightFeet * 12 + values.heightInches;
@@ -117,8 +150,10 @@ export function LoginPage() {
       );
       pushToast(`Account ready, ${response.displayName}.`);
       navigate("/");
-    } catch {
-      pushToast("Registration failed. If the email is already used, try signing in instead.");
+    } catch (error) {
+      const message = apiErrorMessage(error, "Registration failed.");
+      setFormError(message);
+      pushToast(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -134,8 +169,8 @@ export function LoginPage() {
           </div>
           <h1 className="mt-5 font-heading text-5xl leading-none text-nourish-ink sm:text-6xl">Nourish</h1>
           <p className="mt-5 max-w-xl text-base leading-7 text-nourish-muted">
-            These pages are now designed for the real product flow, but auth is still intentionally paused while you finish the planner.
-            The registration experience below collects the kinds of details we’ll need for a more accurate nutrition baseline once it goes live.
+            Create an account to connect Nourish to your live backend data, including the ingredients stored in your Supabase database.
+            Preview mode is still available when you want to browse with local sample data.
           </p>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -181,13 +216,16 @@ export function LoginPage() {
               className="space-y-4"
               onSubmit={signInForm.handleSubmit(handleSignIn)}
             >
+              {formError ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{formError}</div> : null}
               <div>
                 <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Email</label>
                 <input className="input" placeholder="you@example.com" {...signInForm.register("email")} />
+                <FieldError message={signInForm.formState.errors.email?.message} />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Password</label>
                 <input className="input" type="password" placeholder="••••••••" {...signInForm.register("password")} />
+                <FieldError message={signInForm.formState.errors.password?.message} />
               </div>
               <button className="button-primary w-full" type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Signing in..." : "Sign in"}
@@ -198,22 +236,27 @@ export function LoginPage() {
               className="space-y-5"
               onSubmit={registerForm.handleSubmit(handleRegister)}
             >
+              {formError ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{formError}</div> : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Display name</label>
                   <input className="input" placeholder="Paris" {...registerForm.register("displayName")} />
+                  <FieldError message={registerForm.formState.errors.displayName?.message} />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Email</label>
                   <input className="input" placeholder="you@example.com" {...registerForm.register("email")} />
+                  <FieldError message={registerForm.formState.errors.email?.message} />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Password</label>
                   <input className="input" type="password" placeholder="At least 8 characters" {...registerForm.register("password")} />
+                  <FieldError message={registerForm.formState.errors.password?.message} />
                 </div>
                 <div className="sm:col-span-2">
                   <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Household name</label>
                   <input className="input" placeholder="Willow Kitchen" {...registerForm.register("householdName")} />
+                  <FieldError message={registerForm.formState.errors.householdName?.message} />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Household size</label>
@@ -225,6 +268,7 @@ export function LoginPage() {
                     value={registerForm.watch("householdSize")}
                     onChange={(event) => registerForm.setValue("householdSize", Number(event.target.value))}
                   />
+                  <FieldError message={registerForm.formState.errors.householdSize?.message} />
                 </div>
               </div>
 
@@ -245,6 +289,7 @@ export function LoginPage() {
                       value={registerForm.watch("age")}
                       onChange={(event) => registerForm.setValue("age", Number(event.target.value))}
                     />
+                    <FieldError message={registerForm.formState.errors.age?.message} />
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Sex used for nutrition baseline</label>
@@ -253,6 +298,7 @@ export function LoginPage() {
                       <option value="Female">Female</option>
                       <option value="Male">Male</option>
                     </select>
+                    <FieldError message={registerForm.formState.errors.sex?.message} />
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Height</label>
@@ -276,6 +322,7 @@ export function LoginPage() {
                         placeholder="in"
                       />
                     </div>
+                    <FieldError message={registerForm.formState.errors.heightFeet?.message ?? registerForm.formState.errors.heightInches?.message} />
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Weight (lb)</label>
@@ -287,6 +334,7 @@ export function LoginPage() {
                       value={registerForm.watch("weightPounds")}
                       onChange={(event) => registerForm.setValue("weightPounds", Number(event.target.value))}
                     />
+                    <FieldError message={registerForm.formState.errors.weightPounds?.message} />
                   </div>
                   <div className="sm:col-span-2">
                     <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Activity level</label>
