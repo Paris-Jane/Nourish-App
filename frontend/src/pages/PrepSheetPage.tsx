@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PageHeader } from "components/PageHeader";
 import { addDays, format, parseISO } from "date-fns";
 import { ArrowLeft, CheckCircle2, ChevronDown, Circle, Clock3, Package2, UtensilsCrossed } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -487,100 +488,86 @@ export function PrepSheetPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-24">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            to="/"
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-nourish-border bg-white px-3 py-2 text-sm font-medium text-nourish-ink shadow-sm transition hover:border-nourish-sage/40 hover:bg-nourish-bg"
-          >
-            <ArrowLeft size={18} aria-hidden />
-            Back to home
-          </Link>
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => {
-              if (!previousWeek) return;
-              setActiveWeekId(previousWeek.id);
-              setVisibleWeekStartDate(null);
-            }}
-            disabled={!previousWeek}
-          >
-            Previous week
-          </button>
-          <label className="sr-only" htmlFor="prep-week-select">
-            Choose meal prep week
-          </label>
-          <select
-            id="prep-week-select"
-            className="input min-w-[220px] bg-white"
-            value={week.id}
-            onChange={(event) => {
-              setActiveWeekId(Number(event.target.value));
-              setVisibleWeekStartDate(null);
-            }}
-          >
-            {weeks.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {format(parseISO(entry.weekStartDate), "MMM d")} - {format(addDays(parseISO(entry.weekStartDate), 6), "MMM d")}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => {
-              if (!nextWeek) return;
-              setActiveWeekId(nextWeek.id);
-              setVisibleWeekStartDate(null);
-            }}
-            disabled={!nextWeek}
-          >
-            Next week
-          </button>
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => {
-              const currentWeekStartIso = format(getCurrentWeekStart(), "yyyy-MM-dd");
-              const currentWeek = weeks.find((entry) => entry.weekStartDate === currentWeekStartIso) ?? weeks[0];
-              if (currentWeek) setActiveWeekId(currentWeek.id);
-              setVisibleWeekStartDate(null);
-            }}
-          >
-            Current week
-          </button>
-        </div>
+      <div className="space-y-3">
+        <PageHeader
+          title="Sunday meal prep"
+          subtitle={`Week of ${format(parseISO(week.weekStartDate), "MMMM d, yyyy")}`}
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => {
+            if (!previousWeek) return;
+            setActiveWeekId(previousWeek.id);
+            setVisibleWeekStartDate(null);
+          }}
+          disabled={!previousWeek}
+        >
+          Previous week
+        </button>
+        <label className="sr-only" htmlFor="prep-week-select">
+          Choose meal prep week
+        </label>
+        <select
+          id="prep-week-select"
+          className="input min-w-[180px] bg-white"
+          value={week.id}
+          onChange={(event) => {
+            setActiveWeekId(Number(event.target.value));
+            setVisibleWeekStartDate(null);
+          }}
+        >
+          {weeks.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {format(parseISO(entry.weekStartDate), "MMM d")} – {format(addDays(parseISO(entry.weekStartDate), 6), "MMM d")}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => {
+            if (!nextWeek) return;
+            setActiveWeekId(nextWeek.id);
+            setVisibleWeekStartDate(null);
+          }}
+          disabled={!nextWeek}
+        >
+          Next week
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => {
+            const currentWeekStartIso = format(getCurrentWeekStart(), "yyyy-MM-dd");
+            const currentWeek = weeks.find((entry) => entry.weekStartDate === currentWeekStartIso) ?? weeks[0];
+            if (currentWeek) setActiveWeekId(currentWeek.id);
+            setVisibleWeekStartDate(null);
+          }}
+        >
+          Current week
+        </button>
       </div>
 
-      <div className="card p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-nourish-ink sm:text-4xl">Sunday meal prep</h1>
-            <p className="mt-1 text-sm text-nourish-muted">Week of {format(parseISO(week.weekStartDate), "MMMM d, yyyy")}</p>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-nourish-muted">
-              This plan only includes prep-ahead tasks that make sense for the week you actually built. Modifier steps show up only when
-              you selected that add-on, and fresh-finish items stay out of Sunday prep unless the recipe explicitly marks them as prep-ahead.
-              Checking off prep tasks tracks prep progress only. Ingredients stay in kitchen inventory until past planned meals are assumed eaten.
-            </p>
-          </div>
+      <div className="flex flex-wrap gap-x-8 gap-y-4 rounded-2xl border border-nourish-border bg-white px-5 py-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Meals planned</p>
+          <p className="mt-1 text-2xl font-semibold text-nourish-ink">{plannedMeals}</p>
+          <p className="text-xs text-nourish-muted">{recipeCount} unique recipe{recipeCount !== 1 ? "s" : ""}</p>
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-nourish-border bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-nourish-muted">Meals planned</p>
-            <p className="mt-2 text-3xl font-semibold text-nourish-ink">{plannedMeals}</p>
-            <p className="mt-1 text-xs text-nourish-muted">{recipeCount} unique recipe{recipeCount !== 1 ? "s" : ""}</p>
-          </div>
-          <div className="rounded-2xl border border-nourish-border bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-nourish-muted">Active prep time</p>
-            <p className="mt-2 text-3xl font-semibold text-nourish-ink">{activeMinutes} min</p>
-            <p className="mt-1 text-xs text-nourish-muted">hands-on work</p>
-          </div>
-          <div className="rounded-2xl border border-nourish-border bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-nourish-muted">Hands-off time</p>
-            <p className="mt-2 text-3xl font-semibold text-nourish-ink">{passiveMinutes > 0 ? `${passiveMinutes} min` : "—"}</p>
-            <p className="mt-1 text-xs text-nourish-muted">oven, simmering, resting</p>
-          </div>
+        <div className="w-px self-stretch bg-nourish-border" aria-hidden />
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Active prep</p>
+          <p className="mt-1 text-2xl font-semibold text-nourish-ink">{activeMinutes} min</p>
+          <p className="text-xs text-nourish-muted">hands-on work</p>
+        </div>
+        <div className="w-px self-stretch bg-nourish-border" aria-hidden />
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Hands-off</p>
+          <p className="mt-1 text-2xl font-semibold text-nourish-ink">{passiveMinutes > 0 ? `${passiveMinutes} min` : "—"}</p>
+          <p className="text-xs text-nourish-muted">oven, simmering, resting</p>
         </div>
       </div>
 

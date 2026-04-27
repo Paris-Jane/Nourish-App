@@ -8,6 +8,7 @@ import { z } from "zod";
 import { addGroceryItem, checkGroceryItem, deleteGroceryItem, generateGroceryList, updateGroceryItemQuantity } from "api/groceryList";
 import { BottomSheet } from "components/BottomSheet";
 import { GroceryListItemRow } from "components/GroceryListItemRow";
+import { PageHeader } from "components/PageHeader";
 import { ProgressBar } from "components/ProgressBar";
 import { SectionHeader } from "components/SectionHeader";
 import { useCurrentWeek, useFridgeItems, useGroceryList, useIngredients, useRecipes, useWeekSlots, useWeeks } from "hooks/useAppData";
@@ -456,17 +457,18 @@ export function GroceryPage() {
 
   return (
     <div className="space-y-5 pb-28 lg:pb-10">
+      <PageHeader
+        title="Grocery List"
+        subtitle=" "
+        action={
+          <button type="button" className="button-secondary inline-flex items-center gap-2" onClick={() => setAddOpen(true)}>
+            <Plus size={18} aria-hidden />
+            Add item
+          </button>
+        }
+      />
       <div className="card space-y-4 p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-4xl">Grocery List</h1>
-            <p className="mt-2 text-sm text-nourish-muted">Check items as you shop. Checked items are added into your kitchen inventory.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-            <button type="button" className="button-secondary inline-flex items-center gap-2" onClick={() => setAddOpen(true)}>
-              <Plus size={18} aria-hidden />
-              Add item
-            </button>
+        <div className="flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -500,7 +502,6 @@ export function GroceryPage() {
                 Next week
               </button>
             </div>
-          </div>
         </div>
 
         <ProgressBar value={checkedCount} total={items.length} />

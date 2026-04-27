@@ -9,6 +9,7 @@ import { addFridgeItem, deleteFridgeItem, editFridgeItem } from "api/fridge";
 import { getWeekSlots } from "api/weeks";
 import { BottomSheet } from "components/BottomSheet";
 import { FridgeItemRow } from "components/FridgeItemRow";
+import { PageHeader } from "components/PageHeader";
 import { WhatCanIMakeRecipeCard } from "components/WhatCanIMakeRecipeCard";
 import { useCurrentWeek, useFridgeItems, useIngredients, useRecipes, useWeekSlots, useWeeks } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
@@ -428,35 +429,32 @@ export function FridgePage() {
 
   return (
     <div className="space-y-5">
-      <div className="card p-5">
-        <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-nourish-ink sm:text-4xl">Your Kitchen</h1>
-            <p className="mt-1 text-xs text-nourish-muted">
-              {expiringWithin3 > 0 ? (
-                <>
-                  <span className="font-semibold text-orange-800">{expiringWithin3} expiring within 3 days</span>
-                  <span> — check dates below.</span>
-                </>
-              ) : (
-                "Nothing expiring in the next few days."
-              )}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="button-primary inline-flex items-center gap-2" onClick={openAddSheet}>
+      <PageHeader
+        title="Your Kitchen"
+        subtitle={
+          expiringWithin3 > 0 ? (
+            <><span className="font-semibold text-orange-800">{expiringWithin3} expiring within 3 days</span><span> — check dates below.</span></>
+          ) : (
+            "Nothing expiring in the next few days."
+          )
+        }
+        action={
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button type="button" className="button-primary inline-flex items-center justify-center gap-2" onClick={openAddSheet}>
               <Plus size={18} aria-hidden />
               Add item
             </button>
             <button
               type="button"
-              className="shrink-0 rounded-2xl bg-nourish-terracotta px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-nourish-terracotta/90"
+              className="rounded-2xl bg-nourish-terracotta px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-nourish-terracotta/90"
               onClick={() => setWhatCanIMakeOpen(true)}
             >
               What can I make?
             </button>
           </div>
-        </div>
+        }
+      />
+      <div className="card p-5">
 
         {expiringSoon.length > 0 ? (
           <div

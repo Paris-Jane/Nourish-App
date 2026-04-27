@@ -1,0 +1,6 @@
+frontend/
+guides/
+**/.git
+**/obj/
+**/bin/
+**/*.user

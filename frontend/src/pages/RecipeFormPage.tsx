@@ -2,7 +2,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFieldArray, useForm } from "react-hook-form";
-import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { PageHeader } from "components/PageHeader";
 import { createRecipe, updateRecipe } from "api/recipes";
 import { useIngredients, useRecipes } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
@@ -191,9 +193,18 @@ export function RecipeFormPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-4xl">{existing ? "Edit Recipe" : "Add Recipe"}</h1>
-        <p className="text-sm text-nourish-muted">Build household recipes in the same warm language as the rest of the app.</p>
+      <div className="space-y-3">
+        <Link
+          to={existing ? `/recipes/${existing.id}` : "/recipes"}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-nourish-muted transition hover:text-nourish-ink"
+        >
+          <ArrowLeft size={16} aria-hidden />
+          {existing ? "Back to recipe" : "Back to recipes"}
+        </Link>
+        <PageHeader
+          title={existing ? "Edit Recipe" : "Add Recipe"}
+          subtitle="Build household recipes in the same warm language as the rest of the app."
+        />
       </div>
 
       <form

@@ -1,4 +1,5 @@
 import { ArrowLeft, LogOut } from "lucide-react";
+import { PageHeader } from "components/PageHeader";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "hooks/useToast";
@@ -157,18 +158,18 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-2xl pb-28 lg:max-w-3xl lg:pb-10">
-      <div className="mb-6">
+      <div className="mb-6 space-y-3">
         <Link
           to="/"
-          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-nourish-muted transition hover:text-nourish-ink"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-nourish-muted transition hover:text-nourish-ink"
         >
-          <ArrowLeft size={18} aria-hidden />
+          <ArrowLeft size={16} aria-hidden />
           Back
         </Link>
-        <h1 className="text-4xl">Profile</h1>
-        <p className="mt-2 text-sm text-nourish-muted">
-          Your account, household, and planning defaults. Passwords are never stored in the browser.
-        </p>
+        <PageHeader
+          title="Profile"
+          subtitle="Your account, household, and planning defaults."
+        />
       </div>
 
       <div className="space-y-6">

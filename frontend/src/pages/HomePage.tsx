@@ -872,9 +872,8 @@ export function HomePage() {
     <ErrorBoundary>
       <div className="relative pb-[calc(9rem+env(safe-area-inset-bottom))] pt-1 lg:pb-28 lg:pt-2">
         <header className="sticky top-0 z-30 border-b border-nourish-border/80 bg-nourish-bg/95 px-4 py-3 backdrop-blur-md lg:relative lg:z-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
-          <div className="mx-auto flex w-full max-w-[min(100%,1170px)] items-center gap-2">
-            <h1 className="shrink-0 font-heading text-2xl tracking-tight text-nourish-ink sm:text-3xl lg:hidden">Nourish</h1>
-            <div className="flex min-w-0 flex-1 items-center justify-center gap-3 sm:gap-4">
+          <div className="mx-auto flex w-full max-w-[min(100%,1170px)] items-center justify-center">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
               <button
                 type="button"
                 className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white text-nourish-ink shadow-sm transition hover:bg-nourish-bg"

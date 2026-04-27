@@ -1,4 +1,5 @@
 import { Heart, Trash2 } from "lucide-react";
+import { PageHeader } from "components/PageHeader";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { deleteSavedWeekTemplate } from "api/savedWeeks";
@@ -56,18 +57,14 @@ export function SavedWeeksPage() {
     return (
       <div className="card flex min-h-[420px] flex-col items-center justify-center p-10 text-center">
         <div className="mb-4 h-24 w-24 rounded-full bg-gradient-to-br from-nourish-sage/20 to-nourish-terracotta/20" />
-        <h1 className="mb-2 text-4xl">Saved Weeks</h1>
-        <p className="text-nourish-muted">Save a week from Home when you want to reuse it later.</p>
+        <PageHeader title="Saved Weeks" subtitle="Save a week from Home when you want to reuse it later." />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-4xl">Saved Weeks</h1>
-        <p className="text-sm text-nourish-muted">Reusable meal patterns. Tap a name to rename.</p>
-      </div>
+      <PageHeader title="Saved Weeks" subtitle="Reusable meal patterns. Tap a name to rename." />
       <div className="grid gap-4 xl:grid-cols-2">
         {savedTemplates.map((template) => (
           <div key={template.id} className="card p-5">

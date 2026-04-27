@@ -1,6 +1,7 @@
 import { Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { PageHeader } from "components/PageHeader";
 import { RecipeCard } from "components/RecipeCard";
 import { TagPill } from "components/TagPill";
 import { recipeMatchesSearch } from "lib/recipeSearch";
@@ -72,21 +73,19 @@ export function RecipesPage() {
 
   return (
     <div className="space-y-6 pb-24">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-nourish-ink sm:text-3xl md:text-4xl">Recipe Index</h1>
-          <p className="mt-1 text-sm text-nourish-muted">
-            {shown === total ? `${total} ${total === 1 ? "recipe" : "recipes"}` : `Showing ${shown} of ${total} ${total === 1 ? "recipe" : "recipes"}`}
-          </p>
-        </div>
-        <Link
-          to="/recipes/new"
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-nourish-sage px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-nourish-sage/90"
-        >
-          <Plus size={18} aria-hidden />
-          Add recipe
-        </Link>
-      </div>
+      <PageHeader
+        title="Recipe Index"
+        subtitle={shown === total ? `${total} ${total === 1 ? "recipe" : "recipes"}` : `Showing ${shown} of ${total} ${total === 1 ? "recipe" : "recipes"}`}
+        action={
+          <Link
+            to="/recipes/new"
+            className="inline-flex items-center gap-2 rounded-full bg-nourish-sage px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-nourish-sage/90"
+          >
+            <Plus size={18} aria-hidden />
+            Add recipe
+          </Link>
+        }
+      />
 
       <div className="sticky top-0 z-10 -mx-1 rounded-2xl border border-transparent bg-[#fbf7f2]/95 px-1 py-2 backdrop-blur-sm lg:static lg:z-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
         <div className="card p-4 shadow-sm lg:shadow-none">
