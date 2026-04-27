@@ -963,7 +963,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-24T01:45:01.694Z",
+    "createdAt": "2026-04-25T01:35:15.480Z",
     "ingredients": [
       {
         "id": 1,
@@ -1000,26 +1000,55 @@ export const mockRecipesFromDbSeeder = [
       {
         "id": 1,
         "stepNumber": 1,
-        "instruction": "Cook brown rice according to package directions.",
+        "instruction": "Cook {ingredients} until tender.",
         "timingTag": "PrepAhead",
         "durationMinutes": 40,
-        "isPassive": true
+        "isPassive": true,
+        "prepCategory": "CookStarch",
+        "linkedIngredientIds": [
+          2
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
         "id": 2,
         "stepNumber": 2,
-        "instruction": "Season chicken and sear in a hot skillet for 6 minutes per side.",
-        "timingTag": "DayOfActive",
+        "instruction": "Season and cook {ingredients} until done, then slice for easy reheating.",
+        "timingTag": "PrepAhead",
         "durationMinutes": 15,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          1
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
         "id": 3,
         "stepNumber": 3,
-        "instruction": "Steam broccoli and combine with rice and sliced chicken.",
+        "instruction": "Steam {ingredients} until crisp-tender.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 8,
+        "isPassive": false,
+        "prepCategory": "RoastBake",
+        "linkedIngredientIds": [
+          3
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 4,
+        "stepNumber": 4,
+        "instruction": "Reheat the rice, chicken, and broccoli together before serving.",
         "timingTag": "DayOfActive",
-        "durationMinutes": 10,
-        "isPassive": false
+        "durationMinutes": 5,
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          2,
+          1,
+          3
+        ]
       }
     ]
   },
@@ -1044,7 +1073,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "dairy": 0.5
     },
-    "createdAt": "2026-04-24T01:45:01.696Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 4,
@@ -1059,20 +1088,29 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 4,
+        "id": 5,
         "stepNumber": 1,
-        "instruction": "Whisk eggs with a splash of milk, salt, and pepper.",
+        "instruction": "Whisk {ingredients} with salt and pepper.",
         "timingTag": "DayOfActive",
         "durationMinutes": 3,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          4
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 5,
+        "id": 6,
         "stepNumber": 2,
-        "instruction": "Cook over medium-low heat, stirring gently until just set.",
+        "instruction": "Cook the eggs over medium-low heat, stirring gently until just set.",
         "timingTag": "DayOfActive",
         "durationMinutes": 5,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          4
+        ]
       }
     ]
   },
@@ -1098,7 +1136,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-24T01:45:01.696Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 5,
@@ -1123,28 +1161,38 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 6,
+        "id": 7,
         "stepNumber": 1,
-        "instruction": "Drain and rinse black beans. Season with cumin, garlic powder, and smoked paprika.",
+        "instruction": "Drain, rinse, and season {ingredients}.",
         "timingTag": "PrepAhead",
         "durationMinutes": 5,
-        "isPassive": false
-      },
-      {
-        "id": 7,
-        "stepNumber": 2,
-        "instruction": "Warm beans in a skillet over medium heat for 5 minutes.",
-        "timingTag": "DayOfActive",
-        "durationMinutes": 5,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          5
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
         "id": 8,
-        "stepNumber": 3,
-        "instruction": "Warm tortillas and assemble tacos with beans and desired toppings.",
+        "stepNumber": 2,
+        "instruction": "Warm the beans before serving.",
         "timingTag": "DayOfActive",
         "durationMinutes": 5,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          5
+        ]
+      },
+      {
+        "id": 9,
+        "stepNumber": 3,
+        "instruction": "Warm tortillas and assemble tacos with beans and your chosen toppings.",
+        "timingTag": "DayOfActive",
+        "durationMinutes": 5,
+        "isPassive": false,
+        "prepCategory": "AssemblePortion"
       }
     ]
   },
@@ -1170,7 +1218,7 @@ export const mockRecipesFromDbSeeder = [
       "fruit": 1,
       "grains": 1
     },
-    "createdAt": "2026-04-24T01:45:01.696Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 7,
@@ -1255,20 +1303,48 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 9,
+        "id": 10,
         "stepNumber": 1,
-        "instruction": "Layer Greek yogurt, berries, and granola in a jar or bowl.",
+        "instruction": "Portion {ingredients} into jars or bowls.",
         "timingTag": "PrepAhead",
         "durationMinutes": 4,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          6,
+          7
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 10,
+        "id": 11,
         "stepNumber": 2,
-        "instruction": "Add any optional toppings before serving.",
+        "instruction": "Keep granola separate so it stays crisp, then add it just before serving.",
         "timingTag": "DayOfActive",
         "durationMinutes": 1,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          8
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 12,
+        "stepNumber": 3,
+        "instruction": "Add any selected extras: {ingredients}.",
+        "timingTag": "DayOfActive",
+        "durationMinutes": 1,
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          9,
+          10,
+          13,
+          12,
+          11
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   },
@@ -1292,7 +1368,7 @@ export const mockRecipesFromDbSeeder = [
     "foodGroupServings": {
       "grains": 1
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 15,
@@ -1387,20 +1463,49 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 11,
+        "id": 13,
         "stepNumber": 1,
-        "instruction": "Microwave the oatmeal packet according to package directions.",
+        "instruction": "Microwave {ingredients} according to package directions.",
         "timingTag": "DayOfActive",
         "durationMinutes": 3,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookStarch",
+        "linkedIngredientIds": [
+          15
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 12,
+        "id": 14,
         "stepNumber": 2,
-        "instruction": "Stir in butter and finish with any optional toppings.",
+        "instruction": "Stir in {ingredients} while the oats are hot.",
         "timingTag": "DayOfActive",
-        "durationMinutes": 2,
-        "isPassive": false
+        "durationMinutes": 1,
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          16
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 15,
+        "stepNumber": 3,
+        "instruction": "Finish with any selected toppings: {ingredients}.",
+        "timingTag": "DayOfActive",
+        "durationMinutes": 1,
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          17,
+          18,
+          7,
+          10,
+          14,
+          13,
+          11
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   },
@@ -1425,7 +1530,7 @@ export const mockRecipesFromDbSeeder = [
       "grains": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 24,
@@ -1540,28 +1645,75 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 13,
+        "id": 16,
         "stepNumber": 1,
-        "instruction": "Toast the bread until golden and crisp.",
-        "timingTag": "DayOfActive",
-        "durationMinutes": 3,
-        "isPassive": false
+        "instruction": "Boil {ingredients}, cool them, and refrigerate until needed.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 10,
+        "isPassive": true,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          4
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 14,
+        "id": 17,
         "stepNumber": 2,
-        "instruction": "Mash avocado with salt and pepper, then spread over toast.",
+        "instruction": "Cook {ingredients} until crisp, then refrigerate for the week.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 10,
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          28
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 18,
+        "stepNumber": 3,
+        "instruction": "Toast {ingredients} until golden and crisp.",
+        "timingTag": "DayOfActive",
+        "durationMinutes": 3,
+        "isPassive": false,
+        "prepCategory": "CookStarch",
+        "linkedIngredientIds": [
+          19
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 19,
+        "stepNumber": 4,
+        "instruction": "Mash {ingredients} with salt and pepper, then spread over the toast.",
         "timingTag": "DayOfActive",
         "durationMinutes": 4,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          20
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 15,
-        "stepNumber": 3,
-        "instruction": "Add any optional toppings and serve immediately.",
+        "id": 20,
+        "stepNumber": 5,
+        "instruction": "Add any selected toppings: {ingredients}. Serve right away.",
         "timingTag": "DayOfActive",
-        "durationMinutes": 3,
-        "isPassive": false
+        "durationMinutes": 2,
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          4,
+          28,
+          23,
+          24,
+          25,
+          26,
+          27
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   },
@@ -1588,7 +1740,7 @@ export const mockRecipesFromDbSeeder = [
       "vegetables": 1,
       "dairy": 0.5
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 35,
@@ -1723,36 +1875,108 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 16,
+        "id": 21,
         "stepNumber": 1,
-        "instruction": "Roast or saute the potatoes until tender and crisp at the edges.",
+        "instruction": "Roast or saute {ingredients} until tender and crisp at the edges.",
         "timingTag": "PrepAhead",
         "durationMinutes": 20,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "RoastBake",
+        "linkedIngredientIds": [
+          31
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 17,
+        "id": 22,
         "stepNumber": 2,
-        "instruction": "Cook the bacon and scramble the eggs until just set.",
+        "instruction": "Cook {ingredients} until browned and cooked through.",
         "timingTag": "PrepAhead",
         "durationMinutes": 12,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          28,
+          33
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 18,
+        "id": 23,
         "stepNumber": 3,
-        "instruction": "Fill each tortilla with potatoes, eggs, bacon, and cheddar. Add any optional modifiers you want included.",
+        "instruction": "Scramble {ingredients} until just set.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 8,
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          4
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 24,
+        "stepNumber": 4,
+        "instruction": "Cook any selected filling vegetables or beans: {ingredients}.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 8,
+        "isPassive": false,
+        "prepCategory": "WashChop",
+        "linkedIngredientIds": [
+          5,
+          35,
+          36,
+          37
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 25,
+        "stepNumber": 5,
+        "instruction": "Fill each tortilla with the cooked potatoes, eggs, bacon, cheddar, and any cooked add-ins you chose.",
         "timingTag": "PrepAhead",
         "durationMinutes": 10,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          29,
+          4,
+          30,
+          31,
+          28,
+          33,
+          5,
+          35,
+          36,
+          37
+        ]
       },
       {
-        "id": 19,
-        "stepNumber": 4,
-        "instruction": "Wrap tightly and refrigerate or freeze. Reheat before serving and add fresh toppings like salsa or avocado after warming if desired.",
-        "timingTag": "DayOfPassive",
+        "id": 26,
+        "stepNumber": 6,
+        "instruction": "Wrap tightly and refrigerate or freeze the burritos.",
+        "timingTag": "PrepAhead",
         "durationMinutes": 5,
-        "isPassive": true
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          29
+        ]
+      },
+      {
+        "id": 27,
+        "stepNumber": 7,
+        "instruction": "Reheat the burritos and finish with any fresh toppings you selected: {ingredients}.",
+        "timingTag": "DayOfActive",
+        "durationMinutes": 5,
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          32,
+          20,
+          25
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   },
@@ -1779,7 +2003,7 @@ export const mockRecipesFromDbSeeder = [
       "vegetables": 1.5,
       "dairy": 0.5
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 48,
@@ -1954,36 +2178,92 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 20,
+        "id": 28,
         "stepNumber": 1,
-        "instruction": "Dice the potatoes, toss with olive oil, smoked paprika, garlic powder, salt, and pepper, then roast until browned and tender.",
+        "instruction": "Dice and roast {ingredients} with olive oil and seasonings until browned and tender.",
         "timingTag": "PrepAhead",
         "durationMinutes": 35,
-        "isPassive": true
+        "isPassive": true,
+        "prepCategory": "RoastBake",
+        "linkedIngredientIds": [
+          31
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 21,
+        "id": 29,
         "stepNumber": 2,
-        "instruction": "Scramble the eggs in butter until softly set.",
+        "instruction": "Cook any selected add-in proteins: {ingredients}.",
         "timingTag": "PrepAhead",
         "durationMinutes": 10,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          33,
+          28,
+          34
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 22,
+        "id": 30,
         "stepNumber": 3,
-        "instruction": "Divide potatoes, eggs, salsa, and cheddar between containers. Add any optional proteins or toppings you want included for meal prep.",
+        "instruction": "Cook any selected vegetables you want packed into the bowls: {ingredients}.",
         "timingTag": "PrepAhead",
-        "durationMinutes": 10,
-        "isPassive": false
+        "durationMinutes": 6,
+        "isPassive": false,
+        "prepCategory": "WashChop",
+        "linkedIngredientIds": [
+          36
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 23,
+        "id": 31,
         "stepNumber": 4,
-        "instruction": "Reheat and finish with fresh toppings like green onions or hot sauce when serving.",
+        "instruction": "Scramble {ingredients} in butter until softly set.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 10,
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          4
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 32,
+        "stepNumber": 5,
+        "instruction": "Divide the potatoes, eggs, salsa, cheddar, and any cooked add-ins between containers.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 10,
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          31,
+          4,
+          32,
+          30,
+          33,
+          28,
+          34,
+          36
+        ]
+      },
+      {
+        "id": 33,
+        "stepNumber": 6,
+        "instruction": "Reheat and finish with any fresh toppings you selected: {ingredients}.",
         "timingTag": "DayOfActive",
         "durationMinutes": 5,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          41,
+          42,
+          25
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   },
@@ -2009,7 +2289,7 @@ export const mockRecipesFromDbSeeder = [
       "grains": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 65,
@@ -2104,28 +2384,46 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 24,
+        "id": 34,
         "stepNumber": 1,
-        "instruction": "Mix the chopped tomatoes with basil, olive oil, salt, and pepper.",
-        "timingTag": "PrepAhead",
-        "durationMinutes": 5,
-        "isPassive": false
-      },
-      {
-        "id": 25,
-        "stepNumber": 2,
-        "instruction": "Toast the bread until crisp.",
+        "instruction": "Toast {ingredients} until crisp.",
         "timingTag": "DayOfActive",
         "durationMinutes": 4,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookStarch",
+        "linkedIngredientIds": [
+          19
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 26,
+        "id": 35,
+        "stepNumber": 2,
+        "instruction": "Toss {ingredients} with olive oil, salt, and pepper right before serving.",
+        "timingTag": "DayOfActive",
+        "durationMinutes": 5,
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          25,
+          27
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 36,
         "stepNumber": 3,
-        "instruction": "Spoon the tomato mixture over the toast and finish with any optional toppings.",
+        "instruction": "Spoon the tomato mixture over the toast and finish with any selected toppings: {ingredients}.",
         "timingTag": "DayOfActive",
         "durationMinutes": 3,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          26,
+          47,
+          20
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   },
@@ -2151,7 +2449,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 1,
       "vegetables": 1
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 74,
@@ -2236,28 +2534,47 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 27,
+        "id": 37,
         "stepNumber": 1,
-        "instruction": "Cook the bacon until crisp.",
+        "instruction": "Cook {ingredients} until crisp and refrigerate for quick assembly.",
         "timingTag": "PrepAhead",
         "durationMinutes": 10,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          28
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 28,
+        "id": 38,
         "stepNumber": 2,
-        "instruction": "Toast the bread and spread with mayonnaise.",
+        "instruction": "Toast {ingredients} and spread with mayonnaise.",
         "timingTag": "DayOfActive",
         "durationMinutes": 3,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookStarch",
+        "linkedIngredientIds": [
+          19
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 29,
+        "id": 39,
         "stepNumber": 3,
-        "instruction": "Layer bacon, lettuce, tomato, and any optional add-ins before serving.",
+        "instruction": "Layer the bacon with lettuce, tomatoes, and any selected add-ins: {ingredients}.",
         "timingTag": "DayOfActive",
         "durationMinutes": 3,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          43,
+          25,
+          20,
+          72,
+          30
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   },
@@ -2282,7 +2599,7 @@ export const mockRecipesFromDbSeeder = [
       "vegetables": 2,
       "dairy": 0.5
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 82,
@@ -2387,28 +2704,74 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 30,
+        "id": 40,
         "stepNumber": 1,
-        "instruction": "Chop the cucumber, tomatoes, and red onion.",
+        "instruction": "Cook {ingredients} so it can be chilled for the salad.",
         "timingTag": "PrepAhead",
-        "durationMinutes": 8,
-        "isPassive": false
+        "durationMinutes": 12,
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          1
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 31,
+        "id": 41,
         "stepNumber": 2,
-        "instruction": "Toss the vegetables with feta, olive oil, dill, salt, and pepper.",
+        "instruction": "Rinse and drain {ingredients}.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 3,
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          50
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 42,
+        "stepNumber": 3,
+        "instruction": "Chop {ingredients} right before serving so the salad stays crisp.",
+        "timingTag": "DayOfActive",
+        "durationMinutes": 8,
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          44,
+          25,
+          45,
+          36
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 43,
+        "stepNumber": 4,
+        "instruction": "Toss the vegetables with feta, olive oil, dill, and any chilled proteins or chickpeas you selected: {ingredients}.",
         "timingTag": "DayOfActive",
         "durationMinutes": 4,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          46,
+          1,
+          50
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 32,
-        "stepNumber": 3,
-        "instruction": "Add any optional protein or bread just before serving.",
+        "id": 44,
+        "stepNumber": 5,
+        "instruction": "Warm or plate any selected pita and serve immediately.",
         "timingTag": "DayOfActive",
         "durationMinutes": 2,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          58
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   },
@@ -2433,7 +2796,7 @@ export const mockRecipesFromDbSeeder = [
       "grains": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 92,
@@ -2508,28 +2871,60 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 33,
+        "id": 45,
         "stepNumber": 1,
-        "instruction": "Boil the pasta according to package directions.",
+        "instruction": "Cook {ingredients} if you want it ready to reheat later in the week.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 10,
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          49
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 46,
+        "stepNumber": 2,
+        "instruction": "Boil {ingredients} according to package directions.",
         "timingTag": "DayOfActive",
         "durationMinutes": 12,
-        "isPassive": true
+        "isPassive": true,
+        "prepCategory": "CookStarch",
+        "linkedIngredientIds": [
+          51
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 34,
-        "stepNumber": 2,
-        "instruction": "Warm the marinara and stir in any optional sauce or protein additions.",
+        "id": 47,
+        "stepNumber": 3,
+        "instruction": "Warm the sauce you chose and stir in any cooked protein add-ins: {ingredients}.",
         "timingTag": "DayOfActive",
         "durationMinutes": 8,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "MixSauce",
+        "linkedIngredientIds": [
+          52,
+          53,
+          54,
+          49
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 35,
-        "stepNumber": 3,
-        "instruction": "Toss the cooked pasta with the sauce and finish with any optional toppings.",
+        "id": 48,
+        "stepNumber": 4,
+        "instruction": "Toss the cooked pasta with the sauce and finish with any selected toppings: {ingredients}.",
         "timingTag": "DayOfActive",
         "durationMinutes": 3,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          35,
+          55
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   },
@@ -2555,7 +2950,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "vegetables": 1.5
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 99,
@@ -2670,28 +3065,78 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 36,
+        "id": 49,
         "stepNumber": 1,
-        "instruction": "Cook the ground beef with taco seasoning until browned.",
+        "instruction": "Cook {ingredients} with taco seasoning until browned.",
         "timingTag": "PrepAhead",
         "durationMinutes": 10,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          49
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 37,
+        "id": 50,
         "stepNumber": 2,
-        "instruction": "Warm the rice, black beans, and corn.",
+        "instruction": "Cook or reheat the bowl base: {ingredients}.",
         "timingTag": "PrepAhead",
         "durationMinutes": 10,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookStarch",
+        "linkedIngredientIds": [
+          2,
+          5,
+          56
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 38,
+        "id": 51,
         "stepNumber": 3,
-        "instruction": "Assemble bowls with rice, beans, beef, corn, and salsa. Finish with any optional toppings.",
-        "timingTag": "DayOfActive",
+        "instruction": "Cook any selected add-in peppers before packing the bowls: {ingredients}.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 6,
+        "isPassive": false,
+        "prepCategory": "WashChop",
+        "linkedIngredientIds": [
+          36
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 52,
+        "stepNumber": 4,
+        "instruction": "Assemble bowls with the rice, beans, beef, corn, and salsa.",
+        "timingTag": "PrepAhead",
         "durationMinutes": 8,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          2,
+          5,
+          49,
+          56,
+          32
+        ]
+      },
+      {
+        "id": 53,
+        "stepNumber": 5,
+        "instruction": "Finish with any fresh toppings you selected: {ingredients}.",
+        "timingTag": "DayOfActive",
+        "durationMinutes": 2,
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          20,
+          30,
+          24,
+          43,
+          57
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   },
@@ -2717,7 +3162,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 110,
@@ -2812,28 +3257,48 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 39,
+        "id": 54,
         "stepNumber": 1,
-        "instruction": "Warm the naan and gyro meat.",
+        "instruction": "Warm {ingredients}.",
         "timingTag": "DayOfActive",
         "durationMinutes": 6,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          59,
+          60
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 40,
+        "id": 55,
         "stepNumber": 2,
-        "instruction": "Slice the tomatoes, cucumber, and onion.",
-        "timingTag": "PrepAhead",
+        "instruction": "Chop the fresh vegetables right before serving: {ingredients}.",
+        "timingTag": "DayOfActive",
         "durationMinutes": 8,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          25,
+          44,
+          45
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 41,
+        "id": 56,
         "stepNumber": 3,
-        "instruction": "Assemble the wraps with tzatziki and any optional toppings.",
+        "instruction": "Assemble the wraps with tzatziki and any selected toppings: {ingredients}.",
         "timingTag": "DayOfActive",
         "durationMinutes": 5,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          46,
+          43,
+          70
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   },
@@ -2859,7 +3324,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "fruit": 0.5
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 119,
@@ -2954,28 +3419,59 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 42,
+        "id": 57,
         "stepNumber": 1,
-        "instruction": "Cook the rice and chicken ahead of time.",
+        "instruction": "Cook {ingredients} ahead of time for the haystack base.",
         "timingTag": "PrepAhead",
         "durationMinutes": 25,
-        "isPassive": true
+        "isPassive": true,
+        "prepCategory": "CookStarch",
+        "linkedIngredientIds": [
+          2,
+          1
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 43,
+        "id": 58,
         "stepNumber": 2,
-        "instruction": "Warm the cream sauce and combine with the cooked chicken.",
+        "instruction": "Warm {ingredients} and combine with the cooked chicken.",
         "timingTag": "PrepAhead",
         "durationMinutes": 10,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "MixSauce",
+        "linkedIngredientIds": [
+          62,
+          1
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 44,
+        "id": 59,
         "stepNumber": 3,
-        "instruction": "Serve the chicken mixture over rice and let everyone add any optional toppings they like.",
+        "instruction": "Prep any selected toppings so they are ready for serving: {ingredients}.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 8,
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          63,
+          30,
+          64,
+          41,
+          65,
+          66
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 60,
+        "stepNumber": 4,
+        "instruction": "Serve the chicken mixture over rice and add any prepped toppings you chose.",
         "timingTag": "DayOfActive",
         "durationMinutes": 5,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "FreshFinish"
       }
     ]
   },
@@ -3001,7 +3497,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 128,
@@ -3106,28 +3602,58 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 45,
+        "id": 61,
         "stepNumber": 1,
-        "instruction": "Brown the ground beef, then stir in taco seasoning.",
+        "instruction": "Brown {ingredients}, then stir in taco seasoning.",
         "timingTag": "PrepAhead",
         "durationMinutes": 10,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          49
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 46,
+        "id": 62,
         "stepNumber": 2,
         "instruction": "Warm the tortillas.",
         "timingTag": "DayOfActive",
         "durationMinutes": 3,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookStarch",
+        "linkedIngredientIds": [
+          29
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 47,
+        "id": 63,
         "stepNumber": 3,
-        "instruction": "Fill the tortillas with seasoned beef and any optional toppings.",
+        "instruction": "Add any selected fresh toppings: {ingredients}.",
         "timingTag": "DayOfActive",
-        "durationMinutes": 5,
-        "isPassive": false
+        "durationMinutes": 3,
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          43,
+          25,
+          30,
+          32,
+          20,
+          5,
+          57
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 64,
+        "stepNumber": 4,
+        "instruction": "Fill the tortillas with seasoned beef and the toppings you picked.",
+        "timingTag": "DayOfActive",
+        "durationMinutes": 2,
+        "isPassive": false,
+        "prepCategory": "AssemblePortion"
       }
     ]
   },
@@ -3153,7 +3679,7 @@ export const mockRecipesFromDbSeeder = [
       "dairy": 1,
       "vegetables": 1
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 138,
@@ -3228,28 +3754,45 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 48,
+        "id": 65,
         "stepNumber": 1,
-        "instruction": "Butter the bread and build the sandwiches with cheddar and any optional fillings.",
+        "instruction": "Butter the bread and build the sandwiches with cheddar and any selected fillings: {ingredients}.",
         "timingTag": "DayOfActive",
         "durationMinutes": 4,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          30,
+          27,
+          47,
+          34
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 49,
+        "id": 66,
         "stepNumber": 2,
         "instruction": "Grill the sandwiches until the bread is golden and the cheese is melted.",
         "timingTag": "DayOfActive",
         "durationMinutes": 8,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookStarch",
+        "linkedIngredientIds": [
+          19
+        ]
       },
       {
-        "id": 50,
+        "id": 67,
         "stepNumber": 3,
-        "instruction": "Pour the chilled V8 and serve alongside the sandwiches.",
+        "instruction": "Pour {ingredients} and serve alongside the sandwiches.",
         "timingTag": "DayOfActive",
         "durationMinutes": 1,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          68
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   },
@@ -3275,7 +3818,7 @@ export const mockRecipesFromDbSeeder = [
       "vegetables": 1.5,
       "dairy": 1
     },
-    "createdAt": "2026-04-24T01:45:01.697Z",
+    "createdAt": "2026-04-25T01:35:15.486Z",
     "ingredients": [
       {
         "id": 145,
@@ -3360,28 +3903,74 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 51,
+        "id": 68,
         "stepNumber": 1,
-        "instruction": "Roast the sweet potatoes until tender.",
+        "instruction": "Roast {ingredients} until tender.",
         "timingTag": "PrepAhead",
         "durationMinutes": 35,
-        "isPassive": true
+        "isPassive": true,
+        "prepCategory": "RoastBake",
+        "linkedIngredientIds": [
+          69
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 52,
+        "id": 69,
         "stepNumber": 2,
-        "instruction": "Brown the ground beef and season with salt and pepper.",
+        "instruction": "Brown and season {ingredients}.",
         "timingTag": "PrepAhead",
         "durationMinutes": 10,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          49
+        ],
+        "scaleByLinkedIngredients": true
       },
       {
-        "id": 53,
+        "id": 70,
         "stepNumber": 3,
-        "instruction": "Assemble bowls with roasted sweet potato, beef, and cottage cheese. Add any optional toppings before serving.",
-        "timingTag": "DayOfActive",
+        "instruction": "Warm any selected beans before serving: {ingredients}.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 4,
+        "isPassive": false,
+        "prepCategory": "CookProtein",
+        "linkedIngredientIds": [
+          5
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 71,
+        "stepNumber": 4,
+        "instruction": "Assemble bowls with the roasted sweet potato, beef, and cottage cheese.",
+        "timingTag": "PrepAhead",
         "durationMinutes": 5,
-        "isPassive": false
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          69,
+          49,
+          23
+        ]
+      },
+      {
+        "id": 72,
+        "stepNumber": 5,
+        "instruction": "Finish with any selected toppings: {ingredients}.",
+        "timingTag": "DayOfActive",
+        "durationMinutes": 2,
+        "isPassive": false,
+        "prepCategory": "FreshFinish",
+        "linkedIngredientIds": [
+          20,
+          41,
+          42,
+          5,
+          35
+        ],
+        "scaleByLinkedIngredients": true
       }
     ]
   }

@@ -29,6 +29,8 @@ public static class DbSeeder
             Age = 35,
             Sex = "Female",
             ActivityLevel = ActivityLevel.Moderate,
+            HeightInches = 65,
+            WeightPounds = 150,
             Role = UserRole.Owner,
             CreatedAt = DateTime.UtcNow,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123")
@@ -1400,9 +1402,10 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = chickenRice.Id, IngredientId = broccoli.Id, Quantity = 2, Unit = "cups" }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = chickenRice.Id, StepNumber = 1, Instruction = "Cook brown rice according to package directions.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 40, IsPassive = true },
-            new RecipeStep { RecipeId = chickenRice.Id, StepNumber = 2, Instruction = "Season chicken and sear in a hot skillet for 6 minutes per side.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 15, IsPassive = false },
-            new RecipeStep { RecipeId = chickenRice.Id, StepNumber = 3, Instruction = "Steam broccoli and combine with rice and sliced chicken.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 10, IsPassive = false }
+            new RecipeStep { RecipeId = chickenRice.Id, StepNumber = 1, Instruction = "Cook {ingredients} until tender.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 40, IsPassive = true, PrepCategory = PrepStepCategory.CookStarch, LinkedIngredientIds = new List<int> { brownRice.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = chickenRice.Id, StepNumber = 2, Instruction = "Season and cook {ingredients} until done, then slice for easy reheating.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 15, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { chickenBreast.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = chickenRice.Id, StepNumber = 3, Instruction = "Steam {ingredients} until crisp-tender.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 8, IsPassive = false, PrepCategory = PrepStepCategory.RoastBake, LinkedIngredientIds = new List<int> { broccoli.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = chickenRice.Id, StepNumber = 4, Instruction = "Reheat the rice, chicken, and broccoli together before serving.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion, LinkedIngredientIds = new List<int> { brownRice.Id, chickenBreast.Id, broccoli.Id } }
         );
 
         // ── Recipe 2: Scrambled Eggs ──────────────────────────────────────────
@@ -1433,8 +1436,8 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = scrambledEggs.Id, IngredientId = eggs.Id, Quantity = 4, Unit = "large eggs" }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = scrambledEggs.Id, StepNumber = 1, Instruction = "Whisk eggs with a splash of milk, salt, and pepper.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false },
-            new RecipeStep { RecipeId = scrambledEggs.Id, StepNumber = 2, Instruction = "Cook over medium-low heat, stirring gently until just set.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false }
+            new RecipeStep { RecipeId = scrambledEggs.Id, StepNumber = 1, Instruction = "Whisk {ingredients} with salt and pepper.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { eggs.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = scrambledEggs.Id, StepNumber = 2, Instruction = "Cook the eggs over medium-low heat, stirring gently until just set.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { eggs.Id } }
         );
 
         // ── Recipe 3: Black Bean Tacos ────────────────────────────────────────
@@ -1467,9 +1470,9 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = blackBeanTacos.Id, IngredientId = broccoli.Id, Quantity = 1, Unit = "cup", IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = blackBeanTacos.Id, StepNumber = 1, Instruction = "Drain and rinse black beans. Season with cumin, garlic powder, and smoked paprika.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 5, IsPassive = false },
-            new RecipeStep { RecipeId = blackBeanTacos.Id, StepNumber = 2, Instruction = "Warm beans in a skillet over medium heat for 5 minutes.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false },
-            new RecipeStep { RecipeId = blackBeanTacos.Id, StepNumber = 3, Instruction = "Warm tortillas and assemble tacos with beans and desired toppings.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false }
+            new RecipeStep { RecipeId = blackBeanTacos.Id, StepNumber = 1, Instruction = "Drain, rinse, and season {ingredients}.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 5, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { blackBeans.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = blackBeanTacos.Id, StepNumber = 2, Instruction = "Warm the beans before serving.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { blackBeans.Id } },
+            new RecipeStep { RecipeId = blackBeanTacos.Id, StepNumber = 3, Instruction = "Warm tortillas and assemble tacos with beans and your chosen toppings.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion }
         );
 
         // ── Recipe 4: Yogurt Parfait ────────────────────────────────────────
@@ -1508,8 +1511,9 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = yogurtParfait.Id, IngredientId = whippedCream.Id, Quantity = 2, Unit = "tbsp", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = yogurtParfait.Id, StepNumber = 1, Instruction = "Layer Greek yogurt, berries, and granola in a jar or bowl.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 4, IsPassive = false },
-            new RecipeStep { RecipeId = yogurtParfait.Id, StepNumber = 2, Instruction = "Add any optional toppings before serving.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 1, IsPassive = false }
+            new RecipeStep { RecipeId = yogurtParfait.Id, StepNumber = 1, Instruction = "Portion {ingredients} into jars or bowls.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 4, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion, LinkedIngredientIds = new List<int> { greekYogurt.Id, mixedBerries.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = yogurtParfait.Id, StepNumber = 2, Instruction = "Keep granola separate so it stays crisp, then add it just before serving.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 1, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { granola.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = yogurtParfait.Id, StepNumber = 3, Instruction = "Add any selected extras: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 1, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { honey.Id, banana.Id, walnuts.Id, jam.Id, whippedCream.Id }, ScaleByLinkedIngredients = true }
         );
 
         // ── Recipe 5: Oatmeal ───────────────────────────────────────────────
@@ -1547,8 +1551,9 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = oatmeal.Id, IngredientId = whippedCream.Id, Quantity = 2, Unit = "tbsp", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = oatmeal.Id, StepNumber = 1, Instruction = "Microwave the oatmeal packet according to package directions.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false },
-            new RecipeStep { RecipeId = oatmeal.Id, StepNumber = 2, Instruction = "Stir in butter and finish with any optional toppings.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 2, IsPassive = false }
+            new RecipeStep { RecipeId = oatmeal.Id, StepNumber = 1, Instruction = "Microwave {ingredients} according to package directions.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false, PrepCategory = PrepStepCategory.CookStarch, LinkedIngredientIds = new List<int> { oatmealPacket.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = oatmeal.Id, StepNumber = 2, Instruction = "Stir in {ingredients} while the oats are hot.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 1, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion, LinkedIngredientIds = new List<int> { butter.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = oatmeal.Id, StepNumber = 3, Instruction = "Finish with any selected toppings: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 1, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { mapleSyrup.Id, cinnamon.Id, mixedBerries.Id, banana.Id, peanutButter.Id, walnuts.Id, whippedCream.Id }, ScaleByLinkedIngredients = true }
         );
 
         // ── Recipe 6: Avocado Toast ─────────────────────────────────────────
@@ -1589,9 +1594,11 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = avocadoToast.Id, IngredientId = basil.Id, Quantity = 1, Unit = "tbsp", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = avocadoToast.Id, StepNumber = 1, Instruction = "Toast the bread until golden and crisp.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false },
-            new RecipeStep { RecipeId = avocadoToast.Id, StepNumber = 2, Instruction = "Mash avocado with salt and pepper, then spread over toast.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 4, IsPassive = false },
-            new RecipeStep { RecipeId = avocadoToast.Id, StepNumber = 3, Instruction = "Add any optional toppings and serve immediately.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false }
+            new RecipeStep { RecipeId = avocadoToast.Id, StepNumber = 1, Instruction = "Boil {ingredients}, cool them, and refrigerate until needed.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = true, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { eggs.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = avocadoToast.Id, StepNumber = 2, Instruction = "Cook {ingredients} until crisp, then refrigerate for the week.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { bacon.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = avocadoToast.Id, StepNumber = 3, Instruction = "Toast {ingredients} until golden and crisp.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false, PrepCategory = PrepStepCategory.CookStarch, LinkedIngredientIds = new List<int> { wholeGrainBread.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = avocadoToast.Id, StepNumber = 4, Instruction = "Mash {ingredients} with salt and pepper, then spread over the toast.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 4, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { avocado.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = avocadoToast.Id, StepNumber = 5, Instruction = "Add any selected toppings: {ingredients}. Serve right away.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 2, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { eggs.Id, bacon.Id, cottageCheese.Id, picoDeGallo.Id, tomatoes.Id, balsamicGlaze.Id, basil.Id }, ScaleByLinkedIngredients = true }
         );
 
         // ── Recipe 7: Breakfast Burrito ─────────────────────────────────────
@@ -1636,10 +1643,13 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = breakfastBurrito.Id, IngredientId = onion.Id, Quantity = 0.5m, Unit = "cup chopped", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = breakfastBurrito.Id, StepNumber = 1, Instruction = "Roast or saute the potatoes until tender and crisp at the edges.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 20, IsPassive = false },
-            new RecipeStep { RecipeId = breakfastBurrito.Id, StepNumber = 2, Instruction = "Cook the bacon and scramble the eggs until just set.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 12, IsPassive = false },
-            new RecipeStep { RecipeId = breakfastBurrito.Id, StepNumber = 3, Instruction = "Fill each tortilla with potatoes, eggs, bacon, and cheddar. Add any optional modifiers you want included.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false },
-            new RecipeStep { RecipeId = breakfastBurrito.Id, StepNumber = 4, Instruction = "Wrap tightly and refrigerate or freeze. Reheat before serving and add fresh toppings like salsa or avocado after warming if desired.", TimingTag = TimingTag.DayOfPassive, DurationMinutes = 5, IsPassive = true }
+            new RecipeStep { RecipeId = breakfastBurrito.Id, StepNumber = 1, Instruction = "Roast or saute {ingredients} until tender and crisp at the edges.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 20, IsPassive = false, PrepCategory = PrepStepCategory.RoastBake, LinkedIngredientIds = new List<int> { potato.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = breakfastBurrito.Id, StepNumber = 2, Instruction = "Cook {ingredients} until browned and cooked through.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 12, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { bacon.Id, breakfastSausage.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = breakfastBurrito.Id, StepNumber = 3, Instruction = "Scramble {ingredients} until just set.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 8, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { eggs.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = breakfastBurrito.Id, StepNumber = 4, Instruction = "Cook any selected filling vegetables or beans: {ingredients}.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 8, IsPassive = false, PrepCategory = PrepStepCategory.WashChop, LinkedIngredientIds = new List<int> { blackBeans.Id, spinach.Id, bellPepper.Id, onion.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = breakfastBurrito.Id, StepNumber = 5, Instruction = "Fill each tortilla with the cooked potatoes, eggs, bacon, cheddar, and any cooked add-ins you chose.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion, LinkedIngredientIds = new List<int> { flourTortilla.Id, eggs.Id, cheddarCheese.Id, potato.Id, bacon.Id, breakfastSausage.Id, blackBeans.Id, spinach.Id, bellPepper.Id, onion.Id } },
+            new RecipeStep { RecipeId = breakfastBurrito.Id, StepNumber = 6, Instruction = "Wrap tightly and refrigerate or freeze the burritos.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 5, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion, LinkedIngredientIds = new List<int> { flourTortilla.Id } },
+            new RecipeStep { RecipeId = breakfastBurrito.Id, StepNumber = 7, Instruction = "Reheat the burritos and finish with any fresh toppings you selected: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { salsa.Id, avocado.Id, tomatoes.Id }, ScaleByLinkedIngredients = true }
         );
 
         // ── Recipe 8: Country Breakfast Bowl ────────────────────────────────
@@ -1688,10 +1698,12 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = countryBreakfastBowl.Id, IngredientId = tomatoes.Id, Quantity = 1, Unit = "cup chopped", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = countryBreakfastBowl.Id, StepNumber = 1, Instruction = "Dice the potatoes, toss with olive oil, smoked paprika, garlic powder, salt, and pepper, then roast until browned and tender.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 35, IsPassive = true },
-            new RecipeStep { RecipeId = countryBreakfastBowl.Id, StepNumber = 2, Instruction = "Scramble the eggs in butter until softly set.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false },
-            new RecipeStep { RecipeId = countryBreakfastBowl.Id, StepNumber = 3, Instruction = "Divide potatoes, eggs, salsa, and cheddar between containers. Add any optional proteins or toppings you want included for meal prep.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false },
-            new RecipeStep { RecipeId = countryBreakfastBowl.Id, StepNumber = 4, Instruction = "Reheat and finish with fresh toppings like green onions or hot sauce when serving.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false }
+            new RecipeStep { RecipeId = countryBreakfastBowl.Id, StepNumber = 1, Instruction = "Dice and roast {ingredients} with olive oil and seasonings until browned and tender.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 35, IsPassive = true, PrepCategory = PrepStepCategory.RoastBake, LinkedIngredientIds = new List<int> { potato.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = countryBreakfastBowl.Id, StepNumber = 2, Instruction = "Cook any selected add-in proteins: {ingredients}.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { breakfastSausage.Id, bacon.Id, ham.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = countryBreakfastBowl.Id, StepNumber = 3, Instruction = "Cook any selected vegetables you want packed into the bowls: {ingredients}.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 6, IsPassive = false, PrepCategory = PrepStepCategory.WashChop, LinkedIngredientIds = new List<int> { bellPepper.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = countryBreakfastBowl.Id, StepNumber = 4, Instruction = "Scramble {ingredients} in butter until softly set.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { eggs.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = countryBreakfastBowl.Id, StepNumber = 5, Instruction = "Divide the potatoes, eggs, salsa, cheddar, and any cooked add-ins between containers.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion, LinkedIngredientIds = new List<int> { potato.Id, eggs.Id, salsa.Id, cheddarCheese.Id, breakfastSausage.Id, bacon.Id, ham.Id, bellPepper.Id } },
+            new RecipeStep { RecipeId = countryBreakfastBowl.Id, StepNumber = 6, Instruction = "Reheat and finish with any fresh toppings you selected: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { greenOnions.Id, hotSauce.Id, tomatoes.Id }, ScaleByLinkedIngredients = true }
         );
 
         // ── Recipe 9: Bruschetta Toast ──────────────────────────────────────
@@ -1730,9 +1742,9 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = bruschettaToast.Id, IngredientId = avocado.Id, Quantity = 1, Unit = "whole", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = bruschettaToast.Id, StepNumber = 1, Instruction = "Mix the chopped tomatoes with basil, olive oil, salt, and pepper.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 5, IsPassive = false },
-            new RecipeStep { RecipeId = bruschettaToast.Id, StepNumber = 2, Instruction = "Toast the bread until crisp.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 4, IsPassive = false },
-            new RecipeStep { RecipeId = bruschettaToast.Id, StepNumber = 3, Instruction = "Spoon the tomato mixture over the toast and finish with any optional toppings.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false }
+            new RecipeStep { RecipeId = bruschettaToast.Id, StepNumber = 1, Instruction = "Toast {ingredients} until crisp.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 4, IsPassive = false, PrepCategory = PrepStepCategory.CookStarch, LinkedIngredientIds = new List<int> { wholeGrainBread.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = bruschettaToast.Id, StepNumber = 2, Instruction = "Toss {ingredients} with olive oil, salt, and pepper right before serving.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { tomatoes.Id, basil.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = bruschettaToast.Id, StepNumber = 3, Instruction = "Spoon the tomato mixture over the toast and finish with any selected toppings: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { balsamicGlaze.Id, mozzarella.Id, avocado.Id }, ScaleByLinkedIngredients = true }
         );
 
         // ── Recipe 10: BLT Sandwich ─────────────────────────────────────────
@@ -1771,9 +1783,9 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = bltSandwich.Id, IngredientId = cheddarCheese.Id, Quantity = 2, Unit = "oz", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = bltSandwich.Id, StepNumber = 1, Instruction = "Cook the bacon until crisp.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false },
-            new RecipeStep { RecipeId = bltSandwich.Id, StepNumber = 2, Instruction = "Toast the bread and spread with mayonnaise.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false },
-            new RecipeStep { RecipeId = bltSandwich.Id, StepNumber = 3, Instruction = "Layer bacon, lettuce, tomato, and any optional add-ins before serving.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false }
+            new RecipeStep { RecipeId = bltSandwich.Id, StepNumber = 1, Instruction = "Cook {ingredients} until crisp and refrigerate for quick assembly.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { bacon.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = bltSandwich.Id, StepNumber = 2, Instruction = "Toast {ingredients} and spread with mayonnaise.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false, PrepCategory = PrepStepCategory.CookStarch, LinkedIngredientIds = new List<int> { wholeGrainBread.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = bltSandwich.Id, StepNumber = 3, Instruction = "Layer the bacon with lettuce, tomatoes, and any selected add-ins: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { romaineLettuce.Id, tomatoes.Id, avocado.Id, turkeyBreast.Id, cheddarCheese.Id }, ScaleByLinkedIngredients = true }
         );
 
         // ── Recipe 11: Greek Salad ──────────────────────────────────────────
@@ -1813,9 +1825,11 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = greekSalad.Id, IngredientId = bellPepper.Id, Quantity = 1, Unit = "cup chopped", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = greekSalad.Id, StepNumber = 1, Instruction = "Chop the cucumber, tomatoes, and red onion.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 8, IsPassive = false },
-            new RecipeStep { RecipeId = greekSalad.Id, StepNumber = 2, Instruction = "Toss the vegetables with feta, olive oil, dill, salt, and pepper.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 4, IsPassive = false },
-            new RecipeStep { RecipeId = greekSalad.Id, StepNumber = 3, Instruction = "Add any optional protein or bread just before serving.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 2, IsPassive = false }
+            new RecipeStep { RecipeId = greekSalad.Id, StepNumber = 1, Instruction = "Cook {ingredients} so it can be chilled for the salad.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 12, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { chickenBreast.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = greekSalad.Id, StepNumber = 2, Instruction = "Rinse and drain {ingredients}.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 3, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion, LinkedIngredientIds = new List<int> { chickpeas.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = greekSalad.Id, StepNumber = 3, Instruction = "Chop {ingredients} right before serving so the salad stays crisp.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 8, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { cucumber.Id, tomatoes.Id, redOnion.Id, bellPepper.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = greekSalad.Id, StepNumber = 4, Instruction = "Toss the vegetables with feta, olive oil, dill, and any chilled proteins or chickpeas you selected: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 4, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { fetaCheese.Id, chickenBreast.Id, chickpeas.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = greekSalad.Id, StepNumber = 5, Instruction = "Warm or plate any selected pita and serve immediately.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 2, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { pita.Id }, ScaleByLinkedIngredients = true }
         );
 
         // ── Recipe 12: Pasta with Marinara ─────────────────────────────────
@@ -1852,9 +1866,10 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = pastaWithMarinara.Id, IngredientId = parmesan.Id, Quantity = 2, Unit = "oz", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = pastaWithMarinara.Id, StepNumber = 1, Instruction = "Boil the pasta according to package directions.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 12, IsPassive = true },
-            new RecipeStep { RecipeId = pastaWithMarinara.Id, StepNumber = 2, Instruction = "Warm the marinara and stir in any optional sauce or protein additions.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 8, IsPassive = false },
-            new RecipeStep { RecipeId = pastaWithMarinara.Id, StepNumber = 3, Instruction = "Toss the cooked pasta with the sauce and finish with any optional toppings.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false }
+            new RecipeStep { RecipeId = pastaWithMarinara.Id, StepNumber = 1, Instruction = "Cook {ingredients} if you want it ready to reheat later in the week.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { groundBeef.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = pastaWithMarinara.Id, StepNumber = 2, Instruction = "Boil {ingredients} according to package directions.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 12, IsPassive = true, PrepCategory = PrepStepCategory.CookStarch, LinkedIngredientIds = new List<int> { spaghetti.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = pastaWithMarinara.Id, StepNumber = 3, Instruction = "Warm the sauce you chose and stir in any cooked protein add-ins: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 8, IsPassive = false, PrepCategory = PrepStepCategory.MixSauce, LinkedIngredientIds = new List<int> { marinara.Id, pesto.Id, alfredoSauce.Id, groundBeef.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = pastaWithMarinara.Id, StepNumber = 4, Instruction = "Toss the cooked pasta with the sauce and finish with any selected toppings: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { spinach.Id, parmesan.Id }, ScaleByLinkedIngredients = true }
         );
 
         // ── Recipe 13: Burrito Bowl ─────────────────────────────────────────
@@ -1896,9 +1911,11 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = burritoBowl.Id, IngredientId = bellPepper.Id, Quantity = 1, Unit = "cup chopped", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = burritoBowl.Id, StepNumber = 1, Instruction = "Cook the ground beef with taco seasoning until browned.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false },
-            new RecipeStep { RecipeId = burritoBowl.Id, StepNumber = 2, Instruction = "Warm the rice, black beans, and corn.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false },
-            new RecipeStep { RecipeId = burritoBowl.Id, StepNumber = 3, Instruction = "Assemble bowls with rice, beans, beef, corn, and salsa. Finish with any optional toppings.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 8, IsPassive = false }
+            new RecipeStep { RecipeId = burritoBowl.Id, StepNumber = 1, Instruction = "Cook {ingredients} with taco seasoning until browned.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { groundBeef.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = burritoBowl.Id, StepNumber = 2, Instruction = "Cook or reheat the bowl base: {ingredients}.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false, PrepCategory = PrepStepCategory.CookStarch, LinkedIngredientIds = new List<int> { brownRice.Id, blackBeans.Id, corn.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = burritoBowl.Id, StepNumber = 3, Instruction = "Cook any selected add-in peppers before packing the bowls: {ingredients}.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 6, IsPassive = false, PrepCategory = PrepStepCategory.WashChop, LinkedIngredientIds = new List<int> { bellPepper.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = burritoBowl.Id, StepNumber = 4, Instruction = "Assemble bowls with the rice, beans, beef, corn, and salsa.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 8, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion, LinkedIngredientIds = new List<int> { brownRice.Id, blackBeans.Id, groundBeef.Id, corn.Id, salsa.Id } },
+            new RecipeStep { RecipeId = burritoBowl.Id, StepNumber = 5, Instruction = "Finish with any fresh toppings you selected: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 2, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { avocado.Id, cheddarCheese.Id, picoDeGallo.Id, romaineLettuce.Id, sourCream.Id }, ScaleByLinkedIngredients = true }
         );
 
         // ── Recipe 14: Greek Gyro Wrap ──────────────────────────────────────
@@ -1938,9 +1955,9 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = greekGyroWrap.Id, IngredientId = olives.Id, Quantity = 0.5m, Unit = "cup", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = greekGyroWrap.Id, StepNumber = 1, Instruction = "Warm the naan and gyro meat.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 6, IsPassive = false },
-            new RecipeStep { RecipeId = greekGyroWrap.Id, StepNumber = 2, Instruction = "Slice the tomatoes, cucumber, and onion.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 8, IsPassive = false },
-            new RecipeStep { RecipeId = greekGyroWrap.Id, StepNumber = 3, Instruction = "Assemble the wraps with tzatziki and any optional toppings.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false }
+            new RecipeStep { RecipeId = greekGyroWrap.Id, StepNumber = 1, Instruction = "Warm {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 6, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { naan.Id, gyroMeat.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = greekGyroWrap.Id, StepNumber = 2, Instruction = "Chop the fresh vegetables right before serving: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 8, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { tomatoes.Id, cucumber.Id, redOnion.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = greekGyroWrap.Id, StepNumber = 3, Instruction = "Assemble the wraps with tzatziki and any selected toppings: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { fetaCheese.Id, romaineLettuce.Id, olives.Id }, ScaleByLinkedIngredients = true }
         );
 
         // ── Recipe 15: Hawaiian Haystacks ───────────────────────────────────
@@ -1980,9 +1997,10 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = hawaiianHaystacks.Id, IngredientId = celery.Id, Quantity = 1, Unit = "cup chopped", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = hawaiianHaystacks.Id, StepNumber = 1, Instruction = "Cook the rice and chicken ahead of time.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 25, IsPassive = true },
-            new RecipeStep { RecipeId = hawaiianHaystacks.Id, StepNumber = 2, Instruction = "Warm the cream sauce and combine with the cooked chicken.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false },
-            new RecipeStep { RecipeId = hawaiianHaystacks.Id, StepNumber = 3, Instruction = "Serve the chicken mixture over rice and let everyone add any optional toppings they like.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false }
+            new RecipeStep { RecipeId = hawaiianHaystacks.Id, StepNumber = 1, Instruction = "Cook {ingredients} ahead of time for the haystack base.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 25, IsPassive = true, PrepCategory = PrepStepCategory.CookStarch, LinkedIngredientIds = new List<int> { brownRice.Id, chickenBreast.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = hawaiianHaystacks.Id, StepNumber = 2, Instruction = "Warm {ingredients} and combine with the cooked chicken.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false, PrepCategory = PrepStepCategory.MixSauce, LinkedIngredientIds = new List<int> { creamSauce.Id, chickenBreast.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = hawaiianHaystacks.Id, StepNumber = 3, Instruction = "Prep any selected toppings so they are ready for serving: {ingredients}.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 8, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion, LinkedIngredientIds = new List<int> { pineapple.Id, cheddarCheese.Id, chowMeinNoodles.Id, greenOnions.Id, peas.Id, celery.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = hawaiianHaystacks.Id, StepNumber = 4, Instruction = "Serve the chicken mixture over rice and add any prepped toppings you chose.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish }
         );
 
         // ── Recipe 16: Ground Beef Tacos ────────────────────────────────────
@@ -2023,9 +2041,10 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = groundBeefTacos.Id, IngredientId = sourCream.Id, Quantity = 0.5m, Unit = "cup", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = groundBeefTacos.Id, StepNumber = 1, Instruction = "Brown the ground beef, then stir in taco seasoning.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false },
-            new RecipeStep { RecipeId = groundBeefTacos.Id, StepNumber = 2, Instruction = "Warm the tortillas.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false },
-            new RecipeStep { RecipeId = groundBeefTacos.Id, StepNumber = 3, Instruction = "Fill the tortillas with seasoned beef and any optional toppings.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false }
+            new RecipeStep { RecipeId = groundBeefTacos.Id, StepNumber = 1, Instruction = "Brown {ingredients}, then stir in taco seasoning.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { groundBeef.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = groundBeefTacos.Id, StepNumber = 2, Instruction = "Warm the tortillas.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false, PrepCategory = PrepStepCategory.CookStarch, LinkedIngredientIds = new List<int> { flourTortilla.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = groundBeefTacos.Id, StepNumber = 3, Instruction = "Add any selected fresh toppings: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 3, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { romaineLettuce.Id, tomatoes.Id, cheddarCheese.Id, salsa.Id, avocado.Id, blackBeans.Id, sourCream.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = groundBeefTacos.Id, StepNumber = 4, Instruction = "Fill the tortillas with seasoned beef and the toppings you picked.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 2, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion }
         );
 
         // ── Recipe 17: Grilled Cheese and V8 ────────────────────────────────
@@ -2063,9 +2082,9 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = grilledCheeseAndV8.Id, IngredientId = ham.Id, Quantity = 4, Unit = "oz", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = grilledCheeseAndV8.Id, StepNumber = 1, Instruction = "Butter the bread and build the sandwiches with cheddar and any optional fillings.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 4, IsPassive = false },
-            new RecipeStep { RecipeId = grilledCheeseAndV8.Id, StepNumber = 2, Instruction = "Grill the sandwiches until the bread is golden and the cheese is melted.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 8, IsPassive = false },
-            new RecipeStep { RecipeId = grilledCheeseAndV8.Id, StepNumber = 3, Instruction = "Pour the chilled V8 and serve alongside the sandwiches.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 1, IsPassive = false }
+            new RecipeStep { RecipeId = grilledCheeseAndV8.Id, StepNumber = 1, Instruction = "Butter the bread and build the sandwiches with cheddar and any selected fillings: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 4, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion, LinkedIngredientIds = new List<int> { cheddarCheese.Id, basil.Id, mozzarella.Id, ham.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = grilledCheeseAndV8.Id, StepNumber = 2, Instruction = "Grill the sandwiches until the bread is golden and the cheese is melted.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 8, IsPassive = false, PrepCategory = PrepStepCategory.CookStarch, LinkedIngredientIds = new List<int> { wholeGrainBread.Id } },
+            new RecipeStep { RecipeId = grilledCheeseAndV8.Id, StepNumber = 3, Instruction = "Pour {ingredients} and serve alongside the sandwiches.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 1, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { v8.Id }, ScaleByLinkedIngredients = true }
         );
 
         // ── Recipe 18: Sweet Potato Beef Cottage Cheese Bowl ────────────────
@@ -2104,9 +2123,11 @@ public static class DbSeeder
             new RecipeIngredient { RecipeId = sweetPotatoBeefBowl.Id, IngredientId = spinach.Id, Quantity = 2, Unit = "cups raw", IsModifier = true, IsOptional = true }
         );
         db.RecipeSteps.AddRange(
-            new RecipeStep { RecipeId = sweetPotatoBeefBowl.Id, StepNumber = 1, Instruction = "Roast the sweet potatoes until tender.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 35, IsPassive = true },
-            new RecipeStep { RecipeId = sweetPotatoBeefBowl.Id, StepNumber = 2, Instruction = "Brown the ground beef and season with salt and pepper.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false },
-            new RecipeStep { RecipeId = sweetPotatoBeefBowl.Id, StepNumber = 3, Instruction = "Assemble bowls with roasted sweet potato, beef, and cottage cheese. Add any optional toppings before serving.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 5, IsPassive = false }
+            new RecipeStep { RecipeId = sweetPotatoBeefBowl.Id, StepNumber = 1, Instruction = "Roast {ingredients} until tender.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 35, IsPassive = true, PrepCategory = PrepStepCategory.RoastBake, LinkedIngredientIds = new List<int> { sweetPotato.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = sweetPotatoBeefBowl.Id, StepNumber = 2, Instruction = "Brown and season {ingredients}.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 10, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { groundBeef.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = sweetPotatoBeefBowl.Id, StepNumber = 3, Instruction = "Warm any selected beans before serving: {ingredients}.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 4, IsPassive = false, PrepCategory = PrepStepCategory.CookProtein, LinkedIngredientIds = new List<int> { blackBeans.Id }, ScaleByLinkedIngredients = true },
+            new RecipeStep { RecipeId = sweetPotatoBeefBowl.Id, StepNumber = 4, Instruction = "Assemble bowls with the roasted sweet potato, beef, and cottage cheese.", TimingTag = TimingTag.PrepAhead, DurationMinutes = 5, IsPassive = false, PrepCategory = PrepStepCategory.AssemblePortion, LinkedIngredientIds = new List<int> { sweetPotato.Id, groundBeef.Id, cottageCheese.Id } },
+            new RecipeStep { RecipeId = sweetPotatoBeefBowl.Id, StepNumber = 5, Instruction = "Finish with any selected toppings: {ingredients}.", TimingTag = TimingTag.DayOfActive, DurationMinutes = 2, IsPassive = false, PrepCategory = PrepStepCategory.FreshFinish, LinkedIngredientIds = new List<int> { avocado.Id, greenOnions.Id, hotSauce.Id, blackBeans.Id, spinach.Id }, ScaleByLinkedIngredients = true }
         );
 
         await db.SaveChangesAsync();

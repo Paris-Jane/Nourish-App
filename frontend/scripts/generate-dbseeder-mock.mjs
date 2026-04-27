@@ -92,9 +92,9 @@ function riRow(ingredientId, name, quantity, unit, isModifier = false, isOptiona
     substituteIngredientIds: [],
   };
 }
-function step(recipeId, stepNumber, instruction, timingTag, durationMinutes, isPassive) {
+function step(recipeId, stepNumber, instruction, timingTag, durationMinutes, isPassive, extras = {}) {
   st += 1;
-  return { id: st, stepNumber, instruction, timingTag, durationMinutes, isPassive };
+  return { id: st, stepNumber, instruction, timingTag, durationMinutes, isPassive, ...extras };
 }
 
 const nameById = Object.fromEntries(ingredients.map((row, i) => [i + 1, row[0]]));
@@ -128,9 +128,10 @@ const recipes = [
       [3, 2, "cups"],
     ]),
     steps: [
-      step(1, 1, "Cook brown rice according to package directions.", "PrepAhead", 40, true),
-      step(1, 2, "Season chicken and sear in a hot skillet for 6 minutes per side.", "DayOfActive", 15, false),
-      step(1, 3, "Steam broccoli and combine with rice and sliced chicken.", "DayOfActive", 10, false),
+      step(1, 1, "Cook {ingredients} until tender.", "PrepAhead", 40, true, { prepCategory: "CookStarch", linkedIngredientIds: [2], scaleByLinkedIngredients: true }),
+      step(1, 2, "Season and cook {ingredients} until done, then slice for easy reheating.", "PrepAhead", 15, false, { prepCategory: "CookProtein", linkedIngredientIds: [1], scaleByLinkedIngredients: true }),
+      step(1, 3, "Steam {ingredients} until crisp-tender.", "PrepAhead", 8, false, { prepCategory: "RoastBake", linkedIngredientIds: [3], scaleByLinkedIngredients: true }),
+      step(1, 4, "Reheat the rice, chicken, and broccoli together before serving.", "DayOfActive", 5, false, { prepCategory: "AssemblePortion", linkedIngredientIds: [2, 1, 3] }),
     ],
   },
   {
@@ -151,8 +152,8 @@ const recipes = [
     createdAt: new Date().toISOString(),
     ingredients: rows([[4, 4, "large eggs"]]),
     steps: [
-      step(2, 1, "Whisk eggs with a splash of milk, salt, and pepper.", "DayOfActive", 3, false),
-      step(2, 2, "Cook over medium-low heat, stirring gently until just set.", "DayOfActive", 5, false),
+      step(2, 1, "Whisk {ingredients} with salt and pepper.", "DayOfActive", 3, false, { prepCategory: "CookProtein", linkedIngredientIds: [4], scaleByLinkedIngredients: true }),
+      step(2, 2, "Cook the eggs over medium-low heat, stirring gently until just set.", "DayOfActive", 5, false, { prepCategory: "CookProtein", linkedIngredientIds: [4] }),
     ],
   },
   {
@@ -176,9 +177,9 @@ const recipes = [
       [3, 1, "cup", false, true],
     ]),
     steps: [
-      step(3, 1, "Drain and rinse black beans. Season with cumin, garlic powder, and smoked paprika.", "PrepAhead", 5, false),
-      step(3, 2, "Warm beans in a skillet over medium heat for 5 minutes.", "DayOfActive", 5, false),
-      step(3, 3, "Warm tortillas and assemble tacos with beans and desired toppings.", "DayOfActive", 5, false),
+      step(3, 1, "Drain, rinse, and season {ingredients}.", "PrepAhead", 5, false, { prepCategory: "CookProtein", linkedIngredientIds: [5], scaleByLinkedIngredients: true }),
+      step(3, 2, "Warm the beans before serving.", "DayOfActive", 5, false, { prepCategory: "CookProtein", linkedIngredientIds: [5] }),
+      step(3, 3, "Warm tortillas and assemble tacos with beans and your chosen toppings.", "DayOfActive", 5, false, { prepCategory: "AssemblePortion" }),
     ],
   },
   {
@@ -208,8 +209,9 @@ const recipes = [
       [11, 2, "tbsp", true, true],
     ]),
     steps: [
-      step(4, 1, "Layer Greek yogurt, berries, and granola in a jar or bowl.", "PrepAhead", 4, false),
-      step(4, 2, "Add any optional toppings before serving.", "DayOfActive", 1, false),
+      step(4, 1, "Portion {ingredients} into jars or bowls.", "PrepAhead", 4, false, { prepCategory: "AssemblePortion", linkedIngredientIds: [6, 7], scaleByLinkedIngredients: true }),
+      step(4, 2, "Keep granola separate so it stays crisp, then add it just before serving.", "DayOfActive", 1, false, { prepCategory: "FreshFinish", linkedIngredientIds: [8], scaleByLinkedIngredients: true }),
+      step(4, 3, "Add any selected extras: {ingredients}.", "DayOfActive", 1, false, { prepCategory: "FreshFinish", linkedIngredientIds: [9, 10, 13, 12, 11], scaleByLinkedIngredients: true }),
     ],
   },
   {
@@ -240,8 +242,9 @@ const recipes = [
       [11, 2, "tbsp", true, true],
     ]),
     steps: [
-      step(5, 1, "Microwave the oatmeal packet according to package directions.", "DayOfActive", 3, false),
-      step(5, 2, "Stir in butter and finish with any optional toppings.", "DayOfActive", 2, false),
+      step(5, 1, "Microwave {ingredients} according to package directions.", "DayOfActive", 3, false, { prepCategory: "CookStarch", linkedIngredientIds: [15], scaleByLinkedIngredients: true }),
+      step(5, 2, "Stir in {ingredients} while the oats are hot.", "DayOfActive", 1, false, { prepCategory: "AssemblePortion", linkedIngredientIds: [16], scaleByLinkedIngredients: true }),
+      step(5, 3, "Finish with any selected toppings: {ingredients}.", "DayOfActive", 1, false, { prepCategory: "FreshFinish", linkedIngredientIds: [17, 18, 7, 10, 14, 13, 11], scaleByLinkedIngredients: true }),
     ],
   },
   {
@@ -274,9 +277,11 @@ const recipes = [
       [27, 1, "tbsp", true, true],
     ]),
     steps: [
-      step(6, 1, "Toast the bread until golden and crisp.", "DayOfActive", 3, false),
-      step(6, 2, "Mash avocado with salt and pepper, then spread over toast.", "DayOfActive", 4, false),
-      step(6, 3, "Add any optional toppings and serve immediately.", "DayOfActive", 3, false),
+      step(6, 1, "Boil {ingredients}, cool them, and refrigerate until needed.", "PrepAhead", 10, true, { prepCategory: "CookProtein", linkedIngredientIds: [4], scaleByLinkedIngredients: true }),
+      step(6, 2, "Cook {ingredients} until crisp, then refrigerate for the week.", "PrepAhead", 10, false, { prepCategory: "CookProtein", linkedIngredientIds: [28], scaleByLinkedIngredients: true }),
+      step(6, 3, "Toast {ingredients} until golden and crisp.", "DayOfActive", 3, false, { prepCategory: "CookStarch", linkedIngredientIds: [19], scaleByLinkedIngredients: true }),
+      step(6, 4, "Mash {ingredients} with salt and pepper, then spread over the toast.", "DayOfActive", 4, false, { prepCategory: "FreshFinish", linkedIngredientIds: [20], scaleByLinkedIngredients: true }),
+      step(6, 5, "Add any selected toppings: {ingredients}. Serve right away.", "DayOfActive", 2, false, { prepCategory: "FreshFinish", linkedIngredientIds: [4, 28, 23, 24, 25, 26, 27], scaleByLinkedIngredients: true }),
     ],
   },
   {
@@ -311,10 +316,13 @@ const recipes = [
       [37, 0.5, "cup chopped", true, true],
     ]),
     steps: [
-      step(7, 1, "Roast or saute the potatoes until tender and crisp at the edges.", "PrepAhead", 20, false),
-      step(7, 2, "Cook the bacon and scramble the eggs until just set.", "PrepAhead", 12, false),
-      step(7, 3, "Fill each tortilla with potatoes, eggs, bacon, and cheddar. Add any optional modifiers you want included.", "PrepAhead", 10, false),
-      step(7, 4, "Wrap tightly and refrigerate or freeze. Reheat before serving and add fresh toppings like salsa or avocado after warming if desired.", "DayOfPassive", 5, true),
+      step(7, 1, "Roast or saute {ingredients} until tender and crisp at the edges.", "PrepAhead", 20, false, { prepCategory: "RoastBake", linkedIngredientIds: [31], scaleByLinkedIngredients: true }),
+      step(7, 2, "Cook {ingredients} until browned and cooked through.", "PrepAhead", 12, false, { prepCategory: "CookProtein", linkedIngredientIds: [28, 33], scaleByLinkedIngredients: true }),
+      step(7, 3, "Scramble {ingredients} until just set.", "PrepAhead", 8, false, { prepCategory: "CookProtein", linkedIngredientIds: [4], scaleByLinkedIngredients: true }),
+      step(7, 4, "Cook any selected filling vegetables or beans: {ingredients}.", "PrepAhead", 8, false, { prepCategory: "WashChop", linkedIngredientIds: [5, 35, 36, 37], scaleByLinkedIngredients: true }),
+      step(7, 5, "Fill each tortilla with the cooked potatoes, eggs, bacon, cheddar, and any cooked add-ins you chose.", "PrepAhead", 10, false, { prepCategory: "AssemblePortion", linkedIngredientIds: [29, 4, 30, 31, 28, 33, 5, 35, 36, 37] }),
+      step(7, 6, "Wrap tightly and refrigerate or freeze the burritos.", "PrepAhead", 5, false, { prepCategory: "AssemblePortion", linkedIngredientIds: [29] }),
+      step(7, 7, "Reheat the burritos and finish with any fresh toppings you selected: {ingredients}.", "DayOfActive", 5, false, { prepCategory: "FreshFinish", linkedIngredientIds: [32, 20, 25], scaleByLinkedIngredients: true }),
     ],
   },
   {
@@ -353,10 +361,12 @@ const recipes = [
       [25, 1, "cup chopped", true, true],
     ]),
     steps: [
-      step(8, 1, "Dice the potatoes, toss with olive oil, smoked paprika, garlic powder, salt, and pepper, then roast until browned and tender.", "PrepAhead", 35, true),
-      step(8, 2, "Scramble the eggs in butter until softly set.", "PrepAhead", 10, false),
-      step(8, 3, "Divide potatoes, eggs, salsa, and cheddar between containers. Add any optional proteins or toppings you want included for meal prep.", "PrepAhead", 10, false),
-      step(8, 4, "Reheat and finish with fresh toppings like green onions or hot sauce when serving.", "DayOfActive", 5, false),
+      step(8, 1, "Dice and roast {ingredients} with olive oil and seasonings until browned and tender.", "PrepAhead", 35, true, { prepCategory: "RoastBake", linkedIngredientIds: [31], scaleByLinkedIngredients: true }),
+      step(8, 2, "Cook any selected add-in proteins: {ingredients}.", "PrepAhead", 10, false, { prepCategory: "CookProtein", linkedIngredientIds: [33, 28, 34], scaleByLinkedIngredients: true }),
+      step(8, 3, "Cook any selected vegetables you want packed into the bowls: {ingredients}.", "PrepAhead", 6, false, { prepCategory: "WashChop", linkedIngredientIds: [36], scaleByLinkedIngredients: true }),
+      step(8, 4, "Scramble {ingredients} in butter until softly set.", "PrepAhead", 10, false, { prepCategory: "CookProtein", linkedIngredientIds: [4], scaleByLinkedIngredients: true }),
+      step(8, 5, "Divide the potatoes, eggs, salsa, cheddar, and any cooked add-ins between containers.", "PrepAhead", 10, false, { prepCategory: "AssemblePortion", linkedIngredientIds: [31, 4, 32, 30, 33, 28, 34, 36] }),
+      step(8, 6, "Reheat and finish with any fresh toppings you selected: {ingredients}.", "DayOfActive", 5, false, { prepCategory: "FreshFinish", linkedIngredientIds: [41, 42, 25], scaleByLinkedIngredients: true }),
     ],
   },
   {
@@ -387,9 +397,9 @@ const recipes = [
       [20, 1, "whole", true, true],
     ]),
     steps: [
-      step(9, 1, "Mix the chopped tomatoes with basil, olive oil, salt, and pepper.", "PrepAhead", 5, false),
-      step(9, 2, "Toast the bread until crisp.", "DayOfActive", 4, false),
-      step(9, 3, "Spoon the tomato mixture over the toast and finish with any optional toppings.", "DayOfActive", 3, false),
+      step(9, 1, "Toast {ingredients} until crisp.", "DayOfActive", 4, false, { prepCategory: "CookStarch", linkedIngredientIds: [19], scaleByLinkedIngredients: true }),
+      step(9, 2, "Toss {ingredients} with olive oil, salt, and pepper right before serving.", "DayOfActive", 5, false, { prepCategory: "FreshFinish", linkedIngredientIds: [25, 27], scaleByLinkedIngredients: true }),
+      step(9, 3, "Spoon the tomato mixture over the toast and finish with any selected toppings: {ingredients}.", "DayOfActive", 3, false, { prepCategory: "FreshFinish", linkedIngredientIds: [26, 47, 20], scaleByLinkedIngredients: true }),
     ],
   },
   {
@@ -419,9 +429,9 @@ const recipes = [
       [30, 2, "oz", true, true],
     ]),
     steps: [
-      step(10, 1, "Cook the bacon until crisp.", "PrepAhead", 10, false),
-      step(10, 2, "Toast the bread and spread with mayonnaise.", "DayOfActive", 3, false),
-      step(10, 3, "Layer bacon, lettuce, tomato, and any optional add-ins before serving.", "DayOfActive", 3, false),
+      step(10, 1, "Cook {ingredients} until crisp and refrigerate for quick assembly.", "PrepAhead", 10, false, { prepCategory: "CookProtein", linkedIngredientIds: [28], scaleByLinkedIngredients: true }),
+      step(10, 2, "Toast {ingredients} and spread with mayonnaise.", "DayOfActive", 3, false, { prepCategory: "CookStarch", linkedIngredientIds: [19], scaleByLinkedIngredients: true }),
+      step(10, 3, "Layer the bacon with lettuce, tomatoes, and any selected add-ins: {ingredients}.", "DayOfActive", 3, false, { prepCategory: "FreshFinish", linkedIngredientIds: [43, 25, 20, 72, 30], scaleByLinkedIngredients: true }),
     ],
   },
   {
@@ -453,9 +463,11 @@ const recipes = [
       [36, 1, "cup chopped", true, true],
     ]),
     steps: [
-      step(11, 1, "Chop the cucumber, tomatoes, and red onion.", "PrepAhead", 8, false),
-      step(11, 2, "Toss the vegetables with feta, olive oil, dill, salt, and pepper.", "DayOfActive", 4, false),
-      step(11, 3, "Add any optional protein or bread just before serving.", "DayOfActive", 2, false),
+      step(11, 1, "Cook {ingredients} so it can be chilled for the salad.", "PrepAhead", 12, false, { prepCategory: "CookProtein", linkedIngredientIds: [1], scaleByLinkedIngredients: true }),
+      step(11, 2, "Rinse and drain {ingredients}.", "PrepAhead", 3, false, { prepCategory: "AssemblePortion", linkedIngredientIds: [50], scaleByLinkedIngredients: true }),
+      step(11, 3, "Chop {ingredients} right before serving so the salad stays crisp.", "DayOfActive", 8, false, { prepCategory: "FreshFinish", linkedIngredientIds: [44, 25, 45, 36], scaleByLinkedIngredients: true }),
+      step(11, 4, "Toss the vegetables with feta, olive oil, dill, and any chilled proteins or chickpeas you selected: {ingredients}.", "DayOfActive", 4, false, { prepCategory: "FreshFinish", linkedIngredientIds: [46, 1, 50], scaleByLinkedIngredients: true }),
+      step(11, 5, "Warm or plate any selected pita and serve immediately.", "DayOfActive", 2, false, { prepCategory: "FreshFinish", linkedIngredientIds: [58], scaleByLinkedIngredients: true }),
     ],
   },
   {
@@ -484,9 +496,10 @@ const recipes = [
       [55, 2, "oz", true, true],
     ]),
     steps: [
-      step(12, 1, "Boil the pasta according to package directions.", "DayOfActive", 12, true),
-      step(12, 2, "Warm the marinara and stir in any optional sauce or protein additions.", "DayOfActive", 8, false),
-      step(12, 3, "Toss the cooked pasta with the sauce and finish with any optional toppings.", "DayOfActive", 3, false),
+      step(12, 1, "Cook {ingredients} if you want it ready to reheat later in the week.", "PrepAhead", 10, false, { prepCategory: "CookProtein", linkedIngredientIds: [49], scaleByLinkedIngredients: true }),
+      step(12, 2, "Boil {ingredients} according to package directions.", "DayOfActive", 12, true, { prepCategory: "CookStarch", linkedIngredientIds: [51], scaleByLinkedIngredients: true }),
+      step(12, 3, "Warm the sauce you chose and stir in any cooked protein add-ins: {ingredients}.", "DayOfActive", 8, false, { prepCategory: "MixSauce", linkedIngredientIds: [52, 53, 54, 49], scaleByLinkedIngredients: true }),
+      step(12, 4, "Toss the cooked pasta with the sauce and finish with any selected toppings: {ingredients}.", "DayOfActive", 3, false, { prepCategory: "FreshFinish", linkedIngredientIds: [35, 55], scaleByLinkedIngredients: true }),
     ],
   },
   {
@@ -519,9 +532,11 @@ const recipes = [
       [36, 1, "cup chopped", true, true],
     ]),
     steps: [
-      step(13, 1, "Cook the ground beef with taco seasoning until browned.", "PrepAhead", 10, false),
-      step(13, 2, "Warm the rice, black beans, and corn.", "PrepAhead", 10, false),
-      step(13, 3, "Assemble bowls with rice, beans, beef, corn, and salsa. Finish with any optional toppings.", "DayOfActive", 8, false),
+      step(13, 1, "Cook {ingredients} with taco seasoning until browned.", "PrepAhead", 10, false, { prepCategory: "CookProtein", linkedIngredientIds: [49], scaleByLinkedIngredients: true }),
+      step(13, 2, "Cook or reheat the bowl base: {ingredients}.", "PrepAhead", 10, false, { prepCategory: "CookStarch", linkedIngredientIds: [2, 5, 56], scaleByLinkedIngredients: true }),
+      step(13, 3, "Cook any selected add-in peppers before packing the bowls: {ingredients}.", "PrepAhead", 6, false, { prepCategory: "WashChop", linkedIngredientIds: [36], scaleByLinkedIngredients: true }),
+      step(13, 4, "Assemble bowls with the rice, beans, beef, corn, and salsa.", "PrepAhead", 8, false, { prepCategory: "AssemblePortion", linkedIngredientIds: [2, 5, 49, 56, 32] }),
+      step(13, 5, "Finish with any fresh toppings you selected: {ingredients}.", "DayOfActive", 2, false, { prepCategory: "FreshFinish", linkedIngredientIds: [20, 30, 24, 43, 57], scaleByLinkedIngredients: true }),
     ],
   },
   {
@@ -552,9 +567,9 @@ const recipes = [
       [70, 0.5, "cup", true, true],
     ]),
     steps: [
-      step(14, 1, "Warm the naan and gyro meat.", "DayOfActive", 6, false),
-      step(14, 2, "Slice the tomatoes, cucumber, and onion.", "PrepAhead", 8, false),
-      step(14, 3, "Assemble the wraps with tzatziki and any optional toppings.", "DayOfActive", 5, false),
+      step(14, 1, "Warm {ingredients}.", "DayOfActive", 6, false, { prepCategory: "CookProtein", linkedIngredientIds: [59, 60], scaleByLinkedIngredients: true }),
+      step(14, 2, "Chop the fresh vegetables right before serving: {ingredients}.", "DayOfActive", 8, false, { prepCategory: "FreshFinish", linkedIngredientIds: [25, 44, 45], scaleByLinkedIngredients: true }),
+      step(14, 3, "Assemble the wraps with tzatziki and any selected toppings: {ingredients}.", "DayOfActive", 5, false, { prepCategory: "FreshFinish", linkedIngredientIds: [46, 43, 70], scaleByLinkedIngredients: true }),
     ],
   },
   {
@@ -585,9 +600,10 @@ const recipes = [
       [66, 1, "cup chopped", true, true],
     ]),
     steps: [
-      step(15, 1, "Cook the rice and chicken ahead of time.", "PrepAhead", 25, true),
-      step(15, 2, "Warm the cream sauce and combine with the cooked chicken.", "PrepAhead", 10, false),
-      step(15, 3, "Serve the chicken mixture over rice and let everyone add any optional toppings they like.", "DayOfActive", 5, false),
+      step(15, 1, "Cook {ingredients} ahead of time for the haystack base.", "PrepAhead", 25, true, { prepCategory: "CookStarch", linkedIngredientIds: [2, 1], scaleByLinkedIngredients: true }),
+      step(15, 2, "Warm {ingredients} and combine with the cooked chicken.", "PrepAhead", 10, false, { prepCategory: "MixSauce", linkedIngredientIds: [62, 1], scaleByLinkedIngredients: true }),
+      step(15, 3, "Prep any selected toppings so they are ready for serving: {ingredients}.", "PrepAhead", 8, false, { prepCategory: "AssemblePortion", linkedIngredientIds: [63, 30, 64, 41, 65, 66], scaleByLinkedIngredients: true }),
+      step(15, 4, "Serve the chicken mixture over rice and add any prepped toppings you chose.", "DayOfActive", 5, false, { prepCategory: "FreshFinish" }),
     ],
   },
   {
@@ -619,9 +635,10 @@ const recipes = [
       [57, 0.5, "cup", true, true],
     ]),
     steps: [
-      step(16, 1, "Brown the ground beef, then stir in taco seasoning.", "PrepAhead", 10, false),
-      step(16, 2, "Warm the tortillas.", "DayOfActive", 3, false),
-      step(16, 3, "Fill the tortillas with seasoned beef and any optional toppings.", "DayOfActive", 5, false),
+      step(16, 1, "Brown {ingredients}, then stir in taco seasoning.", "PrepAhead", 10, false, { prepCategory: "CookProtein", linkedIngredientIds: [49], scaleByLinkedIngredients: true }),
+      step(16, 2, "Warm the tortillas.", "DayOfActive", 3, false, { prepCategory: "CookStarch", linkedIngredientIds: [29], scaleByLinkedIngredients: true }),
+      step(16, 3, "Add any selected fresh toppings: {ingredients}.", "DayOfActive", 3, false, { prepCategory: "FreshFinish", linkedIngredientIds: [43, 25, 30, 32, 20, 5, 57], scaleByLinkedIngredients: true }),
+      step(16, 4, "Fill the tortillas with seasoned beef and the toppings you picked.", "DayOfActive", 2, false, { prepCategory: "AssemblePortion" }),
     ],
   },
   {
@@ -650,9 +667,9 @@ const recipes = [
       [34, 4, "oz", true, true],
     ]),
     steps: [
-      step(17, 1, "Butter the bread and build the sandwiches with cheddar and any optional fillings.", "DayOfActive", 4, false),
-      step(17, 2, "Grill the sandwiches until the bread is golden and the cheese is melted.", "DayOfActive", 8, false),
-      step(17, 3, "Pour the chilled V8 and serve alongside the sandwiches.", "DayOfActive", 1, false),
+      step(17, 1, "Butter the bread and build the sandwiches with cheddar and any selected fillings: {ingredients}.", "DayOfActive", 4, false, { prepCategory: "AssemblePortion", linkedIngredientIds: [30, 27, 47, 34], scaleByLinkedIngredients: true }),
+      step(17, 2, "Grill the sandwiches until the bread is golden and the cheese is melted.", "DayOfActive", 8, false, { prepCategory: "CookStarch", linkedIngredientIds: [19] }),
+      step(17, 3, "Pour {ingredients} and serve alongside the sandwiches.", "DayOfActive", 1, false, { prepCategory: "FreshFinish", linkedIngredientIds: [68], scaleByLinkedIngredients: true }),
     ],
   },
   {
@@ -682,9 +699,11 @@ const recipes = [
       [35, 2, "cups raw", true, true],
     ]),
     steps: [
-      step(18, 1, "Roast the sweet potatoes until tender.", "PrepAhead", 35, true),
-      step(18, 2, "Brown the ground beef and season with salt and pepper.", "PrepAhead", 10, false),
-      step(18, 3, "Assemble bowls with roasted sweet potato, beef, and cottage cheese. Add any optional toppings before serving.", "DayOfActive", 5, false),
+      step(18, 1, "Roast {ingredients} until tender.", "PrepAhead", 35, true, { prepCategory: "RoastBake", linkedIngredientIds: [69], scaleByLinkedIngredients: true }),
+      step(18, 2, "Brown and season {ingredients}.", "PrepAhead", 10, false, { prepCategory: "CookProtein", linkedIngredientIds: [49], scaleByLinkedIngredients: true }),
+      step(18, 3, "Warm any selected beans before serving: {ingredients}.", "PrepAhead", 4, false, { prepCategory: "CookProtein", linkedIngredientIds: [5], scaleByLinkedIngredients: true }),
+      step(18, 4, "Assemble bowls with the roasted sweet potato, beef, and cottage cheese.", "PrepAhead", 5, false, { prepCategory: "AssemblePortion", linkedIngredientIds: [69, 49, 23] }),
+      step(18, 5, "Finish with any selected toppings: {ingredients}.", "DayOfActive", 2, false, { prepCategory: "FreshFinish", linkedIngredientIds: [20, 41, 42, 5, 35], scaleByLinkedIngredients: true }),
     ],
   },
 ];
@@ -714,7 +733,7 @@ const recipesTs = JSON.stringify(recipes, null, 2)
 
 process.stdout.write(`import type { Ingredient, Recipe } from "types/models";
 
-/** Snapshot of MealPlanner.Api/Data/DbSeeder.cs seed order (Ids 1–72) + recipes 1–18. */
+/** Snapshot of MealPlanner.Api/Data/DbSeeder.cs seed order (Ids 1–72) + recipes 1–18. Regenerate: \`node scripts/generate-dbseeder-mock.mjs > src/lib/dbSeederMockData.ts\`. */
 export const mockIngredientsFromDbSeeder: Ingredient[] = [
 ${ingTs}
 ];
