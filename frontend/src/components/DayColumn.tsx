@@ -1,6 +1,6 @@
 import { MealCard } from "./MealCard";
 import { cn } from "lib/utils";
-import { formatGroupLabel, type DailyFoodGroupProgress, type SnackRecommendation } from "lib/plannerNutrition";
+import { formatGroupLabel, type DailyFoodGroupProgress, type MyPlateGroupKey, type SnackRecommendation } from "lib/plannerNutrition";
 import type { Ingredient, Recipe, WeekMealSlot } from "types/models";
 
 interface DayColumnProps {
@@ -48,6 +48,13 @@ export function DayColumn({
   dragState,
 }: DayColumnProps) {
   const hasGap = foodProgress?.hasGap ?? false;
+  const progressColors: Record<MyPlateGroupKey, string> = {
+    grains: "#c9a56a",
+    protein: "#c97045",
+    vegetables: "#7ea383",
+    fruit: "#df9548",
+    dairy: "#dcc8a2",
+  };
 
   return (
     <div
@@ -56,41 +63,59 @@ export function DayColumn({
         isToday ? "border-2 border-nourish-sage bg-[#f0f4f0]" : "border-nourish-border",
       )}
     >
-      <div className={cn("mb-3 flex min-w-0 items-center gap-2", hasGap ? "justify-between" : "justify-start")}>
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h3 className="text-lg font-semibold text-nourish-ink">{day.slice(0, 3)}</h3>
-          {isToday ? (
-            <span className="rounded-full bg-nourish-sage/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-nourish-sage">
-              Today
-            </span>
-          ) : null}
-          {hasGap ? <span className="h-2 w-2 shrink-0 rounded-full bg-nourish-amber" title="Nutrition gap" aria-hidden /> : null}
-        </div>
-        {planningMode && foodProgress ? (
-          <details className="group relative">
-            <summary className="flex min-h-[36px] cursor-pointer items-center rounded-full border border-nourish-border bg-white px-3 text-xs font-medium text-nourish-muted transition hover:border-nourish-sage/40 hover:text-nourish-ink">
-              Food groups
+      <div className={cn("mb-3 flex min-w-0 items-start gap-2", foodProgress ? "justify-between" : "justify-start")}>
+        {foodProgress ? (
+          <details className="group relative min-w-0 flex-1">
+            <summary className="flex min-w-0 list-none cursor-pointer items-center gap-2 rounded-2xl px-1 py-1 transition hover:bg-nourish-bg/70 [&::-webkit-details-marker]:hidden">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h3 className="text-lg font-semibold text-nourish-ink">{day.slice(0, 3)}</h3>
+                {isToday ? (
+                  <span className="rounded-full bg-nourish-sage/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-nourish-sage">
+                    Today
+                  </span>
+                ) : null}
+                {hasGap ? <span className="h-2 w-2 shrink-0 rounded-full bg-nourish-amber" title="Nutrition gap" aria-hidden /> : null}
+                <span className="text-[11px] font-medium text-nourish-muted">Tap for food groups</span>
+              </div>
             </summary>
-            <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-2xl border border-nourish-border bg-white p-4 text-xs shadow-lg">
-              <p className="font-semibold text-nourish-ink">Progress so far</p>
-              <div className="mt-3 space-y-2">
+            <div className="absolute left-0 top-full z-20 mt-2 w-[min(22rem,calc(100vw-3rem))] rounded-2xl border border-nourish-border bg-white p-4 text-xs shadow-lg">
+              <p className="font-semibold text-nourish-ink">Daily food groups</p>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {Object.entries(foodProgress.targets).map(([group, target]) => {
                   const typedGroup = group as keyof typeof foodProgress.targets;
                   const met = foodProgress.totals[typedGroup];
                   const remaining = foodProgress.remaining[typedGroup];
+                  const safeTarget = target > 0 ? target : 1;
+                  const ratio = Math.min(met / safeTarget, 1);
+                  const radius = 18;
+                  const circumference = 2 * Math.PI * radius;
+                  const strokeDashoffset = circumference * (1 - ratio);
                   return (
-                    <div key={group} className="rounded-xl bg-[#fcfaf7] px-3 py-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-nourish-ink">{formatGroupLabel(group as keyof typeof foodProgress.targets)}</span>
-                        <span className="text-nourish-muted">
-                          {met.toFixed(1)} / {target.toFixed(1)}
-                        </span>
+                    <div key={group} className="rounded-xl bg-[#fcfaf7] px-3 py-3">
+                      <div className="relative mx-auto flex w-fit items-center justify-center">
+                        <svg viewBox="0 0 48 48" className="h-16 w-16 -rotate-90">
+                          <circle cx="24" cy="24" r={radius} fill="none" stroke="#efe5d8" strokeWidth="5" />
+                          <circle
+                            cx="24"
+                            cy="24"
+                            r={radius}
+                            fill="none"
+                            stroke={progressColors[typedGroup]}
+                            strokeWidth="5"
+                            strokeLinecap="round"
+                            strokeDasharray={circumference}
+                            strokeDashoffset={strokeDashoffset}
+                          />
+                        </svg>
+                        <div className="pointer-events-none absolute text-center">
+                          <p className="text-sm font-semibold text-nourish-ink">{met.toFixed(1)}</p>
+                          <p className="text-[10px] text-nourish-muted">of {target.toFixed(1)}</p>
+                        </div>
                       </div>
-                      {remaining > 0.01 ? (
-                        <p className="mt-1 text-[11px] text-nourish-amber">Need {remaining.toFixed(1)} more</p>
-                      ) : (
-                        <p className="mt-1 text-[11px] text-nourish-sage">Met for the day</p>
-                      )}
+                      <p className="mt-2 text-center font-medium text-nourish-ink">{formatGroupLabel(typedGroup)}</p>
+                      <p className={cn("mt-1 text-center text-[11px]", remaining > 0.01 ? "text-nourish-amber" : "text-nourish-sage")}>
+                        {remaining > 0.01 ? `${remaining.toFixed(1)} left` : "Met"}
+                      </p>
                     </div>
                   );
                 })}
@@ -116,7 +141,17 @@ export function DayColumn({
               </div>
             </div>
           </details>
-        ) : null}
+        ) : (
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h3 className="text-lg font-semibold text-nourish-ink">{day.slice(0, 3)}</h3>
+            {isToday ? (
+              <span className="rounded-full bg-nourish-sage/20 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-nourish-sage">
+                Today
+              </span>
+            ) : null}
+            {hasGap ? <span className="h-2 w-2 shrink-0 rounded-full bg-nourish-amber" title="Nutrition gap" aria-hidden /> : null}
+          </div>
+        )}
       </div>
 
       <div className="relative min-h-0 flex-1 space-y-3">

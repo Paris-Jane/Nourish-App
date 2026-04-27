@@ -13,6 +13,16 @@ export function getFridgeItems() {
   return unwrap<FridgeItem[]>(apiClient.get("/api/fridge"));
 }
 
+export interface ReconcilePastMealsResponse {
+  reconciledSlots: number;
+  householdId: number;
+  effectiveToday: string;
+}
+
+export function reconcilePastMeals() {
+  return unwrap<ReconcilePastMealsResponse>(apiClient.post("/api/fridge/reconcile-past-meals"));
+}
+
 export function addFridgeItem(payload: AddFridgeItemRequest) {
   return unwrap<FridgeItem>(apiClient.post("/api/fridge", payload));
 }

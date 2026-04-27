@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { addDays, format, parseISO } from "date-fns";
 import { ChevronDown, Plus, RefreshCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -9,11 +10,12 @@ import { BottomSheet } from "components/BottomSheet";
 import { GroceryListItemRow } from "components/GroceryListItemRow";
 import { ProgressBar } from "components/ProgressBar";
 import { SectionHeader } from "components/SectionHeader";
-import { useGroceryList, useIngredients, useRecipes } from "hooks/useAppData";
+import { useCurrentWeek, useGroceryList, useIngredients, useRecipes, useWeeks } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
 import { mergeGroceryCheckIntoFridge, removeGroceryCheckFromFridge } from "lib/fridgeFromGrocery";
 import { mockFridgeItems } from "lib/mockData";
 import { cn } from "lib/utils";
+import { useWeekStore } from "store/weekStore";
 import type { FridgeItem, GroceryListItem } from "types/models";
 
 const icons: Record<string, string> = {
@@ -50,10 +52,14 @@ function sourceHintForItem(item: GroceryListItem) {
 
 export function GroceryPage() {
   const queryClient = useQueryClient();
+  const { week } = useCurrentWeek();
+  const { weeks } = useWeeks();
   const { groceryList } = useGroceryList();
   const { recipes } = useRecipes();
   const { ingredients } = useIngredients();
   const { pushToast } = useToast();
+  const setActiveWeekId = useWeekStore((state) => state.setActiveWeekId);
+  const setVisibleWeekStartDate = useWeekStore((state) => state.setVisibleWeekStartDate);
   const [localItems, setLocalItems] = useState<GroceryListItem[] | null>(null);
   const [ingredientQuery, setIngredientQuery] = useState("");
   const items = localItems ?? groceryList.items;
@@ -77,6 +83,9 @@ export function GroceryPage() {
 
   const [deleteRevealedId, setDeleteRevealedId] = useState<number | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const currentWeekIndex = useMemo(() => weeks.findIndex((entry) => entry.id === week.id), [week.id, weeks]);
+  const previousWeek = currentWeekIndex > 0 ? weeks[currentWeekIndex - 1] : null;
+  const nextWeek = currentWeekIndex >= 0 && currentWeekIndex < weeks.length - 1 ? weeks[currentWeekIndex + 1] : null;
 
   const generateMutation = useMutation({
     mutationFn: () => generateGroceryList(groceryList.weekId),
@@ -133,6 +142,11 @@ export function GroceryPage() {
       return next;
     });
   }, [items]);
+
+  useEffect(() => {
+    setLocalItems(null);
+    setDeleteRevealedId(null);
+  }, [groceryList.weekId]);
 
   useEffect(
     () => () => {
@@ -345,6 +359,50 @@ export function GroceryPage() {
           <div>
             <h1 className="text-4xl">Grocery List</h1>
             <p className="mt-2 text-sm text-nourish-muted">Check items as you shop. Checked items are added into your kitchen inventory.</p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  if (!previousWeek) return;
+                  setActiveWeekId(previousWeek.id);
+                  setVisibleWeekStartDate(null);
+                }}
+                disabled={!previousWeek}
+              >
+                Previous week
+              </button>
+              <label className="sr-only" htmlFor="grocery-week-select">
+                Choose grocery week
+              </label>
+              <select
+                id="grocery-week-select"
+                className="input min-w-[220px] bg-white"
+                value={week.id}
+                onChange={(event) => {
+                  setActiveWeekId(Number(event.target.value));
+                  setVisibleWeekStartDate(null);
+                }}
+              >
+                {weeks.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {format(parseISO(entry.weekStartDate), "MMM d")} - {format(addDays(parseISO(entry.weekStartDate), 6), "MMM d")}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  if (!nextWeek) return;
+                  setActiveWeekId(nextWeek.id);
+                  setVisibleWeekStartDate(null);
+                }}
+                disabled={!nextWeek}
+              >
+                Next week
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="button-secondary inline-flex items-center gap-2" onClick={() => setAddOpen(true)}>

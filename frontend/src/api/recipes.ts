@@ -77,8 +77,23 @@ export interface AddRecipeModifierRequest {
   notes?: string;
 }
 
+export interface AddRecipeStepRequest {
+  stepNumber: number;
+  instruction: string;
+  timingTag: Recipe["steps"][number]["timingTag"];
+  durationMinutes: number;
+  isPassive?: boolean;
+  prepCategory?: Recipe["steps"][number]["prepCategory"];
+  linkedIngredientIds?: number[];
+  scaleByLinkedIngredients?: boolean;
+}
+
 export function addRecipeModifier(id: number, payload: AddRecipeModifierRequest) {
   return unwrap<Recipe["ingredients"][number]>(apiClient.post(`/api/recipes/${id}/modifiers`, payload));
+}
+
+export function addRecipeStep(id: number, payload: AddRecipeStepRequest) {
+  return unwrap<Recipe["steps"][number]>(apiClient.post(`/api/recipes/${id}/steps`, payload));
 }
 
 export function removeRecipeModifier(id: number, recipeIngredientId: number) {

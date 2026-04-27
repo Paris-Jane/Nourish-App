@@ -28,6 +28,20 @@ export const mockWeek: Week = {
   createdAt: new Date().toISOString(),
 };
 
+export const mockWeeks: Week[] = [
+  {
+    ...mockWeek,
+    id: 11,
+    weekStartDate: formatISO(addDays(baseWeekStart, -7), { representation: "date" }),
+  },
+  mockWeek,
+  {
+    ...mockWeek,
+    id: 12,
+    weekStartDate: formatISO(addDays(baseWeekStart, 7), { representation: "date" }),
+  },
+];
+
 export const mockRecipes = mockRecipesFromDbSeeder;
 export const mockIngredients = mockIngredientsFromDbSeeder;
 

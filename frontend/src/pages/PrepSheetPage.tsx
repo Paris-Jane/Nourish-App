@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDays, format, formatISO, parseISO, subDays } from "date-fns";
+import { addDays, format, parseISO } from "date-fns";
 import { ArrowLeft, CheckCircle2, ChevronDown, Circle, Clock3, Package2, UtensilsCrossed } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useCurrentWeek, useIngredients, useRecipes, useWeekSlots } from "hooks/useAppData";
-import { cn } from "lib/utils";
+import { useCurrentWeek, useIngredients, useRecipes, useWeekSlots, useWeeks } from "hooks/useAppData";
+import { cn, getCurrentWeekStart } from "lib/utils";
 import { useWeekStore } from "store/weekStore";
 import type { Ingredient, PrepStepCategory, Recipe, RecipeIngredient, RecipeStep, StoreSection, WeekMealSlot } from "types/models";
 
@@ -414,10 +414,15 @@ function buildIngredientGroups(recipePlans: WeeklyRecipePlan[], ingredients: Ing
 
 export function PrepSheetPage() {
   const { week } = useCurrentWeek();
+  const { weeks } = useWeeks();
   const { slots } = useWeekSlots();
   const { recipes } = useRecipes();
   const { ingredients } = useIngredients();
   const setVisibleWeekStartDate = useWeekStore((state) => state.setVisibleWeekStartDate);
+  const setActiveWeekId = useWeekStore((state) => state.setActiveWeekId);
+  const currentWeekIndex = useMemo(() => weeks.findIndex((entry) => entry.id === week.id), [week.id, weeks]);
+  const previousWeek = currentWeekIndex > 0 ? weeks[currentWeekIndex - 1] : null;
+  const nextWeek = currentWeekIndex >= 0 && currentWeekIndex < weeks.length - 1 ? weeks[currentWeekIndex + 1] : null;
 
   const [completedIds, setCompletedIds] = useState<Set<string>>(() => {
     try {
@@ -494,18 +499,55 @@ export function PrepSheetPage() {
           <button
             type="button"
             className="button-secondary"
-            onClick={() => setVisibleWeekStartDate(formatISO(subDays(parseISO(week.weekStartDate), 7), { representation: "date" }))}
+            onClick={() => {
+              if (!previousWeek) return;
+              setActiveWeekId(previousWeek.id);
+              setVisibleWeekStartDate(null);
+            }}
+            disabled={!previousWeek}
           >
             Previous week
+          </button>
+          <label className="sr-only" htmlFor="prep-week-select">
+            Choose meal prep week
+          </label>
+          <select
+            id="prep-week-select"
+            className="input min-w-[220px] bg-white"
+            value={week.id}
+            onChange={(event) => {
+              setActiveWeekId(Number(event.target.value));
+              setVisibleWeekStartDate(null);
+            }}
+          >
+            {weeks.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {format(parseISO(entry.weekStartDate), "MMM d")} - {format(addDays(parseISO(entry.weekStartDate), 6), "MMM d")}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => {
+              if (!nextWeek) return;
+              setActiveWeekId(nextWeek.id);
+              setVisibleWeekStartDate(null);
+            }}
+            disabled={!nextWeek}
+          >
+            Next week
           </button>
           <button
             type="button"
             className="button-secondary"
-            onClick={() => setVisibleWeekStartDate(formatISO(addDays(parseISO(week.weekStartDate), 7), { representation: "date" }))}
+            onClick={() => {
+              const currentWeekStartIso = format(getCurrentWeekStart(), "yyyy-MM-dd");
+              const currentWeek = weeks.find((entry) => entry.weekStartDate === currentWeekStartIso) ?? weeks[0];
+              if (currentWeek) setActiveWeekId(currentWeek.id);
+              setVisibleWeekStartDate(null);
+            }}
           >
-            Next week
-          </button>
-          <button type="button" className="button-secondary" onClick={() => setVisibleWeekStartDate(null)}>
             Current week
           </button>
         </div>
@@ -519,6 +561,7 @@ export function PrepSheetPage() {
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-nourish-muted">
               This plan only includes prep-ahead tasks that make sense for the week you actually built. Modifier steps show up only when
               you selected that add-on, and fresh-finish items stay out of Sunday prep unless the recipe explicitly marks them as prep-ahead.
+              Checking off prep tasks tracks prep progress only. Ingredients stay in kitchen inventory until past planned meals are assumed eaten.
             </p>
           </div>
         </div>

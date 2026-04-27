@@ -3,10 +3,11 @@ import { ArrowLeft, Heart, Pencil, Plus, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { createIngredient } from "api/ingredients";
-import { addRecipeModifier, getRecipePreference, removeRecipeModifier, upsertRecipePreference } from "api/recipes";
+import { addRecipeModifier, addRecipeStep, getRecipePreference, removeRecipeModifier, upsertRecipePreference } from "api/recipes";
 import { StepList } from "components/StepList";
 import { TagPill } from "components/TagPill";
 import { useIngredients, useRecipes } from "hooks/useAppData";
+import { buildRenderedRecipeSteps, formatQuantity, getRecipeServingMultiplier } from "lib/recipeStepRendering";
 import { useToast } from "hooks/useToast";
 import { mockIngredients, mockRecipePrefs } from "lib/mockData";
 import { cn } from "lib/utils";
@@ -37,6 +38,10 @@ export function RecipeDetailPage() {
   const [tab, setTab] = useState<"Prep ahead" | "Day of">("Prep ahead");
   const [showAddSearch, setShowAddSearch] = useState(false);
   const [customSearch, setCustomSearch] = useState("");
+  const [customQuantity, setCustomQuantity] = useState("1");
+  const [customUnit, setCustomUnit] = useState("serving");
+  const [customStepInstruction, setCustomStepInstruction] = useState("");
+  const [customStepTiming, setCustomStepTiming] = useState<"PrepAhead" | "DayOfActive">("DayOfActive");
   const [selectedOptionalIds, setSelectedOptionalIds] = useState<number[]>([]);
   const [editingIngredientId, setEditingIngredientId] = useState<number | null>(null);
   const [editorQuantity, setEditorQuantity] = useState("");
@@ -59,8 +64,15 @@ export function RecipeDetailPage() {
     setSelectedOptionalIds(preference.selectedModifierIngredientIds ?? []);
   }, [preference]);
 
-  const prepAheadSteps = useMemo(() => recipe?.steps.filter((step) => step.timingTag === "PrepAhead") ?? [], [recipe]);
-  const dayOfSteps = useMemo(() => recipe?.steps.filter((step) => step.timingTag !== "PrepAhead") ?? [], [recipe]);
+  const oneServingScale = useMemo(() => (recipe ? getRecipeServingMultiplier(recipe, 1) : 1), [recipe]);
+  const prepAheadSteps = useMemo(
+    () => (recipe ? buildRenderedRecipeSteps(recipe, selectedOptionalIds, 1, (step) => step.timingTag === "PrepAhead") : []),
+    [recipe, selectedOptionalIds],
+  );
+  const dayOfSteps = useMemo(
+    () => (recipe ? buildRenderedRecipeSteps(recipe, selectedOptionalIds, 1, (step) => step.timingTag !== "PrepAhead") : []),
+    [recipe, selectedOptionalIds],
+  );
   const coreIngredients = useMemo(() => recipe?.ingredients.filter((ingredient) => !ingredient.isModifier) ?? [], [recipe]);
   const optionalIngredients = useMemo(
     () => recipe?.ingredients.filter((ingredient) => ingredient.isModifier || ingredient.isOptional) ?? [],
@@ -137,15 +149,56 @@ export function RecipeDetailPage() {
       } catch {
         // preview/local fallback
       }
-      setCustomSearch("");
-      setShowAddSearch(false);
       setEditingIngredientId(result.ingredientId);
       pushToast(`${ingredientName} added to optional add-ons.`);
     },
   });
 
+  const addStepMutation = useMutation({
+    mutationFn: ({
+      ingredientId,
+      instruction,
+      timingTag,
+    }: {
+      ingredientId: number;
+      instruction: string;
+      timingTag: "PrepAhead" | "DayOfActive";
+    }) =>
+      addRecipeStep(recipe!.id, {
+        stepNumber: (recipe?.steps.length ?? 0) + 1,
+        instruction,
+        timingTag,
+        durationMinutes: timingTag === "PrepAhead" ? 8 : 2,
+        isPassive: false,
+        prepCategory: timingTag === "PrepAhead" ? "AssemblePortion" : "FreshFinish",
+        linkedIngredientIds: [ingredientId],
+        scaleByLinkedIngredients: true,
+      }),
+    onSuccess: async (result) => {
+      queryClient.setQueryData<Recipe[]>(["recipes"], (current) =>
+        upsertRecipeInCache(current, recipe!.id, (entry) => ({
+          ...entry,
+          steps: [...entry.steps, result],
+        })),
+      );
+      await queryClient.invalidateQueries({ queryKey: ["recipes"] });
+    },
+  });
+
   const createIngredientMutation = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async ({
+      name,
+      quantity,
+      unit,
+      stepInstruction,
+      stepTiming,
+    }: {
+      name: string;
+      quantity: number;
+      unit: string;
+      stepInstruction: string;
+      stepTiming: "PrepAhead" | "DayOfActive";
+    }) => {
       const trimmed = name.trim();
       const created = await createIngredient({
         name: trimmed,
@@ -161,9 +214,9 @@ export function RecipeDetailPage() {
         shelfLifeDays: 180,
         notes: "Created from recipe detail add-ons",
       });
-      return created;
+      return { ingredient: created, quantity, unit, stepInstruction, stepTiming };
     },
-    onSuccess: async (ingredient) => {
+    onSuccess: async ({ ingredient, quantity, unit, stepInstruction, stepTiming }) => {
       queryClient.setQueryData<Ingredient[]>(["ingredients"], (current) => {
         const existing = current ?? mockIngredients;
         return existing.some((item) => item.id === ingredient.id) ? existing : [...existing, ingredient];
@@ -171,9 +224,18 @@ export function RecipeDetailPage() {
       await addModifierMutation.mutateAsync({
         ingredientId: ingredient.id,
         ingredientName: ingredient.name,
-        quantity: 1,
-        unit: ingredient.servingUnit || "serving",
+        quantity,
+        unit,
       });
+      if (stepInstruction) {
+        await addStepMutation.mutateAsync({
+          ingredientId: ingredient.id,
+          instruction: stepInstruction,
+          timingTag: stepTiming,
+        });
+      }
+      resetCustomAddOnForm();
+      setShowAddSearch(false);
       pushToast(`${ingredient.name} created and added.`);
     },
   });
@@ -257,18 +319,58 @@ export function RecipeDetailPage() {
   };
 
   const handleAddExistingIngredient = async (ingredient: Ingredient) => {
+    const quantity = Number(customQuantity);
+    const nextQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : ingredient.servingSize > 0 ? ingredient.servingSize : 1;
+    const nextUnit = customUnit.trim() || ingredient.servingUnit || ingredient.purchaseUnit || "serving";
+    const stepInstruction = customStepInstruction.trim();
+    const stepTiming = customStepTiming;
     await addModifierMutation.mutateAsync({
       ingredientId: ingredient.id,
       ingredientName: ingredient.name,
-      quantity: ingredient.servingSize > 0 ? ingredient.servingSize : 1,
-      unit: ingredient.servingUnit || ingredient.purchaseUnit || "serving",
+      quantity: nextQuantity,
+      unit: nextUnit,
     });
+    if (stepInstruction) {
+      await addStepMutation.mutateAsync({
+        ingredientId: ingredient.id,
+        instruction: stepInstruction,
+        timingTag: stepTiming,
+      });
+    }
+    resetCustomAddOnForm();
+    setShowAddSearch(false);
   };
 
-  const handleCreateIngredient = async () => {
+  const resetCustomAddOnForm = () => {
+    setCustomSearch("");
+    setCustomQuantity("1");
+    setCustomUnit("serving");
+    setCustomStepInstruction("");
+    setCustomStepTiming("DayOfActive");
+  };
+
+  useEffect(() => {
+    if (!showAddSearch) {
+      resetCustomAddOnForm();
+    }
+  }, [showAddSearch]);
+
+  const handleCreateOrAddIngredient = async () => {
     const name = customSearch.trim();
     if (!name) return;
-    await createIngredientMutation.mutateAsync(name);
+    const existing = ingredients.find((ingredient) => ingredient.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      await handleAddExistingIngredient(existing);
+      return;
+    }
+    const quantity = Number(customQuantity);
+    await createIngredientMutation.mutateAsync({
+      name,
+      quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+      unit: customUnit.trim() || "serving",
+      stepInstruction: customStepInstruction.trim(),
+      stepTiming: customStepTiming,
+    });
   };
 
   const handleSaveModifierEdit = async (ingredient: RecipeIngredient) => {
@@ -356,7 +458,7 @@ export function RecipeDetailPage() {
                 <li key={ingredient.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5 first:pt-0">
                   <span className="font-medium text-nourish-ink">{ingredient.ingredientName}</span>
                   <span className="shrink-0 text-nourish-muted">
-                    {ingredient.quantity} {ingredient.unit}
+                    {formatQuantity(ingredient.quantity * oneServingScale)} {ingredient.unit}
                   </span>
                 </li>
               ))}
@@ -437,6 +539,49 @@ export function RecipeDetailPage() {
                   />
                 </div>
 
+                <div className="mt-3 grid gap-3 sm:grid-cols-[120px,1fr]">
+                  <label className="space-y-1 text-sm text-nourish-muted">
+                    <span>Amount</span>
+                    <input className="input" inputMode="decimal" value={customQuantity} onChange={(event) => setCustomQuantity(event.target.value)} />
+                  </label>
+                  <label className="space-y-1 text-sm text-nourish-muted">
+                    <span>Unit</span>
+                    <input className="input" value={customUnit} onChange={(event) => setCustomUnit(event.target.value)} />
+                  </label>
+                </div>
+
+                <div className="mt-3 rounded-2xl border border-nourish-border bg-white p-3">
+                  <label className="space-y-1 text-sm text-nourish-muted">
+                    <span>Optional step for this add-on</span>
+                    <input
+                      className="input"
+                      placeholder="Example: Chop {ingredient} and scatter on top."
+                      value={customStepInstruction}
+                      onChange={(event) => setCustomStepInstruction(event.target.value)}
+                    />
+                  </label>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {([
+                      ["DayOfActive", "Day of"],
+                      ["PrepAhead", "Prep ahead"],
+                    ] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                          customStepTiming === value
+                            ? "border-nourish-sage bg-nourish-sage text-white"
+                            : "border-nourish-border bg-white text-nourish-muted hover:border-nourish-sage/35 hover:text-nourish-ink",
+                        )}
+                        onClick={() => setCustomStepTiming(value)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {filteredCustomIngredients.length > 0 ? (
                   <div className="mt-3 space-y-2">
                     {filteredCustomIngredients.map((ingredient) => (
@@ -459,11 +604,11 @@ export function RecipeDetailPage() {
                   <button
                     type="button"
                     className="mt-3 flex w-full items-center justify-between rounded-xl border border-dashed border-nourish-sage/40 bg-white px-3 py-3 text-left text-sm text-nourish-ink transition hover:bg-nourish-bg"
-                    onClick={() => void handleCreateIngredient()}
-                    disabled={createIngredientMutation.isPending || addModifierMutation.isPending}
+                    onClick={() => void handleCreateOrAddIngredient()}
+                    disabled={createIngredientMutation.isPending || addModifierMutation.isPending || addStepMutation.isPending}
                   >
                     <span>
-                      Add <strong>{customSearch.trim()}</strong> as a new ingredient
+                      Add <strong>{customSearch.trim()}</strong> as an add-on
                     </span>
                     <Plus size={16} aria-hidden className="text-nourish-sage" />
                   </button>
@@ -532,6 +677,9 @@ export function RecipeDetailPage() {
       </div>
 
       <div className="card p-6">
+        <div className="mb-3">
+          <p className="text-sm text-nourish-muted">Instructions below are shown for 1 serving. Selected add-ons appear automatically when they affect prep or assembly.</p>
+        </div>
         <div className="mb-4 flex gap-2 rounded-2xl bg-nourish-bg p-1">
           {(["Prep ahead", "Day of"] as const).map((entry) => (
             <button

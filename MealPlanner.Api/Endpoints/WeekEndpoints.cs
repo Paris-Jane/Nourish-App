@@ -14,6 +14,7 @@ public static class WeekEndpoints
         var group = app.MapGroup("/api/weeks").RequireAuthorization().WithTags("Weeks");
 
         group.MapPost("/", CreateWeek);
+        group.MapGet("/", ListWeeks);
         group.MapGet("/saved", GetSavedTemplates);
         group.MapGet("/{id:int}", GetWeek);
         group.MapGet("/{id:int}/preferences", GetPreferences);
@@ -31,6 +32,16 @@ public static class WeekEndpoints
         group.MapPost("/{id:int}/save-as-template", SaveAsTemplate);
         group.MapPut("/{id:int}/rotation", ToggleRotation);
         group.MapDelete("/saved/{id:int}", DeleteSavedTemplate);
+    }
+
+    private static async Task<IResult> ListWeeks(AppDbContext db, ClaimsPrincipal user)
+    {
+        var householdId = user.GetHouseholdId();
+        var weeks = await db.Weeks
+            .Where(w => w.HouseholdId == householdId && !w.IsSavedTemplate)
+            .OrderBy(w => w.WeekStartDate)
+            .ToListAsync();
+        return Results.Ok(weeks.Select(ToDto));
     }
 
     private static async Task<IResult> CreateWeek(CreateWeekRequest req, AppDbContext db, ClaimsPrincipal user)

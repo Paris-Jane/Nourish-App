@@ -11,6 +11,10 @@ export function createWeek(payload: CreateWeekRequest) {
   return unwrap<Week>(apiClient.post("/api/weeks", payload));
 }
 
+export function listWeeks() {
+  return unwrap<Week[]>(apiClient.get("/api/weeks"));
+}
+
 export function getWeek(id: number) {
   return unwrap<Week>(apiClient.get(`/api/weeks/${id}`));
 }

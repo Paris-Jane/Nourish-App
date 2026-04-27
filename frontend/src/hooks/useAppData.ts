@@ -4,24 +4,38 @@ import { getGroceryList } from "api/groceryList";
 import { getIngredients } from "api/ingredients";
 import { getRecipes } from "api/recipes";
 import { getSavedWeeks } from "api/savedWeeks";
-import { getWeek, getWeekSlots } from "api/weeks";
+import { getWeek, getWeekSlots, listWeeks } from "api/weeks";
 import { usePreviewQuery } from "./usePreviewQuery";
-import { buildBlankSlotsForWeek } from "lib/mealPlanDates";
-import { mockFridgeItems, mockGroceryList, mockIngredients, mockRecipes, mockSavedTemplates, mockSlots, mockWeek } from "lib/mockData";
+import { buildBlankSlotsForWeek, injectPlanDates } from "lib/mealPlanDates";
+import { mockFridgeItems, mockGroceryList, mockIngredients, mockRecipes, mockSavedTemplates, mockSlots, mockWeek, mockWeeks } from "lib/mockData";
 import { mealTypes, weekDays } from "lib/utils";
 import { useWeekStore } from "store/weekStore";
 import type { FridgeItem, GroceryList, Ingredient, Recipe, SavedWeekTemplate, Week, WeekMealSlot } from "types/models";
 
+export function useWeeks(): { weeks: Week[]; isLoading: boolean } {
+  const query = usePreviewQuery({
+    queryKey: ["weeks"],
+    queryFn: listWeeks,
+    fallbackData: mockWeeks,
+  });
+
+  return {
+    weeks: (query.data ?? mockWeeks).slice().sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate)),
+    isLoading: query.isLoading,
+  };
+}
+
 export function useCurrentWeek(): { week: Week; anchorWeekStartDate: string; isLoading: boolean } {
   const activeWeekId = useWeekStore((state) => state.activeWeekId) ?? 1;
   const visibleWeekStartDate = useWeekStore((state) => state.visibleWeekStartDate);
+  const fallbackWeek = mockWeeks.find((entry) => entry.id === activeWeekId) ?? mockWeek;
   const query = usePreviewQuery({
     queryKey: ["week", activeWeekId],
     queryFn: () => getWeek(activeWeekId),
-    fallbackData: mockWeek,
+    fallbackData: fallbackWeek,
   });
 
-  const data = query.data ?? mockWeek;
+  const data = query.data ?? fallbackWeek;
   const anchorWeekStartDate = data.weekStartDate;
   const week = { ...data, weekStartDate: visibleWeekStartDate ?? data.weekStartDate };
 
@@ -32,13 +46,24 @@ export function useWeekSlots(): { slots: WeekMealSlot[]; isLoading: boolean } {
   const activeWeekId = useWeekStore((state) => state.activeWeekId) ?? 1;
   const slotOverrides = useWeekStore((state) => state.slotOverrides);
   const { week, anchorWeekStartDate } = useCurrentWeek();
+  const fallbackSlots = useMemo(
+    () =>
+      injectPlanDates(
+        mockSlots.map((slot) => ({
+          ...slot,
+          weekId: activeWeekId,
+        })),
+        week.weekStartDate,
+      ),
+    [activeWeekId, week.weekStartDate],
+  );
   const query = usePreviewQuery({
     queryKey: ["week-slots", activeWeekId],
     queryFn: () => getWeekSlots(activeWeekId),
-    fallbackData: mockSlots,
+    fallbackData: fallbackSlots,
   });
 
-  const anchorSlots = query.data ?? mockSlots;
+  const anchorSlots = query.data ?? fallbackSlots;
   const displayedStart = week.weekStartDate;
 
   const slotsForDisplayedWeek = useMemo(() => {
@@ -55,12 +80,24 @@ export function useWeekSlots(): { slots: WeekMealSlot[]; isLoading: boolean } {
 export function usePlannerAnchorSlots(): { slots: WeekMealSlot[]; isLoading: boolean } {
   const activeWeekId = useWeekStore((state) => state.activeWeekId) ?? 1;
   const slotOverrides = useWeekStore((state) => state.slotOverrides);
+  const { week } = useCurrentWeek();
+  const fallbackSlots = useMemo(
+    () =>
+      injectPlanDates(
+        mockSlots.map((slot) => ({
+          ...slot,
+          weekId: activeWeekId,
+        })),
+        week.weekStartDate,
+      ),
+    [activeWeekId, week.weekStartDate],
+  );
   const query = usePreviewQuery({
     queryKey: ["week-slots", activeWeekId],
     queryFn: () => getWeekSlots(activeWeekId),
-    fallbackData: mockSlots,
+    fallbackData: fallbackSlots,
   });
-  const anchorSlots = query.data ?? mockSlots;
+  const anchorSlots = query.data ?? fallbackSlots;
   return { slots: slotOverrides ?? anchorSlots, isLoading: query.isLoading };
 }
 
@@ -79,10 +116,10 @@ export function useGroceryList(): { groceryList: GroceryList; isLoading: boolean
   const query = usePreviewQuery({
     queryKey: ["grocery-list", activeWeekId],
     queryFn: () => getGroceryList(activeWeekId),
-    fallbackData: mockGroceryList,
+    fallbackData: { ...mockGroceryList, weekId: activeWeekId, generatedAt: new Date().toISOString() },
   });
 
-  return { groceryList: query.data ?? mockGroceryList, isLoading: query.isLoading };
+  return { groceryList: query.data ?? { ...mockGroceryList, weekId: activeWeekId }, isLoading: query.isLoading };
 }
 
 export function useFridgeItems(): { items: FridgeItem[]; isLoading: boolean } {

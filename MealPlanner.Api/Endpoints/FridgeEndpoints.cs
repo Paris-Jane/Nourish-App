@@ -14,6 +14,7 @@ public static class FridgeEndpoints
         var group = app.MapGroup("/api/fridge").RequireAuthorization().WithTags("Fridge");
 
         group.MapGet("/", GetAll);
+        group.MapPost("/reconcile-past-meals", ReconcilePastMeals);
         group.MapPost("/", Add);
         group.MapPut("/{id:int}", Update);
         group.MapDelete("/{id:int}", Delete);
@@ -55,6 +56,36 @@ public static class FridgeEndpoints
         await db.SaveChangesAsync();
         await db.Entry(item).Reference(i => i.Ingredient).LoadAsync();
         return Results.Created($"/api/fridge/{item.Id}", ToDto(item));
+    }
+
+    private static async Task<IResult> ReconcilePastMeals(AppDbContext db, ClaimsPrincipal user, IFridgeService fridge)
+    {
+        var householdId = user.GetHouseholdId();
+        var timezone = await db.Households
+            .Where(h => h.Id == householdId)
+            .Select(h => h.Timezone)
+            .FirstOrDefaultAsync();
+
+        DateOnly effectiveToday;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(timezone))
+            {
+                var tz = TimeZoneInfo.FindSystemTimeZoneById(timezone);
+                effectiveToday = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz));
+            }
+            else
+            {
+                effectiveToday = DateOnly.FromDateTime(DateTime.UtcNow);
+            }
+        }
+        catch
+        {
+            effectiveToday = DateOnly.FromDateTime(DateTime.UtcNow);
+        }
+
+        var reconciled = await fridge.ReconcilePastMealsAsync(householdId);
+        return Results.Ok(new ReconcilePastMealsResponse(reconciled, householdId, effectiveToday));
     }
 
     private static async Task<IResult> Update(int id, UpdateFridgeItemRequest req, AppDbContext db, ClaimsPrincipal user)

@@ -33,3 +33,9 @@ public record FridgeItemResponse(
     int? SourceRecipeId,
     AddedVia AddedVia
 );
+
+public record ReconcilePastMealsResponse(
+    int ReconciledSlots,
+    int HouseholdId,
+    DateOnly EffectiveToday
+);

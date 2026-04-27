@@ -1,6 +1,9 @@
+import { useQueryClient } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import { CalendarDays, ChefHat, ChevronRight, Refrigerator, ShoppingBasket, Soup, UserCircle } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { reconcilePastMeals } from "api/fridge";
 import { useAuthStore } from "store/authStore";
 import { cn } from "lib/utils";
 import { ToastViewport } from "./Toast";
@@ -15,12 +18,34 @@ const mainNavItems: ShellNavItem[] = [
   { to: "/prep-sheet", label: "Prep", icon: Soup },
 ];
 
-const mobileNavItems: ShellNavItem[] = [...mainNavItems, { to: "/profile", label: "Profile", shortLabel: "Account", icon: UserCircle }];
+const mobileNavItems: ShellNavItem[] = [...mainNavItems];
 
 export function AppShell() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const token = useAuthStore((state) => state.token);
+  const previewMode = useAuthStore((state) => state.previewMode);
   const user = useAuthStore((state) => state.user);
   const household = useAuthStore((state) => state.household);
+  const lastReconcileRunRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!token || previewMode || !import.meta.env.VITE_API_BASE_URL) return;
+    const todayKey = new Date().toISOString().slice(0, 10);
+    if (lastReconcileRunRef.current === todayKey) return;
+    lastReconcileRunRef.current = todayKey;
+
+    void reconcilePastMeals()
+      .then((result) => {
+        if (result.reconciledSlots > 0) {
+          void queryClient.invalidateQueries({ queryKey: ["fridge-items"] });
+          void queryClient.invalidateQueries({ queryKey: ["week-slots"] });
+        }
+      })
+      .catch(() => {
+        // Silent by design: this is a background consistency pass.
+      });
+  }, [previewMode, queryClient, token]);
 
   return (
     <div className="min-h-screen lg:flex">
@@ -58,6 +83,20 @@ export function AppShell() {
           <span className="sr-only">Open profile</span>
         </button>
       </aside>
+
+      <div className="sticky top-0 z-20 flex items-center justify-between border-b border-nourish-border bg-[#f7f2ec]/95 px-4 py-3 backdrop-blur lg:hidden">
+        <Link to="/" className="font-heading text-3xl tracking-tight text-nourish-ink">
+          Nourish
+        </Link>
+        <button
+          type="button"
+          onClick={() => navigate("/profile")}
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-nourish-border bg-white text-nourish-muted shadow-sm transition hover:border-nourish-sage/40 hover:text-nourish-ink"
+          aria-label="Open profile"
+        >
+          <UserCircle size={20} aria-hidden />
+        </button>
+      </div>
 
       <main className="flex-1 px-4 pb-28 pt-4 lg:px-8 lg:pb-8 lg:pt-8">
         <Outlet />
