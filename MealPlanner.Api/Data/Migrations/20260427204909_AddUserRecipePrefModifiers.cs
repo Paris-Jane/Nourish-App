@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,148 +12,57 @@ namespace MealPlanner.Api.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_WeekMealSlots_WeekId_DayOfWeek_MealType",
-                table: "WeekMealSlots");
+            // All guards use IF EXISTS / IF NOT EXISTS so this migration is safe
+            // to run against a DB that was created with the full schema directly.
 
-            migrationBuilder.AddColumn<int>(
-                name: "Position",
-                table: "WeekMealSlots",
-                type: "integer",
-                nullable: false,
-                defaultValue: 0);
+            migrationBuilder.Sql(@"DROP INDEX IF EXISTS ""IX_WeekMealSlots_WeekId_DayOfWeek_MealType"";");
 
-            migrationBuilder.AddColumn<string>(
-                name: "SelectedModifierIngredientIds",
-                table: "WeekMealSlots",
-                type: "jsonb",
-                nullable: false,
-                defaultValue: "");
+            migrationBuilder.Sql(@"ALTER TABLE ""WeekMealSlots"" ADD COLUMN IF NOT EXISTS ""Position"" integer NOT NULL DEFAULT 0;");
 
-            migrationBuilder.AddColumn<int>(
-                name: "HeightInches",
-                table: "Users",
-                type: "integer",
-                nullable: false,
-                defaultValue: 0);
+            migrationBuilder.Sql(@"ALTER TABLE ""WeekMealSlots"" ADD COLUMN IF NOT EXISTS ""SelectedModifierIngredientIds"" jsonb NOT NULL DEFAULT '[]';");
 
-            migrationBuilder.AddColumn<decimal>(
-                name: "WeightPounds",
-                table: "Users",
-                type: "numeric",
-                nullable: false,
-                defaultValue: 0m);
+            migrationBuilder.Sql(@"ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""HeightInches"" integer NOT NULL DEFAULT 0;");
 
-            migrationBuilder.AddColumn<string>(
-                name: "SelectedModifierIngredientIds",
-                table: "UserRecipePrefs",
-                type: "jsonb",
-                nullable: false,
-                defaultValue: "");
+            migrationBuilder.Sql(@"ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""WeightPounds"" numeric NOT NULL DEFAULT 0;");
 
-            migrationBuilder.AddColumn<string>(
-                name: "LinkedIngredientIds",
-                table: "RecipeSteps",
-                type: "jsonb",
-                nullable: false,
-                defaultValue: "");
+            migrationBuilder.Sql(@"ALTER TABLE ""UserRecipePrefs"" ADD COLUMN IF NOT EXISTS ""SelectedModifierIngredientIds"" jsonb NOT NULL DEFAULT '[]';");
 
-            migrationBuilder.AddColumn<string>(
-                name: "PrepCategory",
-                table: "RecipeSteps",
-                type: "text",
-                nullable: false,
-                defaultValue: "");
+            migrationBuilder.Sql(@"ALTER TABLE ""RecipeSteps"" ADD COLUMN IF NOT EXISTS ""LinkedIngredientIds"" jsonb NOT NULL DEFAULT '[]';");
 
-            migrationBuilder.AddColumn<bool>(
-                name: "ScaleByLinkedIngredients",
-                table: "RecipeSteps",
-                type: "boolean",
-                nullable: false,
-                defaultValue: false);
+            migrationBuilder.Sql(@"ALTER TABLE ""RecipeSteps"" ADD COLUMN IF NOT EXISTS ""PrepCategory"" text NOT NULL DEFAULT '';");
 
-            migrationBuilder.CreateTable(
-                name: "UserIngredientPrefs",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    UserId = table.Column<int>(type: "integer", nullable: false),
-                    IngredientId = table.Column<int>(type: "integer", nullable: false),
-                    IsFavorite = table.Column<bool>(type: "boolean", nullable: false),
-                    LastUsedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_UserIngredientPrefs", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_UserIngredientPrefs_Ingredients_IngredientId",
-                        column: x => x.IngredientId,
-                        principalTable: "Ingredients",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_UserIngredientPrefs_Users_UserId",
-                        column: x => x.UserId,
-                        principalTable: "Users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
+            migrationBuilder.Sql(@"ALTER TABLE ""RecipeSteps"" ADD COLUMN IF NOT EXISTS ""ScaleByLinkedIngredients"" boolean NOT NULL DEFAULT false;");
 
-            migrationBuilder.CreateTable(
-                name: "UserWeekPrefs",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    UserId = table.Column<int>(type: "integer", nullable: false),
-                    WeekId = table.Column<int>(type: "integer", nullable: false),
-                    IsFavorite = table.Column<bool>(type: "boolean", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_UserWeekPrefs", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_UserWeekPrefs_Users_UserId",
-                        column: x => x.UserId,
-                        principalTable: "Users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_UserWeekPrefs_Weeks_WeekId",
-                        column: x => x.WeekId,
-                        principalTable: "Weeks",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
+            migrationBuilder.Sql(@"
+                CREATE TABLE IF NOT EXISTS ""UserIngredientPrefs"" (
+                    ""Id"" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""UserId"" integer NOT NULL,
+                    ""IngredientId"" integer NOT NULL,
+                    ""IsFavorite"" boolean NOT NULL,
+                    ""LastUsedAt"" timestamp with time zone,
+                    CONSTRAINT ""FK_UserIngredientPrefs_Ingredients_IngredientId"" FOREIGN KEY (""IngredientId"") REFERENCES ""Ingredients""(""Id"") ON DELETE CASCADE,
+                    CONSTRAINT ""FK_UserIngredientPrefs_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users""(""Id"") ON DELETE CASCADE
+                );");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_WeekMealSlots_WeekId_DayOfWeek_MealType_Position",
-                table: "WeekMealSlots",
-                columns: new[] { "WeekId", "DayOfWeek", "MealType", "Position" },
-                unique: true);
+            migrationBuilder.Sql(@"
+                CREATE TABLE IF NOT EXISTS ""UserWeekPrefs"" (
+                    ""Id"" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""UserId"" integer NOT NULL,
+                    ""WeekId"" integer NOT NULL,
+                    ""IsFavorite"" boolean NOT NULL,
+                    CONSTRAINT ""FK_UserWeekPrefs_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+                    CONSTRAINT ""FK_UserWeekPrefs_Weeks_WeekId"" FOREIGN KEY (""WeekId"") REFERENCES ""Weeks""(""Id"") ON DELETE CASCADE
+                );");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_UserIngredientPrefs_IngredientId",
-                table: "UserIngredientPrefs",
-                column: "IngredientId");
+            migrationBuilder.Sql(@"CREATE UNIQUE INDEX IF NOT EXISTS ""IX_WeekMealSlots_WeekId_DayOfWeek_MealType_Position"" ON ""WeekMealSlots"" (""WeekId"", ""DayOfWeek"", ""MealType"", ""Position"");");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_UserIngredientPrefs_UserId_IngredientId",
-                table: "UserIngredientPrefs",
-                columns: new[] { "UserId", "IngredientId" },
-                unique: true);
+            migrationBuilder.Sql(@"CREATE INDEX IF NOT EXISTS ""IX_UserIngredientPrefs_IngredientId"" ON ""UserIngredientPrefs"" (""IngredientId"");");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_UserWeekPrefs_UserId_WeekId",
-                table: "UserWeekPrefs",
-                columns: new[] { "UserId", "WeekId" },
-                unique: true);
+            migrationBuilder.Sql(@"CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UserIngredientPrefs_UserId_IngredientId"" ON ""UserIngredientPrefs"" (""UserId"", ""IngredientId"");");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_UserWeekPrefs_WeekId",
-                table: "UserWeekPrefs",
-                column: "WeekId");
+            migrationBuilder.Sql(@"CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UserWeekPrefs_UserId_WeekId"" ON ""UserWeekPrefs"" (""UserId"", ""WeekId"");");
+
+            migrationBuilder.Sql(@"CREATE INDEX IF NOT EXISTS ""IX_UserWeekPrefs_WeekId"" ON ""UserWeekPrefs"" (""WeekId"");");
         }
 
         /// <inheritdoc />

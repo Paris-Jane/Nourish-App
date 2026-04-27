@@ -33,7 +33,7 @@ builder.Services.AddHealthChecks();
 
 var jwtSecret = builder.Configuration["Jwt:Secret"]
     ?? throw new InvalidOperationException(
-        "Jwt:Secret is required. Set it via the Jwt__Secret environment variable in Azure App Service.");
+        "Jwt:Secret is required. Set the Jwt__Secret environment variable.");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -54,7 +54,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-// In Azure App Service set Cors__AllowedOrigins__0=https://your-app.vercel.app
+// Set Cors__AllowedOrigins__0=https://your-app.vercel.app in your host's environment variables
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
