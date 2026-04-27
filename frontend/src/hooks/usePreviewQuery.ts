@@ -1,4 +1,5 @@
 import { useQuery, type QueryKey, type UseQueryOptions } from "@tanstack/react-query";
+import { isPreviewModeEnabled } from "lib/preview";
 
 export function usePreviewQuery<TData>({
   queryKey,
@@ -13,7 +14,8 @@ export function usePreviewQuery<TData>({
   const previewFallbackEnabled =
     import.meta.env.DEV ||
     !import.meta.env.VITE_API_BASE_URL ||
-    import.meta.env.VITE_ENABLE_PREVIEW_FALLBACK === "true";
+    import.meta.env.VITE_ENABLE_PREVIEW_FALLBACK === "true" ||
+    isPreviewModeEnabled();
 
   return useQuery({
     queryKey,

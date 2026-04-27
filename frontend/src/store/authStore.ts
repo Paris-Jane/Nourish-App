@@ -163,6 +163,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.removeItem(HH_ID_KEY);
     }
 
+    if (nextToken) {
+      setPreviewMode(false);
+    }
+
     set((state) => {
       const hid = nextHouseholdId ?? state.householdId;
       let household = state.household;
@@ -174,7 +178,14 @@ export const useAuthStore = create<AuthState>((set) => ({
         persistHousehold(household);
         persistPrefs(prefs);
       }
-      return { token: nextToken, user, householdId: nextHouseholdId, household, householdPreferences: prefs };
+      return {
+        token: nextToken,
+        user,
+        householdId: nextHouseholdId,
+        household,
+        householdPreferences: prefs,
+        previewMode: nextToken ? false : state.previewMode,
+      };
     });
   },
 

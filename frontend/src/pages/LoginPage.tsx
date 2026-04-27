@@ -3,17 +3,22 @@ import { ArrowRight, Ruler, Scale, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { login, register } from "api/auth";
 import { useToast } from "hooks/useToast";
 import { useAuthStore } from "store/authStore";
 import { registerSchema, signInSchema, type RegisterFormValues, type SignInFormValues } from "types/forms";
-import type { ActivityLevel } from "types/models";
+import type { ActivityLevel, User } from "types/models";
 
 const ACTIVITY_LEVELS: ActivityLevel[] = ["Sedentary", "Light", "Moderate", "Active"];
 
 export function LoginPage() {
   const [tab, setTab] = useState<"signin" | "register">("signin");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const enablePreviewMode = useAuthStore((state) => state.enablePreviewMode);
+  const disablePreviewMode = useAuthStore((state) => state.disablePreviewMode);
+  const setSession = useAuthStore((state) => state.setSession);
+  const setHouseholdAndPreferences = useAuthStore((state) => state.setHouseholdAndPreferences);
   const { pushToast } = useToast();
 
   const signInForm = useForm<SignInFormValues>({
@@ -42,6 +47,81 @@ export function LoginPage() {
     enablePreviewMode();
     pushToast("Preview mode is on, so you can keep testing without signing in.");
     navigate("/");
+  }
+
+  function completeAuthSession(response: { token: string; userId: number; householdId: number; displayName: string; email: string }) {
+    const user: User = {
+      id: response.userId,
+      householdId: response.householdId,
+      displayName: response.displayName,
+      email: response.email,
+    };
+    disablePreviewMode();
+    setSession(response.token, user, response.householdId);
+  }
+
+  async function handleSignIn(values: SignInFormValues) {
+    setIsSubmitting(true);
+    try {
+      const response = await login(values);
+      completeAuthSession(response);
+      pushToast(`Welcome back, ${response.displayName}.`);
+      navigate("/");
+    } catch {
+      pushToast("Sign-in failed. Check your email/password and confirm the backend URL is reachable.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleRegister(values: RegisterFormValues) {
+    setIsSubmitting(true);
+    try {
+      const heightInches = values.heightFeet * 12 + values.heightInches;
+      const timezone =
+        typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" : "UTC";
+      const response = await register({
+        email: values.email,
+        password: values.password,
+        displayName: values.displayName,
+        age: values.age,
+        sex: values.sex,
+        activityLevel: values.activityLevel,
+        heightInches,
+        weightPounds: values.weightPounds,
+        householdName: values.householdName,
+        householdSize: values.householdSize,
+        timezone,
+      });
+      completeAuthSession(response);
+      setHouseholdAndPreferences(
+        {
+          id: response.householdId,
+          name: values.householdName,
+          size: values.householdSize,
+          timezone,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 1,
+          householdId: response.householdId,
+          dietaryRestrictions: [],
+          dislikedIngredients: [],
+          cuisinePreferences: [],
+          defaultCookTime: "NoLimit",
+          defaultPrepStyle: "DayOf",
+          myPlateTargets: undefined,
+          updatedAt: new Date().toISOString(),
+        },
+      );
+      pushToast(`Account ready, ${response.displayName}.`);
+      navigate("/");
+    } catch {
+      pushToast("Registration failed. If the email is already used, try signing in instead.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -99,7 +179,7 @@ export function LoginPage() {
           {tab === "signin" ? (
             <form
               className="space-y-4"
-              onSubmit={signInForm.handleSubmit(() => pushToast("Sign-in is scaffolded, but still intentionally not live."))}
+              onSubmit={signInForm.handleSubmit(handleSignIn)}
             >
               <div>
                 <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Email</label>
@@ -109,14 +189,14 @@ export function LoginPage() {
                 <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted">Password</label>
                 <input className="input" type="password" placeholder="••••••••" {...signInForm.register("password")} />
               </div>
-              <button className="button-primary w-full" type="submit">
-                Sign in later
+              <button className="button-primary w-full" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Signing in..." : "Sign in"}
               </button>
             </form>
           ) : (
             <form
               className="space-y-5"
-              onSubmit={registerForm.handleSubmit(() => pushToast("Registration is scaffolded, but still intentionally not live."))}
+              onSubmit={registerForm.handleSubmit(handleRegister)}
             >
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
@@ -230,8 +310,8 @@ export function LoginPage() {
                 </div>
               </div>
 
-              <button className="button-primary w-full" type="submit">
-                Create account later
+              <button className="button-primary w-full" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Creating account..." : "Create account"}
               </button>
             </form>
           )}
