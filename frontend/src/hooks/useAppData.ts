@@ -5,7 +5,7 @@ import { getIngredients } from "api/ingredients";
 import { getRecipes } from "api/recipes";
 import { getSavedWeeks } from "api/savedWeeks";
 import { getWeek, getWeekSlots, listWeeks } from "api/weeks";
-import { usePreviewQuery } from "./usePreviewQuery";
+import { shouldUsePreviewFallback, usePreviewQuery } from "./usePreviewQuery";
 import { buildBlankSlotsForWeek, injectPlanDates } from "lib/mealPlanDates";
 import { mockFridgeItems, mockGroceryList, mockIngredients, mockRecipes, mockSavedTemplates, mockSlots, mockWeek, mockWeeks } from "lib/mockData";
 import { mealTypes, weekDays } from "lib/utils";
@@ -133,13 +133,14 @@ export function useFridgeItems(): { items: FridgeItem[]; isLoading: boolean } {
 }
 
 export function useIngredients(): { ingredients: Ingredient[]; isLoading: boolean } {
+  const previewFallbackEnabled = shouldUsePreviewFallback();
   const query = usePreviewQuery({
     queryKey: ["ingredients"],
     queryFn: getIngredients,
     fallbackData: mockIngredients,
   });
 
-  return { ingredients: query.data ?? mockIngredients, isLoading: query.isLoading };
+  return { ingredients: query.data ?? (previewFallbackEnabled ? mockIngredients : []), isLoading: query.isLoading };
 }
 
 export function useSavedWeeks() {
