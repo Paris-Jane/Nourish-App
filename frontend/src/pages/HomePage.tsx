@@ -955,13 +955,14 @@ export function HomePage() {
         {viewMode === "week" ? (
           <section className="mx-auto w-full max-w-[min(100%,1170px)] px-1 pb-2 sm:px-2 lg:px-4">
             <div className="overflow-hidden rounded-2xl border border-nourish-border bg-white shadow-sm">
-              <div className="flex flex-wrap items-center gap-2 border-b border-nourish-border/70 px-3 py-3 sm:px-4">
+              <div className="overflow-x-auto border-b border-nourish-border/70 px-3 py-3 sm:px-4">
+                <div className="flex min-w-max items-center gap-2">
                 {mealTypes.map((mealType) => (
                   <button
                     key={mealType}
                     type="button"
                     onClick={() => toggleMealType(mealType)}
-                    className={`inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-full border-2 px-4 text-sm font-medium transition ${
+                    className={`inline-flex min-h-[40px] shrink-0 items-center justify-center rounded-full border-2 px-3 text-sm font-medium transition sm:min-h-[44px] sm:px-4 ${
                       visibleMealTypes.includes(mealType)
                         ? "border-nourish-sage bg-nourish-sage text-white"
                         : "border-nourish-sage/50 bg-white text-nourish-sage hover:border-nourish-sage"
@@ -974,7 +975,7 @@ export function HomePage() {
                   type="button"
                   onClick={() => setPlanMode((current) => !current)}
                   className={cn(
-                    "inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-full border px-4 text-sm font-medium transition",
+                    "inline-flex min-h-[40px] shrink-0 items-center justify-center gap-2 rounded-full border px-3 text-sm font-medium transition sm:min-h-[44px] sm:px-4",
                     planMode
                       ? "border-nourish-terracotta bg-nourish-terracotta text-white"
                       : "border-nourish-border bg-white text-nourish-ink hover:border-nourish-terracotta/40 hover:text-nourish-terracotta",
@@ -987,14 +988,14 @@ export function HomePage() {
                   <>
                     <button
                       type="button"
-                      className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white px-4 text-sm font-medium text-nourish-ink transition hover:border-nourish-sage/40 hover:text-nourish-sage"
+                      className="inline-flex min-h-[40px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white px-3 text-sm font-medium text-nourish-ink transition hover:border-nourish-sage/40 hover:text-nourish-sage sm:min-h-[44px] sm:px-4"
                       onClick={() => setLoadTemplateOpen(true)}
                     >
                       Choose template
                     </button>
                     <button
                       type="button"
-                      className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white px-4 text-sm font-medium text-nourish-ink transition hover:border-nourish-sage/40 hover:text-nourish-sage"
+                      className="inline-flex min-h-[40px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white px-3 text-sm font-medium text-nourish-ink transition hover:border-nourish-sage/40 hover:text-nourish-sage sm:min-h-[44px] sm:px-4"
                       onClick={() => {
                         setTemplateNameDraft(week.templateName ?? `Week of ${format(parseISO(week.weekStartDate), "MMM d")}`);
                         setSaveTemplateOpen(true);
@@ -1004,7 +1005,7 @@ export function HomePage() {
                     </button>
                     <button
                       type="button"
-                      className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white px-4 text-sm font-medium text-nourish-ink transition hover:border-nourish-terracotta/40 hover:text-nourish-terracotta"
+                      className="inline-flex min-h-[40px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white px-3 text-sm font-medium text-nourish-ink transition hover:border-nourish-terracotta/40 hover:text-nourish-terracotta sm:min-h-[44px] sm:px-4"
                       onClick={() => setClearWeekOpen(true)}
                     >
                       Clear this week
@@ -1040,6 +1041,7 @@ export function HomePage() {
                       </div>
                     </div>
                   ) : null}
+                </div>
                 </div>
               </div>
               <div className="relative">

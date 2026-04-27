@@ -539,20 +539,6 @@ export function PrepSheetPage() {
             Next
           </button>
         </div>
-        <div className="flex justify-end">
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => {
-              const currentWeekStartIso = format(getCurrentWeekStart(), "yyyy-MM-dd");
-              const currentWeek = weeks.find((entry) => entry.weekStartDate === currentWeekStartIso) ?? weeks[0];
-              if (currentWeek) setActiveWeekId(currentWeek.id);
-              setVisibleWeekStartDate(null);
-            }}
-          >
-            Current week
-          </button>
-        </div>
       </div>
 
       <div className="flex flex-wrap gap-x-8 gap-y-4 rounded-2xl border border-nourish-border bg-white px-5 py-4">

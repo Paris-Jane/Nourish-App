@@ -1,4 +1,4 @@
-import { Plus, Search } from "lucide-react";
+import { ListFilter, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "components/PageHeader";
@@ -46,6 +46,7 @@ export function RecipesPage() {
   const [query, setQuery] = useState("");
   const [mealFilter, setMealFilter] = useState<(typeof mealFilters)[number]>("All");
   const [extraFilter, setExtraFilter] = useState<(typeof extraFilters)[number]>("All");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const filtered = useMemo(
     () =>
@@ -87,39 +88,54 @@ export function RecipesPage() {
         }
       />
 
-      <div className="sticky top-0 z-10 -mx-1 rounded-2xl border border-transparent bg-[#fbf7f2]/95 px-1 py-2 backdrop-blur-sm lg:static lg:z-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+      <div className="sticky top-0 z-10 -mx-1 rounded-2xl border border-transparent bg-nourish-bg/95 px-1 py-2 backdrop-blur-sm lg:static lg:z-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
         <div className="card p-4 shadow-sm lg:shadow-none">
-          <div className="relative">
-            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-nourish-muted" />
-            <input
-              className="input pl-11"
-              placeholder="Search titles, ingredients, meals, tags…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-nourish-muted" />
+              <input
+                className="input pl-11"
+                placeholder="Search titles, ingredients, meals, tags…"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              className="button-secondary min-h-11 min-w-11 shrink-0 p-0"
+              onClick={() => setFiltersOpen((open) => !open)}
+              aria-expanded={filtersOpen}
+              aria-label="Toggle recipe filters"
+            >
+              <ListFilter size={18} aria-hidden />
+            </button>
           </div>
 
-          <p className="mt-4 text-xs font-medium uppercase tracking-wide text-nourish-muted">Meal</p>
-          <div className="-mx-1 mt-2 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
-            {mealFilters.map((option) => (
-              <div key={`meal-${option}`} className="shrink-0">
-                <TagPill active={mealFilter === option} onClick={() => setMealFilter(option)}>
-                  {option}
-                </TagPill>
+          {filtersOpen ? (
+            <>
+              <p className="mt-4 text-xs font-medium uppercase tracking-wide text-nourish-muted">Meal</p>
+              <div className="-mx-1 mt-2 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+                {mealFilters.map((option) => (
+                  <div key={`meal-${option}`} className="shrink-0">
+                    <TagPill active={mealFilter === option} onClick={() => setMealFilter(option)}>
+                      {option}
+                    </TagPill>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <p className="mt-4 text-xs font-medium uppercase tracking-wide text-nourish-muted">Filters</p>
-          <div className="-mx-1 mt-2 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
-            {extraFilters.map((option) => (
-              <div key={`extra-${option}`} className="shrink-0">
-                <TagPill active={extraFilter === option} onClick={() => setExtraFilter(option)}>
-                  {option}
-                </TagPill>
+              <p className="mt-4 text-xs font-medium uppercase tracking-wide text-nourish-muted">Filters</p>
+              <div className="-mx-1 mt-2 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+                {extraFilters.map((option) => (
+                  <div key={`extra-${option}`} className="shrink-0">
+                    <TagPill active={extraFilter === option} onClick={() => setExtraFilter(option)}>
+                      {option}
+                    </TagPill>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          ) : null}
         </div>
       </div>
 

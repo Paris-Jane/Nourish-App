@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { parseISO } from "date-fns";
+import { addDays, parseISO } from "date-fns";
 import { AlertTriangle, Plus, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -66,6 +66,10 @@ function defaultShelfLife(location: FridgeLocation) {
     default:
       return 7;
   }
+}
+
+function formatDateInput(date: Date) {
+  return date.toISOString().slice(0, 10);
 }
 
 export function FridgePage() {
@@ -236,7 +240,10 @@ export function FridgePage() {
       pushToast("Choose or create an ingredient first.");
       return;
     }
-    const expiresAtIso = values.expiresAt ? `${values.expiresAt}T12:00:00.000Z` : null;
+    const fallbackExpiryDate = values.expiresAt
+      ? values.expiresAt
+      : formatDateInput(addDays(new Date(), Math.max(1, ing.shelfLifeDays || defaultShelfLife(values.location))));
+    const expiresAtIso = fallbackExpiryDate ? `${fallbackExpiryDate}T12:00:00.000Z` : null;
     const payload = {
       ingredientId: values.ingredientId,
       quantity: values.quantity,
@@ -569,96 +576,103 @@ export function FridgePage() {
           className="space-y-4"
           onSubmit={form.handleSubmit(onSubmit)}
         >
-          <div>
-            <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted" htmlFor="fridge-add-ingredient-search">
-              Ingredient
-            </label>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-nourish-muted" aria-hidden />
-              <input
-                id="fridge-add-ingredient-search"
-                className="input w-full pl-9"
-                placeholder="Search ingredients…"
-                value={addIngredientQuery}
-                onChange={(e) => setAddIngredientQuery(e.target.value)}
-                autoComplete="off"
-              />
+          {sheetMode === "edit" ? (
+            <div className="rounded-2xl border border-nourish-border bg-nourish-bg/40 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Ingredient</p>
+              <p className="mt-1 text-lg font-medium text-nourish-ink">{selectedIngredientName ?? editingItem?.ingredientName}</p>
             </div>
-            {watchedIngredientId >= 1 && selectedIngredientName ? (
-              <p className="mt-2 text-sm font-medium text-nourish-ink">
-                Selected: <span className="text-nourish-sage">{selectedIngredientName}</span>
-              </p>
-            ) : sheetMode === "add" ? (
-              <p className="mt-2 text-xs text-nourish-muted">Pick an ingredient from the list below.</p>
-            ) : null}
-            {form.formState.errors.ingredientId ? (
-              <p className="mt-1 text-xs text-red-700">{form.formState.errors.ingredientId.message}</p>
-            ) : null}
-            <Controller
-              control={form.control}
-              name="ingredientId"
-              render={({ field }) => (
-                <div className="mt-2 max-h-48 overflow-y-auto overscroll-contain rounded-2xl border border-nourish-border bg-nourish-bg/40 p-1">
-                  {addPickerIngredients.length === 0 ? (
-                    <div className="space-y-3 px-3 py-4 text-center">
-                      <p className="text-sm text-nourish-muted">No ingredients match.</p>
-                      <div className="space-y-2">
-                        <input
-                          className="input"
-                          placeholder="Create a new ingredient"
-                          value={customIngredientName}
-                          onChange={(event) => setCustomIngredientName(event.target.value)}
-                        />
-                        <button type="button" className="button-secondary w-full" onClick={handleCreateCustomIngredient} disabled={createIngredientMutation.isPending}>
-                          {createIngredientMutation.isPending ? "Creating..." : `Add “${(customIngredientName.trim() || addIngredientQuery.trim()) || "this ingredient"}”`}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <ul className="space-y-0.5">
-                      {addPickerIngredients.map((ing) => {
-                        const picked = field.value === ing.id;
-                        return (
-                          <li key={ing.id}>
-                            <button
-                              type="button"
-                              className={`flex w-full rounded-xl px-3 py-2.5 text-left text-sm transition touch-manipulation ${
-                                picked ? "bg-nourish-sage text-white" : "text-nourish-ink hover:bg-white"
-                              }`}
-                              onClick={() => {
-                                field.onChange(ing.id);
-                                form.clearErrors("ingredientId");
-                                form.setValue("unit", ing.purchaseUnit || ing.servingUnit || "item", { shouldValidate: true });
-                                form.setValue("location", ing.defaultLocation ?? tab);
-                              }}
-                            >
-                              {ing.name}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-              )}
-            />
-            {addPickerIngredients.length > 0 && addIngredientQuery.trim() ? (
-              <div className="mt-2 rounded-2xl border border-dashed border-nourish-border bg-nourish-bg/30 p-3">
-                <p className="text-xs text-nourish-muted">Don’t see it?</p>
-                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                  <input
-                    className="input"
-                    placeholder="Create a new ingredient"
-                    value={customIngredientName}
-                    onChange={(event) => setCustomIngredientName(event.target.value)}
-                  />
-                  <button type="button" className="button-secondary shrink-0" onClick={handleCreateCustomIngredient} disabled={createIngredientMutation.isPending}>
-                    {createIngredientMutation.isPending ? "Creating..." : "Add new ingredient"}
-                  </button>
-                </div>
+          ) : (
+            <div>
+              <label className="mb-1 block text-xs font-medium tracking-wide text-nourish-muted" htmlFor="fridge-add-ingredient-search">
+                Ingredient
+              </label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-nourish-muted" aria-hidden />
+                <input
+                  id="fridge-add-ingredient-search"
+                  className="input w-full pl-9"
+                  placeholder="Search ingredients…"
+                  value={addIngredientQuery}
+                  onChange={(e) => setAddIngredientQuery(e.target.value)}
+                  autoComplete="off"
+                />
               </div>
-            ) : null}
-          </div>
+              {watchedIngredientId >= 1 && selectedIngredientName ? (
+                <p className="mt-2 text-sm font-medium text-nourish-ink">
+                  Selected: <span className="text-nourish-sage">{selectedIngredientName}</span>
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-nourish-muted">Pick an ingredient from the list below.</p>
+              )}
+              {form.formState.errors.ingredientId ? (
+                <p className="mt-1 text-xs text-red-700">{form.formState.errors.ingredientId.message}</p>
+              ) : null}
+              <Controller
+                control={form.control}
+                name="ingredientId"
+                render={({ field }) => (
+                  <div className="mt-2 max-h-48 overflow-y-auto overscroll-contain rounded-2xl border border-nourish-border bg-nourish-bg/40 p-1">
+                    {addPickerIngredients.length === 0 ? (
+                      <div className="space-y-3 px-3 py-4 text-center">
+                        <p className="text-sm text-nourish-muted">No ingredients match.</p>
+                        <div className="space-y-2">
+                          <input
+                            className="input"
+                            placeholder="Create a new ingredient"
+                            value={customIngredientName}
+                            onChange={(event) => setCustomIngredientName(event.target.value)}
+                          />
+                          <button type="button" className="button-secondary w-full" onClick={handleCreateCustomIngredient} disabled={createIngredientMutation.isPending}>
+                            {createIngredientMutation.isPending ? "Creating..." : `Add “${(customIngredientName.trim() || addIngredientQuery.trim()) || "this ingredient"}”`}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <ul className="space-y-0.5">
+                        {addPickerIngredients.map((ing) => {
+                          const picked = field.value === ing.id;
+                          return (
+                            <li key={ing.id}>
+                              <button
+                                type="button"
+                                className={`flex w-full rounded-xl px-3 py-2.5 text-left text-sm transition touch-manipulation ${
+                                  picked ? "bg-nourish-sage text-white" : "text-nourish-ink hover:bg-white"
+                                }`}
+                                onClick={() => {
+                                  field.onChange(ing.id);
+                                  form.clearErrors("ingredientId");
+                                  form.setValue("unit", ing.purchaseUnit || ing.servingUnit || "item", { shouldValidate: true });
+                                  form.setValue("location", ing.defaultLocation ?? tab);
+                                }}
+                              >
+                                {ing.name}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              />
+              {addPickerIngredients.length > 0 && addIngredientQuery.trim() ? (
+                <div className="mt-2 rounded-2xl border border-dashed border-nourish-border bg-nourish-bg/30 p-3">
+                  <p className="text-xs text-nourish-muted">Don’t see it?</p>
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                    <input
+                      className="input"
+                      placeholder="Create a new ingredient"
+                      value={customIngredientName}
+                      onChange={(event) => setCustomIngredientName(event.target.value)}
+                    />
+                    <button type="button" className="button-secondary shrink-0" onClick={handleCreateCustomIngredient} disabled={createIngredientMutation.isPending}>
+                      {createIngredientMutation.isPending ? "Creating..." : "Add new ingredient"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium tracking-wide text-nourish-muted">How much do you have?</label>
@@ -697,6 +711,11 @@ export function FridgePage() {
           <div>
             <label className="block text-xs font-medium tracking-wide text-nourish-muted">Expiry (optional)</label>
             <input className="input mt-1" type="date" {...form.register("expiresAt")} />
+            {!form.watch("expiresAt") && selectedIngredient ? (
+              <p className="mt-2 text-xs text-nourish-muted">
+                If you leave this blank, Nourish will use an estimated shelf life of about {selectedIngredient.shelfLifeDays || defaultShelfLife(form.getValues("location"))} days.
+              </p>
+            ) : null}
           </div>
           <button className="button-primary w-full" type="submit">
             {sheetMode === "edit" ? "Save changes" : "Save item"}

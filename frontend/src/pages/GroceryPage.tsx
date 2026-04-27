@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addDays, format, parseISO } from "date-fns";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -88,6 +88,7 @@ export function GroceryPage() {
 
   const [deleteRevealedId, setDeleteRevealedId] = useState<number | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [weekChooserOpen, setWeekChooserOpen] = useState(false);
   const autoSyncSignatureRef = useRef<string | null>(null);
   const currentWeekIndex = useMemo(() => weeks.findIndex((entry) => entry.id === week.id), [week.id, weeks]);
   const previousWeek = currentWeekIndex > 0 ? weeks[currentWeekIndex - 1] : null;
@@ -459,50 +460,78 @@ export function GroceryPage() {
     <div className="space-y-5 pb-28 lg:pb-10">
       <PageHeader
         title="Grocery List"
-        subtitle=" "
+        subtitle={`${format(parseISO(week.weekStartDate), "MMM d")} - ${format(addDays(parseISO(week.weekStartDate), 6), "MMM d")}`}
         action={
-          <button type="button" className="button-secondary inline-flex items-center gap-2" onClick={() => setAddOpen(true)}>
-            <Plus size={18} aria-hidden />
-            Add item
-          </button>
-        }
-      />
-      <div className="card space-y-4 p-5">
-        <div className="flex flex-wrap items-center gap-2">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-end">
+            <button type="button" className="button-secondary inline-flex items-center gap-2" onClick={() => setAddOpen(true)}>
+              <Plus size={18} aria-hidden />
+              Add item
+            </button>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="button-secondary"
+                className="button-secondary min-h-11 min-w-11 p-0"
                 onClick={() => {
                   if (!previousWeek) return;
                   setActiveWeekId(previousWeek.id);
                   setVisibleWeekStartDate(null);
                 }}
                 disabled={!previousWeek}
+                aria-label="Previous grocery week"
               >
-                Previous week
+                <ChevronLeft size={18} />
               </button>
               <button
                 type="button"
-                className="button-secondary min-w-[220px] justify-center"
-                onClick={() => setVisibleWeekStartDate(null)}
+                className="button-secondary min-w-[170px] justify-center lg:min-w-[190px]"
+                onClick={() => setWeekChooserOpen((open) => !open)}
               >
                 {format(parseISO(week.weekStartDate), "MMM d")} - {format(addDays(parseISO(week.weekStartDate), 6), "MMM d")}
               </button>
               <button
                 type="button"
-                className="button-secondary"
+                className="button-secondary min-h-11 min-w-11 p-0"
                 onClick={() => {
                   if (!nextWeek) return;
                   setActiveWeekId(nextWeek.id);
                   setVisibleWeekStartDate(null);
                 }}
                 disabled={!nextWeek}
+                aria-label="Next grocery week"
               >
-                Next week
+                <ChevronRight size={18} />
               </button>
             </div>
-        </div>
+          </div>
+        }
+      />
+      <div className="card space-y-4 p-5">
+        {weekChooserOpen ? (
+          <div className="rounded-2xl border border-nourish-border bg-nourish-bg/40 p-2">
+            <div className="max-h-64 overflow-y-auto">
+              {weeks.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm transition",
+                    entry.id === week.id ? "bg-white text-nourish-ink shadow-sm" : "text-nourish-muted hover:bg-white",
+                  )}
+                  onClick={() => {
+                    setActiveWeekId(entry.id);
+                    setVisibleWeekStartDate(null);
+                    setWeekChooserOpen(false);
+                  }}
+                >
+                  <span>
+                    {format(parseISO(entry.weekStartDate), "MMM d")} - {format(addDays(parseISO(entry.weekStartDate), 6), "MMM d")}
+                  </span>
+                  {entry.id === week.id ? <span className="text-xs font-medium text-nourish-sage">Current</span> : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <ProgressBar value={checkedCount} total={items.length} />
 
@@ -528,32 +557,6 @@ export function GroceryPage() {
             <button type="button" className="button-secondary" onClick={() => setAddOpen(true)}>
               Add an item
             </button>
-          </div>
-        </div>
-      ) : null}
-
-      {coveredItems.length > 0 ? (
-        <div className="card p-5">
-          <SectionHeader icon="✓" title="Make sure you have" />
-          <p className="mt-2 text-sm text-nourish-muted">These ingredients are already covered by your fridge, pantry, or freezer, so they do not need to be purchased again for this week.</p>
-          <div className="mt-4 space-y-3">
-            {coveredItems.map((item) => (
-              <div key={`${item.ingredientId}-${item.unit}`} className="rounded-2xl bg-[#fcfaf7] px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium text-nourish-ink">{item.ingredientName}</p>
-                    <p className="text-sm text-nourish-muted">
-                      Need {item.quantityNeeded} {item.unit} · you already have {item.kitchenQuantity} {item.unit}
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-nourish-muted">
-                      <span className="font-medium text-nourish-ink/70">For recipes: </span>
-                      {Array.from(item.recipeIds).map((id) => recipeNamesById.get(id)).filter(Boolean).join(", ")}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-nourish-sage">{item.storeSection}</span>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       ) : null}
@@ -609,6 +612,32 @@ export function GroceryPage() {
             ))}
           </div>
         </details>
+      ) : null}
+
+      {coveredItems.length > 0 ? (
+        <div className="card p-5">
+          <SectionHeader icon="✓" title="Make sure you have" />
+          <p className="mt-2 text-sm text-nourish-muted">These ingredients are already covered by your fridge, pantry, or freezer, so they do not need to be purchased again for this week.</p>
+          <div className="mt-4 space-y-3">
+            {coveredItems.map((item) => (
+              <div key={`${item.ingredientId}-${item.unit}`} className="rounded-2xl bg-[#fcfaf7] px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-nourish-ink">{item.ingredientName}</p>
+                    <p className="text-sm text-nourish-muted">
+                      Need {item.quantityNeeded} {item.unit} · you already have {item.kitchenQuantity} {item.unit}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-nourish-muted">
+                      <span className="font-medium text-nourish-ink/70">For recipes: </span>
+                      {Array.from(item.recipeIds).map((id) => recipeNamesById.get(id)).filter(Boolean).join(", ")}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-nourish-sage">{item.storeSection}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       ) : null}
 
       <BottomSheet open={addOpen} title="Add grocery item" onClose={() => setAddOpen(false)}>

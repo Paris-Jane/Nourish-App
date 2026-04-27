@@ -17,9 +17,6 @@
 
   body {
     @apply m-0 min-h-screen bg-nourish-bg font-body text-nourish-ink antialiased;
-    background-image:
-      radial-gradient(circle at top left, rgba(196, 113, 79, 0.1), transparent 28%),
-      radial-gradient(circle at top right, rgba(124, 158, 135, 0.12), transparent 30%);
   }
 
   button,
