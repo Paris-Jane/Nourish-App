@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
-import { CalendarDays, ChefHat, ChevronRight, Refrigerator, ShoppingBasket, Soup, UserCircle } from "lucide-react";
+import { CalendarDays, ChefHat, ChevronRight, Refrigerator, ShoppingBasket, Soup } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { reconcilePastMeals } from "api/fridge";
@@ -49,31 +49,33 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="hidden h-screen w-72 shrink-0 sticky top-0 border-r border-nourish-border bg-[#f7f2ec] p-6 lg:flex lg:flex-col">
-        <Link to="/" className="mb-10 font-heading text-4xl tracking-tight text-nourish-ink">
-          Nourish
-        </Link>
-        <nav className="space-y-2">
-          {mainNavItems.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition",
-                  isActive ? "bg-white text-nourish-ink shadow-sm" : "text-nourish-muted hover:bg-white/70",
-                )
-              }
-            >
-              <Icon size={18} />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
+      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 border-r border-nourish-border bg-[#f7f2ec] p-6 lg:flex lg:flex-col lg:justify-between">
+        <div>
+          <Link to="/" className="mb-10 block font-heading text-4xl tracking-tight text-nourish-ink">
+            Nourish
+          </Link>
+          <nav className="space-y-2">
+            {mainNavItems.map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition",
+                    isActive ? "bg-white text-nourish-ink shadow-sm" : "text-nourish-muted hover:bg-white/70",
+                  )
+                }
+              >
+                <Icon size={18} />
+                {label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
         <button
           type="button"
           onClick={() => navigate("/profile")}
-          className="mt-auto flex w-full items-center justify-between gap-3 rounded-2xl border border-transparent bg-white p-4 text-left text-sm text-nourish-muted shadow-sm transition hover:border-nourish-border hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-nourish-sage focus-visible:ring-offset-2 focus-visible:ring-offset-[#f7f2ec]"
+          className="mt-8 flex w-full items-center justify-between gap-3 rounded-2xl border border-transparent bg-white p-4 text-left text-sm text-nourish-muted shadow-sm transition hover:border-nourish-border hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-nourish-sage focus-visible:ring-offset-2 focus-visible:ring-offset-[#f7f2ec]"
         >
           <div className="min-w-0">
             <p className="truncate font-medium text-nourish-ink">{user?.displayName ?? "Preview Household"}</p>
@@ -84,21 +86,7 @@ export function AppShell() {
         </button>
       </aside>
 
-      <div className="sticky top-0 z-20 flex items-center justify-between border-b border-nourish-border bg-[#f7f2ec]/95 px-4 py-3 backdrop-blur lg:hidden">
-        <Link to="/" className="font-heading text-3xl tracking-tight text-nourish-ink">
-          Nourish
-        </Link>
-        <button
-          type="button"
-          onClick={() => navigate("/profile")}
-          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-nourish-border bg-white text-nourish-muted shadow-sm transition hover:border-nourish-sage/40 hover:text-nourish-ink"
-          aria-label="Open profile"
-        >
-          <UserCircle size={20} aria-hidden />
-        </button>
-      </div>
-
-      <main className="flex-1 px-4 pb-28 pt-4 lg:px-8 lg:pb-8 lg:pt-8">
+      <main className="min-w-0 flex-1 overflow-x-clip px-4 pb-28 pt-3 lg:px-8 lg:pb-8 lg:pt-8">
         <Outlet />
       </main>
 

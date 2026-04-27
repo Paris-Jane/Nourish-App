@@ -33,6 +33,18 @@ For development, you can use .NET user secrets to keep credentials out of source
 cd MealPlanner.Api
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Database=mealplanner;Username=postgres;Password=your_password"
 dotnet user-secrets set "Jwt:Secret" "your-super-secret-jwt-key-at-least-32-characters-long!!"
+dotnet user-secrets set "OpenAI:ApiKey" "<your-openai-api-key>"
+```
+
+Optional AI recipe formatting settings:
+
+```json
+{
+  "OpenAI": {
+    "ApiKey": "your-openai-api-key",
+    "RecipeModel": "gpt-4o-mini"
+  }
+}
 ```
 
 ### 2. Install dependencies

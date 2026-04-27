@@ -1,5 +1,5 @@
 import { apiClient, unwrap } from "./client";
-import type { MealType, Recipe, RecipeCandidate, UserRecipePref } from "types/models";
+import type { Ingredient, MealType, Recipe, RecipeCandidate, UserRecipePref } from "types/models";
 
 export interface RecipeRequest {
   name: string;
@@ -31,6 +31,12 @@ export interface RecipeRequest {
   }>;
 }
 
+export interface RecipeAnalysisResult {
+  draft: RecipeRequest;
+  warnings: string[];
+  createdIngredients: Ingredient[];
+}
+
 export function getRecipes() {
   return unwrap<Recipe[]>(apiClient.get("/api/recipes"));
 }
@@ -56,7 +62,7 @@ export function deleteRecipe(id: string) {
 }
 
 export function analyzeRecipe(rawText: string) {
-  return unwrap<RecipeRequest>(apiClient.post("/api/recipes/analyze", { rawText }));
+  return unwrap<RecipeAnalysisResult>(apiClient.post("/api/recipes/analyze", { rawText }));
 }
 
 export function getRecipePreference(id: number) {

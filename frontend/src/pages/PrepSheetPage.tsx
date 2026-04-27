@@ -488,67 +488,71 @@ export function PrepSheetPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-24">
-      <div className="space-y-3">
+      <div className="space-y-2">
         <PageHeader
           title="Sunday meal prep"
           subtitle={`Week of ${format(parseISO(week.weekStartDate), "MMMM d, yyyy")}`}
         />
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={() => {
-            if (!previousWeek) return;
-            setActiveWeekId(previousWeek.id);
-            setVisibleWeekStartDate(null);
-          }}
-          disabled={!previousWeek}
-        >
-          Previous week
-        </button>
-        <label className="sr-only" htmlFor="prep-week-select">
-          Choose meal prep week
-        </label>
-        <select
-          id="prep-week-select"
-          className="input min-w-[180px] bg-white"
-          value={week.id}
-          onChange={(event) => {
-            setActiveWeekId(Number(event.target.value));
-            setVisibleWeekStartDate(null);
-          }}
-        >
-          {weeks.map((entry) => (
-            <option key={entry.id} value={entry.id}>
-              {format(parseISO(entry.weekStartDate), "MMM d")} – {format(addDays(parseISO(entry.weekStartDate), 6), "MMM d")}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={() => {
-            if (!nextWeek) return;
-            setActiveWeekId(nextWeek.id);
-            setVisibleWeekStartDate(null);
-          }}
-          disabled={!nextWeek}
-        >
-          Next week
-        </button>
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={() => {
-            const currentWeekStartIso = format(getCurrentWeekStart(), "yyyy-MM-dd");
-            const currentWeek = weeks.find((entry) => entry.weekStartDate === currentWeekStartIso) ?? weeks[0];
-            if (currentWeek) setActiveWeekId(currentWeek.id);
-            setVisibleWeekStartDate(null);
-          }}
-        >
-          Current week
-        </button>
+      <div className="space-y-2 rounded-2xl border border-nourish-border bg-white p-3 shadow-sm sm:p-4">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="button-secondary min-h-11 min-w-11 shrink-0 px-4"
+            onClick={() => {
+              if (!previousWeek) return;
+              setActiveWeekId(previousWeek.id);
+              setVisibleWeekStartDate(null);
+            }}
+            disabled={!previousWeek}
+          >
+            Previous
+          </button>
+          <label className="sr-only" htmlFor="prep-week-select">
+            Choose meal prep week
+          </label>
+          <select
+            id="prep-week-select"
+            className="input min-h-11 min-w-0 flex-1 bg-white"
+            value={week.id}
+            onChange={(event) => {
+              setActiveWeekId(Number(event.target.value));
+              setVisibleWeekStartDate(null);
+            }}
+          >
+            {weeks.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {format(parseISO(entry.weekStartDate), "MMM d")} – {format(addDays(parseISO(entry.weekStartDate), 6), "MMM d")}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="button-secondary min-h-11 min-w-11 shrink-0 px-4"
+            onClick={() => {
+              if (!nextWeek) return;
+              setActiveWeekId(nextWeek.id);
+              setVisibleWeekStartDate(null);
+            }}
+            disabled={!nextWeek}
+          >
+            Next
+          </button>
+        </div>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => {
+              const currentWeekStartIso = format(getCurrentWeekStart(), "yyyy-MM-dd");
+              const currentWeek = weeks.find((entry) => entry.weekStartDate === currentWeekStartIso) ?? weeks[0];
+              if (currentWeek) setActiveWeekId(currentWeek.id);
+              setVisibleWeekStartDate(null);
+            }}
+          >
+            Current week
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-x-8 gap-y-4 rounded-2xl border border-nourish-border bg-white px-5 py-4">

@@ -24,6 +24,7 @@ builder.Services.AddScoped<IGroceryListService, GroceryListService>();
 builder.Services.AddScoped<IFridgeService, FridgeService>();
 builder.Services.AddScoped<IIngredientLookupService, IngredientLookupService>();
 builder.Services.AddScoped<IPrepSheetService, PrepSheetService>();
+builder.Services.AddHttpClient<IRecipeAnalysisService, RecipeAnalysisService>();
 
 // ── Health checks ─────────────────────────────────────────────────────────────
 

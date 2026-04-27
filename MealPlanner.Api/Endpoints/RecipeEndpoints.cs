@@ -3,6 +3,7 @@ using MealPlanner.Api.Data;
 using MealPlanner.Api.DTOs;
 using MealPlanner.Api.Extensions;
 using MealPlanner.Api.Models;
+using MealPlanner.Api.Services;
 
 namespace MealPlanner.Api.Endpoints;
 
@@ -14,6 +15,7 @@ public static class RecipeEndpoints
 
         group.MapGet("/", GetAll);
         group.MapGet("/search", Search);
+        group.MapPost("/analyze", Analyze);
         group.MapGet("/{id:int}", GetById);
         group.MapPost("/", Create);
         group.MapPut("/{id:int}", Update);
@@ -89,6 +91,17 @@ public static class RecipeEndpoints
             .Include(r => r.Steps)
             .FirstOrDefaultAsync(r => r.Id == id && r.HouseholdId == householdId);
         return recipe == null ? Results.NotFound() : Results.Ok(ToDto(recipe));
+    }
+
+    private static async Task<IResult> Analyze(
+        AnalyzeRecipeRequest req,
+        IRecipeAnalysisService analysisService,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken)
+    {
+        var householdId = user.GetHouseholdId();
+        var draft = await analysisService.AnalyzeAsync(householdId, req.RawText, cancellationToken);
+        return Results.Ok(draft);
     }
 
     private static async Task<IResult> Create(RecipeRequest req, AppDbContext db, ClaimsPrincipal user)

@@ -103,3 +103,11 @@ public record AddRecipeModifierRequest(
     string? Unit = null,
     string? Notes = null
 );
+
+public record AnalyzeRecipeRequest(string RawText);
+
+public record RecipeAnalysisResponse(
+    RecipeRequest Draft,
+    List<string> Warnings,
+    List<IngredientResponse> CreatedIngredients
+);

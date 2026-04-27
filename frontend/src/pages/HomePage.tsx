@@ -870,10 +870,10 @@ export function HomePage() {
 
   return (
     <ErrorBoundary>
-      <div className="relative pb-[calc(9rem+env(safe-area-inset-bottom))] pt-1 lg:pb-28 lg:pt-2">
-        <header className="sticky top-0 z-30 border-b border-nourish-border/80 bg-nourish-bg/95 px-4 py-3 backdrop-blur-md lg:relative lg:z-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
+      <div className="relative overflow-x-clip pb-[calc(9rem+env(safe-area-inset-bottom))] pt-1 lg:pb-28 lg:pt-2">
+        <header className="px-1 py-2 lg:px-0 lg:py-0">
           <div className="mx-auto flex w-full max-w-[min(100%,1170px)] items-center justify-center">
-            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <div className="flex min-w-0 items-center gap-2.5 sm:gap-4">
               <button
                 type="button"
                 className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border border-nourish-border bg-white text-nourish-ink shadow-sm transition hover:bg-nourish-bg"
@@ -907,7 +907,7 @@ export function HomePage() {
         </header>
 
         {viewMode === "week" ? (
-          <div className="mx-auto mb-2 flex max-w-[min(100%,1170px)] justify-between gap-0.5 px-4 lg:hidden">
+          <div className="mx-auto mb-3 flex max-w-[min(100%,1170px)] justify-between gap-1 px-1 lg:hidden">
             {weekDays.map((day, i) => {
               const colDate = addDays(weekStartDate, i);
               const colToday = isToday(colDate);
@@ -953,9 +953,9 @@ export function HomePage() {
         ) : null}
 
         {viewMode === "week" ? (
-          <section className="mx-auto w-full max-w-[min(100%,1170px)] px-4 pb-2">
+          <section className="mx-auto w-full max-w-[min(100%,1170px)] px-1 pb-2 sm:px-2 lg:px-4">
             <div className="overflow-hidden rounded-2xl border border-nourish-border bg-white shadow-sm">
-              <div className="flex flex-wrap items-center gap-2 border-b border-nourish-border/70 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2 border-b border-nourish-border/70 px-3 py-3 sm:px-4">
                 {mealTypes.map((mealType) => (
                   <button
                     key={mealType}
@@ -1045,7 +1045,7 @@ export function HomePage() {
               <div className="relative">
                 <div
                   ref={weekScrollerRef}
-                  className="flex w-full snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-24 pt-3 max-lg:pb-24 lg:grid lg:min-w-0 lg:grid-cols-7 lg:gap-2 lg:overflow-visible lg:px-3 lg:pb-6 lg:pt-3"
+                  className="flex w-full snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-3 pb-24 pt-3 max-lg:pb-24 lg:grid lg:min-w-0 lg:grid-cols-7 lg:gap-2 lg:overflow-visible lg:px-3 lg:pb-6 lg:pt-3"
                 >
                   {weekDays.map((day) => (
                     <div
@@ -1054,7 +1054,7 @@ export function HomePage() {
                       ref={(node) => {
                         dayRefs.current[day] = node;
                       }}
-                      className="w-[calc(100%-1.25rem)] max-w-[calc(100%-1.25rem)] shrink-0 snap-start max-lg:flex-none lg:w-auto lg:max-w-none lg:min-w-0"
+                      className="w-[85vw] max-w-[22rem] shrink-0 snap-start max-lg:flex-none lg:w-auto lg:max-w-none lg:min-w-0"
                     >
                       <DayColumn
                         day={day}

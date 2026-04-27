@@ -2,10 +2,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFieldArray, useForm } from "react-hook-form";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "components/PageHeader";
-import { createRecipe, updateRecipe } from "api/recipes";
+import { analyzeRecipe, createRecipe, type RecipeAnalysisResult, updateRecipe } from "api/recipes";
 import { useIngredients, useRecipes } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
 import { estimateFoodGroupServings } from "lib/foodGroupMath";
@@ -31,6 +31,7 @@ export function RecipeFormPage() {
   const { recipes } = useRecipes();
   const { pushToast } = useToast();
   const [rawRecipeText, setRawRecipeText] = useState("");
+  const [analysisPreview, setAnalysisPreview] = useState<RecipeAnalysisResult | null>(null);
   const existing = recipes.find((recipe) => String(recipe.id) === id);
 
   const form = useForm<RecipeFormValues>({
@@ -190,6 +191,63 @@ export function RecipeFormPage() {
       navigate(`/recipes/${optimisticRecipe.id}`);
     },
   });
+
+  const analyzeRecipeMutation = useMutation({
+    mutationFn: (rawText: string) => analyzeRecipe(rawText),
+    onSuccess: (result) => {
+      if (result.createdIngredients.length > 0) {
+        queryClient.setQueryData(["ingredients"], (current: unknown) => {
+          const existingIngredients = Array.isArray(current) ? (current as typeof ingredients) : ingredients;
+          const existingIds = new Set(existingIngredients.map((ingredient) => ingredient.id));
+          const merged = [...existingIngredients];
+          result.createdIngredients.forEach((ingredient) => {
+            if (!existingIds.has(ingredient.id)) merged.push(ingredient);
+          });
+          return merged;
+        });
+      }
+      setAnalysisPreview(result);
+      pushToast("AI draft ready for review.");
+    },
+    onError: () => {
+      pushToast("AI couldn’t format that recipe yet. Check your OpenAI key and try again.");
+    },
+  });
+
+  function applyAnalysisDraft(result: RecipeAnalysisResult) {
+    const draftValues: RecipeFormValues = {
+      name: result.draft.name,
+      cuisine: result.draft.cuisine || "Household favorite",
+      scalabilityTag: result.draft.scalabilityTag,
+      timeTag: result.draft.timeTag,
+      prepStyleTag: result.draft.prepStyleTag,
+      isFreezerFriendly: result.draft.isFreezerFriendly,
+      isCookFreshOnly: result.draft.isCookFreshOnly,
+      baseYieldServings: result.draft.baseYieldServings,
+      mealTypeTags: result.draft.mealTypeTags,
+      ingredients: result.draft.ingredients.map((ingredient) => ({
+        ingredientId: ingredient.ingredientId,
+        quantity: ingredient.quantity,
+        unit: ingredient.unit,
+        isOptional: ingredient.isOptional ?? false,
+        isModifier: ingredient.isModifier ?? false,
+      })),
+      steps: result.draft.steps.map((step) => ({
+        instruction: step.instruction,
+        timingTag: step.timingTag,
+        durationMinutes: step.durationMinutes,
+        prepCategory: step.prepCategory ?? "AssemblePortion",
+        linkedIngredientIds: step.linkedIngredientIds ?? [],
+        scaleByLinkedIngredients: step.scaleByLinkedIngredients ?? false,
+      })),
+    };
+
+    form.reset(draftValues);
+    ingredientFields.replace(draftValues.ingredients);
+    stepFields.replace(draftValues.steps);
+    setAnalysisPreview(null);
+    pushToast("AI draft added to the recipe form.");
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -399,11 +457,93 @@ export function RecipeFormPage() {
             className="input min-h-32"
             value={rawRecipeText}
             onChange={(event) => setRawRecipeText(event.target.value)}
-            placeholder="Paste raw recipe text here for future analysis."
+            placeholder="Tell AI what recipe you want, paste instructions, or drop in a recipe link."
           />
-          <button type="button" className="button-secondary mt-4" onClick={() => pushToast("The frontend hook is ready. The backend analyze endpoint just doesn’t exist yet.")}>
-            AI assist
+          <p className="mt-2 text-xs text-nourish-muted">
+            AI will draft the ingredients, meal tags, modifiers, and prep-aware steps in Nourish format so you can review before using it.
+          </p>
+          <button
+            type="button"
+            className="button-secondary mt-4 inline-flex items-center gap-2"
+            onClick={() => analyzeRecipeMutation.mutate(rawRecipeText)}
+            disabled={analyzeRecipeMutation.isPending || rawRecipeText.trim().length < 10}
+          >
+            <Sparkles size={16} aria-hidden />
+            {analyzeRecipeMutation.isPending ? "Formatting..." : "Format with AI"}
           </button>
+          {analysisPreview ? (
+            <div className="mt-5 rounded-2xl border border-nourish-border bg-nourish-bg/50 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-nourish-muted">Preview draft</p>
+                  <h3 className="mt-1 text-2xl text-nourish-ink">{analysisPreview.draft.name}</h3>
+                  <p className="mt-1 text-sm text-nourish-muted">
+                    {analysisPreview.draft.cuisine} · {analysisPreview.draft.timeTag} · yields {analysisPreview.draft.baseYieldServings}
+                  </p>
+                </div>
+                <button type="button" className="button-primary" onClick={() => applyAnalysisDraft(analysisPreview)}>
+                  Use this draft
+                </button>
+              </div>
+
+              {analysisPreview.warnings.length > 0 ? (
+                <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-3">
+                  <p className="text-sm font-medium text-amber-950">AI assumptions</p>
+                  <ul className="mt-2 space-y-1 text-sm text-amber-900">
+                    {analysisPreview.warnings.map((warning) => (
+                      <li key={warning}>• {warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {analysisPreview.createdIngredients.length > 0 ? (
+                <div className="mt-4 rounded-2xl border border-nourish-border bg-white p-3">
+                  <p className="text-sm font-medium text-nourish-ink">New ingredients added for this draft</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {analysisPreview.createdIngredients.map((ingredient) => (
+                      <span key={ingredient.id} className="rounded-full bg-nourish-sage/10 px-3 py-1 text-xs font-medium text-nourish-sage">
+                        {ingredient.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-nourish-border bg-white p-4">
+                  <p className="text-sm font-medium text-nourish-ink">Ingredients</p>
+                  <ul className="mt-2 space-y-2 text-sm text-nourish-muted">
+                    {analysisPreview.draft.ingredients.map((ingredient, index) => {
+                      const ingredientMeta = [...ingredients, ...analysisPreview.createdIngredients].find((entry) => entry.id === ingredient.ingredientId);
+                      return (
+                        <li key={`${ingredient.ingredientId}-${index}`}>
+                          <span className="font-medium text-nourish-ink">{ingredientMeta?.name ?? `Ingredient ${index + 1}`}</span>
+                          <span> · {ingredient.quantity} {ingredient.unit}</span>
+                          {ingredient.isModifier || ingredient.isOptional ? (
+                            <span className="ml-2 rounded-full bg-nourish-terracotta/10 px-2 py-0.5 text-[11px] font-medium text-nourish-terracotta">
+                              add-on
+                            </span>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+                <div className="rounded-2xl border border-nourish-border bg-white p-4">
+                  <p className="text-sm font-medium text-nourish-ink">Steps</p>
+                  <ol className="mt-2 space-y-2 text-sm text-nourish-muted">
+                    {analysisPreview.draft.steps.map((step) => (
+                      <li key={step.stepNumber}>
+                        <span className="font-medium text-nourish-ink">Step {step.stepNumber}</span>
+                        <p className="mt-1">{step.instruction}</p>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <button className="button-primary w-full" type="submit" disabled={saveRecipeMutation.isPending}>
