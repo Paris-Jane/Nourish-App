@@ -7,11 +7,12 @@ import type { FridgeItem } from "types/models";
 interface FridgeItemRowProps {
   item: FridgeItem;
   rowId?: string;
+  plannedPills?: string[];
   onEdit: () => void;
   onDelete: () => void;
 }
 
-export function FridgeItemRow({ item, rowId, onEdit, onDelete }: FridgeItemRowProps) {
+export function FridgeItemRow({ item, rowId, plannedPills = [], onEdit, onDelete }: FridgeItemRowProps) {
   const remaining = daysUntil(item.expiresAt);
   const label = formatExpiryLine(remaining);
   const urgency = expiryUrgencyRowClass(remaining);
@@ -29,6 +30,15 @@ export function FridgeItemRow({ item, rowId, onEdit, onDelete }: FridgeItemRowPr
           <p className="truncate text-sm text-nourish-muted">
             {item.quantity} {item.unit}
           </p>
+          {plannedPills.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {plannedPills.map((pill) => (
+                <span key={pill} className="rounded-full bg-nourish-sage/10 px-2 py-1 text-[11px] font-medium text-nourish-sage">
+                  {pill}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       </button>
       <div className="flex shrink-0 flex-col items-end justify-center gap-1 pl-1 pr-2 sm:flex-row sm:items-center sm:gap-2 sm:pr-3">

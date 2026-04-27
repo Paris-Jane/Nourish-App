@@ -15,6 +15,8 @@ export type SnackRecommendation = {
   description: string;
   foodGroups: MyPlateGroupKey[];
   fridgeHint?: string | null;
+  recipeId?: number | null;
+  selectedModifierIngredientIds?: number[];
 };
 
 type SnackCatalogItem = {
@@ -201,7 +203,46 @@ function scoreSnack(item: SnackCatalogItem, remaining: Record<MyPlateGroupKey, n
 export function generateSnackRecommendations(
   progress: DailyFoodGroupProgress,
   fridgeItems: FridgeItem[],
+  recipes: Recipe[] = [],
 ): SnackRecommendation[] {
+  const snackRecipes = recipes.filter((recipe) => recipe.mealTypeTags.includes("Snack"));
+  if (snackRecipes.length > 0) {
+    const scored = snackRecipes
+      .map((recipe) => {
+        const servingsByGroup = Object.entries(recipe.foodGroupServings).reduce<Partial<Record<MyPlateGroupKey, number>>>((acc, [group, servings]) => {
+          const normalized = normalizeGroupKey(group);
+          if (!normalized || Number(servings) <= 0) return acc;
+          acc[normalized] = (acc[normalized] ?? 0) + Number(servings);
+          return acc;
+        }, {});
+        const groups = Object.keys(servingsByGroup) as MyPlateGroupKey[];
+
+        const score = groups.reduce((sum, group) => sum + Math.min(progress.remaining[group], servingsByGroup[group] ?? 0), 0);
+        const fridgeOverlap = recipe.ingredients.filter((ingredient) => fridgeItems.some((item) => item.ingredientId === ingredient.ingredientId)).length;
+        return { recipe, groups, score, fridgeOverlap };
+      })
+      .filter((entry) => entry.score > 0 && entry.groups.length > 0)
+      .sort((a, b) => b.score - a.score || b.fridgeOverlap - a.fridgeOverlap || a.recipe.name.localeCompare(b.recipe.name))
+      .slice(0, 3);
+
+    if (scored.length > 0) {
+      return scored.map(({ recipe, groups, fridgeOverlap }) => ({
+        id: `recipe-${recipe.id}`,
+        label: recipe.name,
+        description:
+          recipe.timeTag === "Quick"
+            ? "Quick snack recipe that helps fill today’s gaps."
+            : recipe.timeTag === "Medium"
+              ? "A slightly more filling snack option for today."
+              : "A more involved snack option that helps round out the day.",
+        foodGroups: groups,
+        fridgeHint: fridgeOverlap > 0 ? `Uses ${fridgeOverlap} ingredient${fridgeOverlap === 1 ? "" : "s"} already in your kitchen` : null,
+        recipeId: recipe.id,
+        selectedModifierIngredientIds: [],
+      }));
+    }
+  }
+
   const remaining = { ...progress.remaining };
   const selected = new Set<string>();
   const output: SnackRecommendation[] = [];

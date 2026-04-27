@@ -13,6 +13,7 @@ public record AddFridgeItemRequest(
 );
 
 public record UpdateFridgeItemRequest(
+    int? IngredientId,
     decimal? Quantity,
     string? Unit,
     FridgeLocation? Location,

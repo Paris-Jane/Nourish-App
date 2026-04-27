@@ -19,6 +19,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, CircleHelp, PencilRuler } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { generateGroceryList } from "api/groceryList";
+import { deleteSavedWeekTemplate } from "api/savedWeeks";
 import { applyWeekTemplate, clearWeek, createWeekSlot, deleteWeekSlot, saveWeekAsTemplate, swapSlot } from "api/weeks";
 import { BottomSheet } from "components/BottomSheet";
 import { DayColumn } from "components/DayColumn";
@@ -90,6 +91,10 @@ export function HomePage() {
   const [repeatAction, setRepeatAction] = useState<null | { type: RepeatActionType; slot: WeekMealSlot; matchingSlots: WeekMealSlot[] }>(null);
   const [copyMealSlot, setCopyMealSlot] = useState<WeekMealSlot | null>(null);
   const [copyTargetIds, setCopyTargetIds] = useState<number[]>([]);
+  const [duplicateDaySource, setDuplicateDaySource] = useState<WeekDay | null>(null);
+  const [duplicateDayTargets, setDuplicateDayTargets] = useState<WeekDay[]>([]);
+  const [templateContextMenu, setTemplateContextMenu] = useState<null | { template: SavedWeekTemplate; x: number; y: number }>(null);
+  const [dayContextMenu, setDayContextMenu] = useState<null | { day: WeekDay; x: number; y: number }>(null);
   const [draggedSlotId, setDraggedSlotId] = useState<number | null>(null);
   const [dropTargetSlotId, setDropTargetSlotId] = useState<number | null>(null);
   const weekScrollerRef = useRef<HTMLDivElement>(null);
@@ -109,6 +114,16 @@ export function HomePage() {
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [dotsHelpOpen]);
+
+  useEffect(() => {
+    if (!templateContextMenu && !dayContextMenu) return;
+    const close = () => {
+      setTemplateContextMenu(null);
+      setDayContextMenu(null);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [dayContextMenu, templateContextMenu]);
 
   useEffect(() => {
     setSlotOverrides(null);
@@ -279,6 +294,93 @@ export function HomePage() {
     },
   });
 
+  const addSuggestedSnackMutation = useMutation({
+    mutationFn: async ({ day, suggestion }: { day: WeekDay; suggestion: ReturnType<typeof generateSnackRecommendations>[number] }) => {
+      if (!suggestion.recipeId) throw new Error("Snack suggestion is not linked to a recipe");
+
+      const existingOpenSnackSlot = slots
+        .filter((slot) => slot.dayOfWeek === day && slot.mealType === "Snack")
+        .find((slot) => !slot.recipeId && !slot.isSkipped);
+
+      const targetSlot =
+        existingOpenSnackSlot ??
+        (await createWeekSlot(week.id, {
+          dayOfWeek: day,
+          mealType: "Snack",
+          servingsPlanned: 1,
+        }));
+
+      await swapSlot(week.id, targetSlot.id, {
+        recipeId: suggestion.recipeId,
+        selectedModifierIngredientIds: suggestion.selectedModifierIngredientIds ?? [],
+        isSkipped: false,
+        isEatingOut: false,
+      });
+
+      return { day, suggestion, usedExistingSlot: Boolean(existingOpenSnackSlot) };
+    },
+    onSuccess: async ({ suggestion, day }) => {
+      await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+      setSlotOverrides(null);
+      await refreshDerivedWeekData();
+      pushToast(`${suggestion.label} added to ${day}.`);
+    },
+    onError: (_error, { day, suggestion }) => {
+      if (!suggestion.recipeId) {
+        pushToast("That snack suggestion is not linked to a recipe yet.");
+        return;
+      }
+
+      const recipe = recipes.find((entry) => entry.id === suggestion.recipeId);
+      const existingOpenSnackSlot = slots
+        .filter((slot) => slot.dayOfWeek === day && slot.mealType === "Snack")
+        .find((slot) => !slot.recipeId && !slot.isSkipped);
+
+      let nextSlots = slots.slice();
+      if (existingOpenSnackSlot) {
+        nextSlots = nextSlots.map((slot) =>
+          slot.id === existingOpenSnackSlot.id
+            ? {
+                ...slot,
+                recipeId: suggestion.recipeId,
+                recipeName: recipe?.name ?? suggestion.label,
+                selectedModifierIngredientIds: suggestion.selectedModifierIngredientIds ?? [],
+                isSkipped: false,
+              }
+            : slot,
+        );
+      } else {
+        const daySnackPositions = slots.filter((slot) => slot.dayOfWeek === day && slot.mealType === "Snack").map((slot) => slot.position ?? 0);
+        const nextPosition = (daySnackPositions.length > 0 ? Math.max(...daySnackPositions) : -1) + 1;
+        const planDate = formatISO(addDays(weekStartDate, weekDays.indexOf(day)), { representation: "date" });
+        nextSlots = [
+          ...nextSlots,
+          {
+            id: 970_000 + slots.length + nextPosition,
+            weekId: week.id,
+            planDate,
+            recipeId: suggestion.recipeId,
+            recipeName: recipe?.name ?? suggestion.label,
+            selectedModifierIngredientIds: suggestion.selectedModifierIngredientIds ?? [],
+            dayOfWeek: day,
+            mealType: "Snack",
+            position: nextPosition,
+            isEatingOut: false,
+            isSkipped: false,
+            isLocked: false,
+            servingsPlanned: 1,
+            assumedCompleted: false,
+            markedSkippedAt: null,
+          },
+        ];
+      }
+
+      setSlotOverrides(nextSlots);
+      void refreshDerivedWeekData(nextSlots);
+      pushToast(`${suggestion.label} added to ${day} in preview mode.`);
+    },
+  });
+
   const deleteSlotMutation = useMutation({
     mutationFn: async (slotId: number) => {
       await deleteWeekSlot(week.id, slotId);
@@ -417,6 +519,114 @@ export function HomePage() {
     },
   });
 
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (templateId: number) => {
+      if (import.meta.env.VITE_API_BASE_URL) {
+        await deleteSavedWeekTemplate(templateId);
+      }
+      return templateId;
+    },
+    onSuccess: (templateId) => {
+      queryClient.setQueryData<SavedWeekTemplate[]>(["saved-weeks"], (prev) => (prev ?? []).filter((template) => template.id !== templateId));
+      setTemplateContextMenu(null);
+      pushToast("Template deleted.");
+    },
+    onError: () => {
+      pushToast("Couldn’t delete this template. Try again.");
+    },
+  });
+
+  const duplicateDayMutation = useMutation({
+    mutationFn: async ({ sourceDay, targetDays }: { sourceDay: WeekDay; targetDays: WeekDay[] }) => {
+      const sourceSlots = slots.filter((slot) => slot.dayOfWeek === sourceDay).sort((a, b) => a.position - b.position);
+
+      for (const targetDay of targetDays) {
+        const targetSlots = slots.filter((slot) => slot.dayOfWeek === targetDay).sort((a, b) => a.position - b.position);
+        const targetByKey = new Map<string, WeekMealSlot>(targetSlots.map((slot) => [`${slot.mealType}-${slot.position}`, slot]));
+
+        for (const sourceSlot of sourceSlots) {
+          const key = `${sourceSlot.mealType}-${sourceSlot.position}`;
+          let targetSlot = targetByKey.get(key);
+
+          if (!targetSlot) {
+            targetSlot = await createWeekSlot(week.id, {
+              dayOfWeek: targetDay,
+              mealType: sourceSlot.mealType,
+              servingsPlanned: sourceSlot.servingsPlanned,
+            });
+          }
+
+          await swapSlot(week.id, targetSlot.id, {
+            recipeId: sourceSlot.recipeId ?? null,
+            selectedModifierIngredientIds: sourceSlot.selectedModifierIngredientIds ?? [],
+            isSkipped: sourceSlot.isSkipped,
+            isEatingOut: false,
+            servingsPlanned: sourceSlot.servingsPlanned,
+          });
+        }
+
+        const sourceKeys = new Set(sourceSlots.map((slot) => `${slot.mealType}-${slot.position}`));
+        for (const targetSlot of targetSlots) {
+          const key = `${targetSlot.mealType}-${targetSlot.position}`;
+          if (sourceKeys.has(key)) continue;
+          if (targetSlot.mealType === "Snack" && targetSlot.position > 0) {
+            await deleteWeekSlot(week.id, targetSlot.id);
+          } else {
+            await swapSlot(week.id, targetSlot.id, {
+              recipeId: null,
+              selectedModifierIngredientIds: [],
+              isSkipped: false,
+              isEatingOut: false,
+              servingsPlanned: targetSlot.servingsPlanned,
+            });
+          }
+        }
+      }
+
+      return { sourceDay, targetDays };
+    },
+    onSuccess: async ({ sourceDay, targetDays }) => {
+      await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+      setSlotOverrides(null);
+      setDuplicateDaySource(null);
+      setDuplicateDayTargets([]);
+      setDayContextMenu(null);
+      await refreshDerivedWeekData();
+      pushToast(`${sourceDay} duplicated to ${targetDays.join(", ")}.`);
+    },
+    onError: (_error, { sourceDay, targetDays }) => {
+      const sourceSlots = slots.filter((slot) => slot.dayOfWeek === sourceDay);
+      let nextSlots = [...slots];
+      for (const targetDay of targetDays) {
+        const targetSlots = nextSlots.filter((slot) => slot.dayOfWeek === targetDay);
+        const sourceByKey = new Map<string, WeekMealSlot>(sourceSlots.map((slot) => [`${slot.mealType}-${slot.position}`, slot]));
+        nextSlots = nextSlots
+          .filter((slot) => !(slot.dayOfWeek === targetDay && slot.mealType === "Snack" && slot.position > 0 && !sourceByKey.has(`Snack-${slot.position}`)))
+          .map((slot) => {
+            if (slot.dayOfWeek !== targetDay) return slot;
+            const sourceSlot = sourceByKey.get(`${slot.mealType}-${slot.position}`);
+            if (!sourceSlot) {
+              return { ...slot, recipeId: null, recipeName: null, selectedModifierIngredientIds: [], isSkipped: false };
+            }
+            return {
+              ...slot,
+              recipeId: sourceSlot.recipeId ?? null,
+              recipeName: sourceSlot.recipeName ?? null,
+              selectedModifierIngredientIds: sourceSlot.selectedModifierIngredientIds ?? [],
+              isSkipped: sourceSlot.isSkipped,
+              servingsPlanned: sourceSlot.servingsPlanned,
+            };
+          });
+      }
+      setSlotOverrides(nextSlots);
+      setDuplicateDaySource(null);
+      setDuplicateDayTargets([]);
+      setDayContextMenu(null);
+      void refreshDerivedWeekData(nextSlots);
+      pushToast(`${sourceDay} duplicated in preview mode.`);
+    },
+  });
+
   function toggleMealType(mealType: MealType) {
     const next = visibleMealTypes.includes(mealType)
       ? visibleMealTypes.filter((entry) => entry !== mealType)
@@ -498,6 +708,40 @@ export function HomePage() {
 
   function toggleCopyTarget(slotId: number) {
     setCopyTargetIds((current) => (current.includes(slotId) ? current.filter((id) => id !== slotId) : [...current, slotId]));
+  }
+
+  function handleDuplicateDayRequest(day: WeekDay, event: React.MouseEvent<HTMLDivElement>) {
+    setDayContextMenu({
+      day,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }
+
+  function beginDuplicateDay(day: WeekDay) {
+    setDuplicateDaySource(day);
+    setDuplicateDayTargets([]);
+    setDayContextMenu(null);
+  }
+
+  function toggleDuplicateDayTarget(day: WeekDay) {
+    setDuplicateDayTargets((current) => (current.includes(day) ? current.filter((entry) => entry !== day) : [...current, day]));
+  }
+
+  function applyDuplicateDay() {
+    if (!duplicateDaySource || duplicateDayTargets.length === 0) return;
+    duplicateDayMutation.mutate({ sourceDay: duplicateDaySource, targetDays: duplicateDayTargets });
+  }
+
+  function renameTemplate(template: SavedWeekTemplate) {
+    const nextName = window.prompt("Rename this weekly template", template.name)?.trim();
+    if (!nextName) return;
+    queryClient.setQueryData<SavedWeekTemplate[]>(
+      ["saved-weeks"],
+      (prev) => (prev ?? []).map((entry) => (entry.id === template.id ? { ...entry, name: nextName } : entry)),
+    );
+    setTemplateContextMenu(null);
+    pushToast("Template renamed.");
   }
 
   function applyCopyMeal() {
@@ -582,11 +826,15 @@ export function HomePage() {
   const dailySnackRecommendations = useMemo(
     () =>
       weekDays.reduce<Record<WeekDay, ReturnType<typeof generateSnackRecommendations>>>((acc, day) => {
-        acc[day] = generateSnackRecommendations(weeklyFoodProgress[day], fridgeItems);
+        acc[day] = generateSnackRecommendations(weeklyFoodProgress[day], fridgeItems, recipes);
         return acc;
       }, {} as Record<WeekDay, ReturnType<typeof generateSnackRecommendations>>),
-    [fridgeItems, weeklyFoodProgress],
+    [fridgeItems, recipes, weeklyFoodProgress],
   );
+
+  function handleSnackSuggestionSelect(day: WeekDay, suggestion: ReturnType<typeof generateSnackRecommendations>[number]) {
+    addSuggestedSnackMutation.mutate({ day, suggestion });
+  }
 
   useEffect(() => {
     const el = weekScrollerRef.current;
@@ -828,6 +1076,8 @@ export function HomePage() {
                         }}
                         onDeleteSlot={(slotId) => deleteSlotMutation.mutate(slotId)}
                         onAddSnack={() => addSnackMutation.mutate(day as WeekDay)}
+                        onSnackSuggestionSelect={(suggestion) => handleSnackSuggestionSelect(day as WeekDay, suggestion)}
+                        onDuplicateDayRequest={(event) => handleDuplicateDayRequest(day as WeekDay, event)}
                         dragState={{
                           draggedSlotId,
                           dropTargetSlotId,
@@ -853,6 +1103,21 @@ export function HomePage() {
                 ))}
               </div>
             </div>
+            {dayContextMenu ? (
+              <div
+                className="fixed z-40 w-44 overflow-hidden rounded-xl border border-nourish-border bg-white py-1 text-sm shadow-lg"
+                style={{ left: Math.max(12, dayContextMenu.x), top: Math.max(12, dayContextMenu.y) }}
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="flex w-full px-3 py-2.5 text-left text-nourish-ink hover:bg-nourish-bg"
+                  onClick={() => beginDuplicateDay(dayContextMenu.day)}
+                >
+                  Duplicate this day
+                </button>
+              </div>
+            ) : null}
           </section>
         ) : (
           <section className="mx-auto w-full max-w-[min(100%,1170px)] px-4 pb-2">
@@ -960,6 +1225,45 @@ export function HomePage() {
         </BottomSheet>
 
         <BottomSheet
+          open={duplicateDaySource != null}
+          title={duplicateDaySource ? `Duplicate ${duplicateDaySource}` : "Duplicate day"}
+          onClose={() => {
+            setDuplicateDaySource(null);
+            setDuplicateDayTargets([]);
+          }}
+        >
+          {duplicateDaySource ? (
+            <div className="space-y-4">
+              <p className="text-sm text-nourish-muted">Choose the other days this plan should be copied into for this week.</p>
+              <div className="space-y-2">
+                {weekDays
+                  .filter((day) => day !== duplicateDaySource)
+                  .map((day) => (
+                    <label
+                      key={day}
+                      className={cn(
+                        "flex items-center justify-between rounded-xl border px-3 py-2 text-sm",
+                        duplicateDayTargets.includes(day) ? "border-nourish-sage bg-white" : "border-nourish-border bg-white/70",
+                      )}
+                    >
+                      <span className="text-nourish-ink">{day}</span>
+                      <input
+                        type="checkbox"
+                        checked={duplicateDayTargets.includes(day)}
+                        onChange={() => toggleDuplicateDayTarget(day)}
+                        className="h-4 w-4 rounded border-nourish-border text-nourish-sage focus:ring-nourish-sage"
+                      />
+                    </label>
+                  ))}
+              </div>
+              <button type="button" className="button-primary w-full" onClick={applyDuplicateDay} disabled={duplicateDayTargets.length === 0 || duplicateDayMutation.isPending}>
+                Duplicate to {duplicateDayTargets.length} day{duplicateDayTargets.length === 1 ? "" : "s"}
+              </button>
+            </div>
+          ) : null}
+        </BottomSheet>
+
+        <BottomSheet
           open={copyMealSlot != null}
           title="Add to other days"
           onClose={() => {
@@ -1015,6 +1319,11 @@ export function HomePage() {
                   type="button"
                   className="w-full rounded-2xl border border-nourish-border bg-white p-4 text-left transition hover:border-nourish-sage/40 hover:bg-nourish-bg/60"
                   onClick={() => applyTemplateMutation.mutate(t)}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setTemplateContextMenu({ template: t, x: event.clientX, y: event.clientY });
+                  }}
                   disabled={applyTemplateMutation.isPending}
                 >
                   <p className="font-semibold text-nourish-ink">{t.name}</p>
@@ -1027,6 +1336,31 @@ export function HomePage() {
                   </p>
                 </button>
               ))}
+              {templateContextMenu ? (
+                <div
+                  className="fixed z-50 w-44 overflow-hidden rounded-xl border border-nourish-border bg-white py-1 text-sm shadow-lg"
+                  style={{ left: Math.max(12, templateContextMenu.x), top: Math.max(12, templateContextMenu.y) }}
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    className="flex w-full px-3 py-2.5 text-left text-nourish-ink hover:bg-nourish-bg"
+                    onClick={() => renameTemplate(templateContextMenu.template)}
+                  >
+                    Rename template
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full px-3 py-2.5 text-left text-nourish-ink hover:bg-nourish-bg"
+                    onClick={() => {
+                      if (!window.confirm(`Delete “${templateContextMenu.template.name}”?`)) return;
+                      deleteTemplateMutation.mutate(templateContextMenu.template.id);
+                    }}
+                  >
+                    Delete template
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-4 text-center">
@@ -1104,7 +1438,20 @@ export function HomePage() {
           fridgeItems={fridgeItems}
           weekSlots={slots}
           week={week}
+          dayProgress={selectedSlot ? weeklyFoodProgress[selectedSlot.dayOfWeek] : undefined}
           initialTargetIds={swapTargetIds}
+          onCopyCurrentMeal={selectedSlot?.recipeId ? () => {
+            setSwapDrawerOpen(false);
+            openCopyMeal(selectedSlot);
+          } : undefined}
+          onMarkCurrentDidntHappen={selectedSlot?.recipeId ? () => {
+            setSwapDrawerOpen(false);
+            skipSlotMutation.mutate(selectedSlot.id);
+          } : undefined}
+          onRemoveCurrentMeal={selectedSlot?.recipeId ? () => {
+            setSwapDrawerOpen(false);
+            startRemove(selectedSlot);
+          } : undefined}
           onClose={() => setSwapDrawerOpen(false)}
         />
       </div>

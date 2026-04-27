@@ -83,27 +83,18 @@ public static class GroceryEndpoints
                                       i.GroceryList.HouseholdId == householdId);
         if (item == null) return Results.NotFound();
 
+        var effectiveQuantity = item.PurchasedQuantity ?? item.PlannedQuantity;
         item.IsChecked = req.IsChecked;
 
-        // Auto-add to fridge when checked off
         if (req.IsChecked && !item.AddedToFridge)
         {
-            var ingredient = item.Ingredient;
-            db.FridgeItems.Add(new FridgeItem
-            {
-                HouseholdId = householdId,
-                IngredientId = item.IngredientId,
-                Quantity = item.PurchasedQuantity ?? item.PlannedQuantity,
-                Unit = item.PlannedUnit,
-                // Use the ingredient's canonical default storage location
-                Location = (FridgeLocation)(int)ingredient.DefaultLocation,
-                PurchasedAt = DateTime.UtcNow,
-                ExpiresAt = ingredient.IsPerishable
-                    ? DateTime.UtcNow.AddDays(ingredient.ShelfLifeDays)
-                    : null,
-                AddedVia = AddedVia.GroceryList
-            });
+            await MergeIntoKitchenAsync(db, householdId, item.Ingredient, item.PlannedUnit, effectiveQuantity);
             item.AddedToFridge = true;
+        }
+        else if (!req.IsChecked && item.AddedToFridge)
+        {
+            await RemoveFromKitchenAsync(db, householdId, item.Ingredient, item.PlannedUnit, effectiveQuantity);
+            item.AddedToFridge = false;
         }
 
         await db.SaveChangesAsync();
@@ -122,7 +113,22 @@ public static class GroceryEndpoints
                                       i.GroceryList.HouseholdId == householdId);
         if (item == null) return Results.NotFound();
 
+        var previousQuantity = item.PurchasedQuantity ?? item.PlannedQuantity;
         item.PurchasedQuantity = req.PurchasedQuantity;
+
+        if (item.IsChecked && item.AddedToFridge)
+        {
+            var delta = req.PurchasedQuantity - previousQuantity;
+            if (delta > 0)
+            {
+                await MergeIntoKitchenAsync(db, householdId, item.Ingredient, item.PlannedUnit, delta);
+            }
+            else if (delta < 0)
+            {
+                await RemoveFromKitchenAsync(db, householdId, item.Ingredient, item.PlannedUnit, Math.Abs(delta));
+            }
+        }
+
         await db.SaveChangesAsync();
         return Results.Ok(ToItemDto(item));
     }
@@ -151,4 +157,78 @@ public static class GroceryEndpoints
         i.Id, i.GroceryListId, i.IngredientId, i.Ingredient?.Name ?? string.Empty,
         i.PlannedQuantity, i.PlannedUnit, i.PurchasedQuantity,
         i.StoreSection, i.IsChecked, i.AddedToFridge, i.RecipeIds);
+
+    private static async Task MergeIntoKitchenAsync(
+        AppDbContext db,
+        int householdId,
+        Ingredient ingredient,
+        string unit,
+        decimal quantity)
+    {
+        if (quantity <= 0) return;
+
+        var location = (FridgeLocation)(int)ingredient.DefaultLocation;
+        var existing = await db.FridgeItems
+            .Where(f =>
+                f.HouseholdId == householdId &&
+                f.IngredientId == ingredient.Id &&
+                f.Unit == unit &&
+                f.Location == location)
+            .OrderByDescending(f => f.PurchasedAt)
+            .FirstOrDefaultAsync();
+
+        if (existing != null)
+        {
+            existing.Quantity += quantity;
+            return;
+        }
+
+        db.FridgeItems.Add(new FridgeItem
+        {
+            HouseholdId = householdId,
+            IngredientId = ingredient.Id,
+            Quantity = quantity,
+            Unit = unit,
+            Location = location,
+            PurchasedAt = DateTime.UtcNow,
+            ExpiresAt = ingredient.IsPerishable
+                ? DateTime.UtcNow.AddDays(ingredient.ShelfLifeDays)
+                : null,
+            AddedVia = AddedVia.GroceryList
+        });
+    }
+
+    private static async Task RemoveFromKitchenAsync(
+        AppDbContext db,
+        int householdId,
+        Ingredient ingredient,
+        string unit,
+        decimal quantity)
+    {
+        if (quantity <= 0) return;
+
+        var location = (FridgeLocation)(int)ingredient.DefaultLocation;
+        var matches = await db.FridgeItems
+            .Where(f =>
+                f.HouseholdId == householdId &&
+                f.IngredientId == ingredient.Id &&
+                f.Unit == unit &&
+                f.Location == location)
+            .OrderByDescending(f => f.AddedVia == AddedVia.GroceryList)
+            .ThenByDescending(f => f.PurchasedAt)
+            .ToListAsync();
+
+        var remaining = quantity;
+        foreach (var row in matches)
+        {
+            if (remaining <= 0) break;
+            var take = Math.Min(row.Quantity, remaining);
+            row.Quantity -= take;
+            remaining -= take;
+            if (row.Quantity <= 0)
+            {
+                db.FridgeItems.Remove(row);
+            }
+        }
+    }
 }

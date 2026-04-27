@@ -11,9 +11,10 @@ interface RecipeCardProps {
   compact?: boolean;
   onSelect?: (recipe: Recipe) => void;
   actionLabel?: string;
+  badges?: string[];
 }
 
-export function RecipeCard({ recipe, compact, onSelect, actionLabel }: RecipeCardProps) {
+export function RecipeCard({ recipe, compact, onSelect, actionLabel, badges = [] }: RecipeCardProps) {
   const { pushToast } = useToast();
   const favorited = useRecipePrefsStore((s) => s.isFavorite(recipe.id));
   const disliked = useRecipePrefsStore((s) => s.isDisliked(recipe.id));
@@ -71,6 +72,11 @@ export function RecipeCard({ recipe, compact, onSelect, actionLabel }: RecipeCar
       <div className="flex flex-wrap gap-2">
         <TagPill tone="cuisine">{recipe.cuisine}</TagPill>
         <TagPill tone="accent">{recipe.timeTag}</TagPill>
+        {badges.map((badge) => (
+          <TagPill key={badge}>
+            {badge}
+          </TagPill>
+        ))}
       </div>
 
       {onSelect ? <div className="mt-3 text-xs font-medium text-nourish-sage">{actionLabel ?? "Use this recipe"}</div> : null}

@@ -1,17 +1,22 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { parseISO } from "date-fns";
 import { AlertTriangle, Plus, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
+import { createIngredient } from "api/ingredients";
+import { addFridgeItem, deleteFridgeItem, editFridgeItem } from "api/fridge";
+import { getWeekSlots } from "api/weeks";
 import { BottomSheet } from "components/BottomSheet";
 import { FridgeItemRow } from "components/FridgeItemRow";
 import { WhatCanIMakeRecipeCard } from "components/WhatCanIMakeRecipeCard";
-import { useFridgeItems, useIngredients, useRecipes } from "hooks/useAppData";
+import { useCurrentWeek, useFridgeItems, useIngredients, useRecipes, useWeekSlots, useWeeks } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
 import { countExpiringWithin, getExpiringSoonItems } from "lib/fridgeExpiry";
 import { daysUntil } from "lib/utils";
+import { usePreviewQuery } from "hooks/usePreviewQuery";
 import { fridgeItemSchema, type FridgeItemFormValues } from "types/forms";
-import type { FridgeItem, FridgeLocation, Recipe } from "types/models";
+import type { FridgeItem, FridgeLocation, Ingredient, Recipe, StoreSection, WeekMealSlot } from "types/models";
 
 const tabs = ["Fridge", "Pantry", "Freezer"] as const;
 
@@ -40,10 +45,36 @@ function scrollFridgeRowIntoView(itemId: number) {
   });
 }
 
+function suggestedStoreSection(location: FridgeLocation): StoreSection {
+  switch (location) {
+    case "Pantry":
+      return "Pantry";
+    case "Freezer":
+      return "Frozen";
+    default:
+      return "Produce";
+  }
+}
+
+function defaultShelfLife(location: FridgeLocation) {
+  switch (location) {
+    case "Pantry":
+      return 180;
+    case "Freezer":
+      return 180;
+    default:
+      return 7;
+  }
+}
+
 export function FridgePage() {
+  const queryClient = useQueryClient();
   const { items: queryItems } = useFridgeItems();
   const { ingredients } = useIngredients();
   const { recipes } = useRecipes();
+  const { week } = useCurrentWeek();
+  const { weeks } = useWeeks();
+  const { slots: currentWeekSlots } = useWeekSlots();
   const { pushToast } = useToast();
   const [localItems, setLocalItems] = useState<FridgeItem[] | null>(null);
   const items = localItems ?? queryItems;
@@ -54,6 +85,7 @@ export function FridgePage() {
   const [whatCanIMakeOpen, setWhatCanIMakeOpen] = useState(false);
   const [listQuery, setListQuery] = useState("");
   const [addIngredientQuery, setAddIngredientQuery] = useState("");
+  const [customIngredientName, setCustomIngredientName] = useState("");
 
   const form = useForm<FridgeItemFormValues>({
     resolver: zodResolver(fridgeItemSchema),
@@ -63,6 +95,16 @@ export function FridgePage() {
   const watchedIngredientId = useWatch({ control: form.control, name: "ingredientId" });
 
   const filteredItems = useMemo(() => items.filter((item) => item.location === tab), [items, tab]);
+  const currentWeekIndex = useMemo(() => weeks.findIndex((entry) => entry.id === week.id), [week.id, weeks]);
+  const nextWeek = currentWeekIndex >= 0 && currentWeekIndex < weeks.length - 1 ? weeks[currentWeekIndex + 1] : null;
+
+  const nextWeekSlotsQuery = usePreviewQuery({
+    queryKey: ["week-slots", nextWeek?.id ?? "none", "kitchen-preview"],
+    queryFn: () => (nextWeek ? getWeekSlots(nextWeek.id) : Promise.resolve([] as WeekMealSlot[])),
+    fallbackData: [],
+    enabled: Boolean(nextWeek),
+  });
+  const nextWeekSlots = nextWeekSlotsQuery.data ?? [];
 
   const listFilteredItems = useMemo(() => {
     const q = listQuery.trim().toLowerCase();
@@ -108,6 +150,22 @@ export function FridgePage() {
 
   const nextId = useCallback(() => Math.max(0, ...items.map((i) => i.id)) + 1, [items]);
 
+  const addItemMutation = useMutation({
+    mutationFn: addFridgeItem,
+  });
+
+  const editItemMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: Parameters<typeof editFridgeItem>[1] }) => editFridgeItem(id, payload),
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: deleteFridgeItem,
+  });
+
+  const createIngredientMutation = useMutation({
+    mutationFn: createIngredient,
+  });
+
   const sheetOpen = sheetMode !== null;
 
   const addPickerIngredients = useMemo(() => {
@@ -127,6 +185,7 @@ export function FridgePage() {
       location: tab,
       expiresAt: "",
     });
+    setCustomIngredientName("");
   };
 
   const openEditSheet = (item: FridgeItem) => {
@@ -140,12 +199,14 @@ export function FridgePage() {
       location: item.location,
       expiresAt: item.expiresAt?.split("T")[0] ?? "",
     });
+    setCustomIngredientName("");
   };
 
   const closeSheet = () => {
     setSheetMode(null);
     setEditingItem(null);
     setAddIngredientQuery("");
+    setCustomIngredientName("");
     form.reset({ ingredientId: 0, quantity: 1, unit: "item", location: "Fridge", expiresAt: "" });
   };
 
@@ -156,54 +217,214 @@ export function FridgePage() {
   };
 
   const handleDeleteItem = (id: number) => {
-    setLocalItems((prev) => (prev ?? queryItems).filter((i) => i.id !== id));
-    pushToast("Item removed from your kitchen list.");
+    deleteItemMutation.mutate(id, {
+      onSuccess: () => {
+        setLocalItems((prev) => (prev ?? queryItems).filter((i) => i.id !== id));
+        pushToast("Item removed from your kitchen list.");
+      },
+      onError: () => {
+        setLocalItems((prev) => (prev ?? queryItems).filter((i) => i.id !== id));
+        pushToast("Item removed in preview mode.");
+      },
+    });
   };
 
   const onSubmit = (values: FridgeItemFormValues) => {
     const ing = ingredients.find((i) => i.id === values.ingredientId);
+    if (!ing) {
+      pushToast("Choose or create an ingredient first.");
+      return;
+    }
     const expiresAtIso = values.expiresAt ? `${values.expiresAt}T12:00:00.000Z` : null;
+    const payload = {
+      ingredientId: values.ingredientId,
+      quantity: values.quantity,
+      unit: values.unit.trim(),
+      location: values.location,
+      expiresAt: expiresAtIso ?? undefined,
+    } as const;
 
     if (sheetMode === "add") {
-      const newItem: FridgeItem = {
-        id: nextId(),
-        householdId: 1,
-        ingredientId: values.ingredientId,
-        ingredientName: ing?.name ?? "Unknown",
-        quantity: values.quantity,
-        unit: values.unit,
-        location: values.location,
-        purchasedAt: new Date().toISOString(),
-        expiresAt: expiresAtIso,
-        isLeftover: false,
-        sourceRecipeId: null,
-        addedVia: "Manual",
-      };
-      setLocalItems((prev) => [...(prev ?? queryItems), newItem]);
-      pushToast(`${newItem.ingredientName} added to ${values.location}.`);
+      addItemMutation.mutate(payload, {
+        onSuccess: (savedItem) => {
+          setLocalItems((prev) => [...(prev ?? queryItems), savedItem]);
+          pushToast(`${savedItem.ingredientName} added to ${values.location}.`);
+          closeSheet();
+        },
+        onError: () => {
+          const newItem: FridgeItem = {
+            id: nextId(),
+            householdId: 1,
+            ingredientId: values.ingredientId,
+            ingredientName: ing.name,
+            quantity: values.quantity,
+            unit: values.unit.trim(),
+            location: values.location,
+            purchasedAt: new Date().toISOString(),
+            expiresAt: expiresAtIso,
+            isLeftover: false,
+            sourceRecipeId: null,
+            addedVia: "Manual",
+          };
+          setLocalItems((prev) => [...(prev ?? queryItems), newItem]);
+          pushToast(`${newItem.ingredientName} added in preview mode.`);
+          closeSheet();
+        },
+      });
     } else if (sheetMode === "edit" && editingItem) {
-      setLocalItems((prev) =>
-        (prev ?? queryItems).map((i) =>
-          i.id === editingItem.id
-            ? {
-                ...i,
-                ingredientId: values.ingredientId,
-                ingredientName: ing?.name ?? i.ingredientName,
-                quantity: values.quantity,
-                unit: values.unit,
-                location: values.location,
-                expiresAt: expiresAtIso,
-              }
-            : i,
-        ),
+      editItemMutation.mutate(
+        {
+          id: editingItem.id,
+          payload: {
+            ingredientId: values.ingredientId,
+            quantity: values.quantity,
+            unit: values.unit.trim(),
+            location: values.location,
+            expiresAt: expiresAtIso ?? undefined,
+          },
+        },
+        {
+          onSuccess: (savedItem) => {
+            setLocalItems((prev) => (prev ?? queryItems).map((item) => (item.id === editingItem.id ? savedItem : item)));
+            pushToast("Item updated.");
+            closeSheet();
+          },
+          onError: () => {
+            setLocalItems((prev) =>
+              (prev ?? queryItems).map((i) =>
+                i.id === editingItem.id
+                  ? {
+                      ...i,
+                      ingredientId: values.ingredientId,
+                      ingredientName: ing.name,
+                      quantity: values.quantity,
+                      unit: values.unit.trim(),
+                      location: values.location,
+                      expiresAt: expiresAtIso,
+                    }
+                  : i,
+              ),
+            );
+            pushToast("Item updated in preview mode.");
+            closeSheet();
+          },
+        },
       );
-      pushToast("Item updated.");
     }
-    closeSheet();
   };
 
   const sheetTitle = sheetMode === "edit" ? "Edit item" : "Add item";
   const selectedIngredientName = ingredients.find((i) => i.id === watchedIngredientId)?.name;
+  const selectedIngredient = ingredients.find((i) => i.id === watchedIngredientId);
+  const unitOptions = useMemo(() => {
+    if (!selectedIngredient) return ["item"];
+    return Array.from(
+      new Set(
+        [selectedIngredient.purchaseUnit, selectedIngredient.servingUnit, selectedIngredient.packageSizeUnit]
+          .filter((value): value is string => Boolean(value && value.trim())),
+      ),
+    );
+  }, [selectedIngredient]);
+
+  async function handleCreateCustomIngredient() {
+    const name = customIngredientName.trim() || addIngredientQuery.trim();
+    if (!name) {
+      pushToast("Enter a name for the ingredient first.");
+      return;
+    }
+
+    const location = (form.getValues("location") || tab) as FridgeLocation;
+    const payload = {
+      name,
+      foodGroup: "Other" as const,
+      servingSize: 1,
+      servingUnit: "item",
+      purchaseUnit: "item",
+      defaultLocation: location,
+      storeSection: suggestedStoreSection(location),
+      isPerishable: location !== "Pantry",
+      isFlexibleGroup: false,
+      isMyPlateCounted: false,
+      shelfLifeDays: defaultShelfLife(location),
+      typicalPackageSize: null,
+      packageSizeUnit: null,
+      isStaple: false,
+      aliases: [],
+      notes: "Created from kitchen inventory",
+    };
+
+    createIngredientMutation.mutate(payload, {
+      onSuccess: (ingredient) => {
+        queryClient.setQueryData<Ingredient[]>(["ingredients"], (prev) => [...(prev ?? ingredients), ingredient]);
+        form.setValue("ingredientId", ingredient.id, { shouldValidate: true });
+        form.setValue("unit", ingredient.purchaseUnit || "item");
+        setAddIngredientQuery(ingredient.name);
+        setCustomIngredientName("");
+        pushToast(`${ingredient.name} created and selected.`);
+      },
+      onError: () => {
+        const localIngredient: Ingredient = {
+          id: Math.max(0, ...ingredients.map((ingredient) => ingredient.id)) + 1,
+          name,
+          foodGroup: "Other",
+          servingSize: 1,
+          servingUnit: "item",
+          purchaseUnit: "item",
+          defaultLocation: location,
+          storeSection: suggestedStoreSection(location),
+          isPerishable: location !== "Pantry",
+          isFlexibleGroup: false,
+          isMyPlateCounted: false,
+          shelfLifeDays: defaultShelfLife(location),
+          typicalPackageSize: null,
+          packageSizeUnit: null,
+          isStaple: false,
+          aliases: [],
+          notes: "Created locally from kitchen inventory",
+        };
+        queryClient.setQueryData<Ingredient[]>(["ingredients"], (prev) => [...(prev ?? ingredients), localIngredient]);
+        form.setValue("ingredientId", localIngredient.id, { shouldValidate: true });
+        form.setValue("unit", localIngredient.purchaseUnit || "item");
+        setAddIngredientQuery(localIngredient.name);
+        setCustomIngredientName("");
+        pushToast(`${localIngredient.name} created in preview mode.`);
+      },
+    });
+  }
+  const recipeById = useMemo(() => new Map(recipes.map((recipe) => [recipe.id, recipe])), [recipes]);
+
+  function buildIngredientUsageMap(weekSlots: WeekMealSlot[]) {
+    return weekSlots.reduce<Map<number, Set<string>>>((map, slot) => {
+      if (!slot.recipeId || slot.isSkipped) return map;
+      const recipe = recipeById.get(slot.recipeId);
+      if (!recipe) return map;
+      const selectedModifierIds = new Set(slot.selectedModifierIngredientIds ?? []);
+
+      for (const recipeIngredient of recipe.ingredients) {
+        if ((recipeIngredient.isModifier || recipeIngredient.isOptional) && !selectedModifierIds.has(recipeIngredient.ingredientId)) continue;
+        const existing = map.get(recipeIngredient.ingredientId) ?? new Set<string>();
+        existing.add(recipe.name);
+        map.set(recipeIngredient.ingredientId, existing);
+      }
+
+      return map;
+    }, new Map<number, Set<string>>());
+  }
+
+  const currentWeekUsage = useMemo(() => buildIngredientUsageMap(currentWeekSlots), [currentWeekSlots, recipeById]);
+  const nextWeekUsage = useMemo(() => buildIngredientUsageMap(nextWeekSlots), [nextWeekSlots, recipeById]);
+  const plannedPillsByIngredientId = useMemo(() => {
+    const pills = new Map<number, string[]>();
+    for (const [ingredientId, recipesUsed] of currentWeekUsage.entries()) {
+      pills.set(ingredientId, [`Planned this week (${recipesUsed.size})`]);
+    }
+    for (const [ingredientId, recipesUsed] of nextWeekUsage.entries()) {
+      const existing = pills.get(ingredientId) ?? [];
+      existing.push(`Planned next week (${recipesUsed.size})`);
+      pills.set(ingredientId, existing);
+    }
+    return pills;
+  }, [currentWeekUsage, nextWeekUsage]);
 
   return (
     <div className="space-y-5">
@@ -222,13 +443,19 @@ export function FridgePage() {
               )}
             </p>
           </div>
-          <button
-            type="button"
-            className="shrink-0 rounded-2xl bg-nourish-terracotta px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-nourish-terracotta/90"
-            onClick={() => setWhatCanIMakeOpen(true)}
-          >
-            What can I make?
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="button-primary inline-flex items-center gap-2" onClick={openAddSheet}>
+              <Plus size={18} aria-hidden />
+              Add item
+            </button>
+            <button
+              type="button"
+              className="shrink-0 rounded-2xl bg-nourish-terracotta px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-nourish-terracotta/90"
+              onClick={() => setWhatCanIMakeOpen(true)}
+            >
+              What can I make?
+            </button>
+          </div>
         </div>
 
         {expiringSoon.length > 0 ? (
@@ -329,18 +556,13 @@ export function FridgePage() {
                 key={item.id}
                 rowId={`fridge-item-row-${item.id}`}
                 item={item}
+                plannedPills={plannedPillsByIngredientId.get(item.ingredientId) ?? []}
                 onEdit={() => openEditSheet(item)}
                 onDelete={() => handleDeleteItem(item.id)}
               />
             ))}
           </div>
         )}
-
-        {filteredItems.length > 0 ? (
-          <button type="button" className="button-secondary mt-5 w-full lg:w-auto" onClick={openAddSheet}>
-            Add item
-          </button>
-        ) : null}
       </div>
 
       <BottomSheet open={sheetOpen} title={sheetTitle} onClose={closeSheet}>
@@ -380,7 +602,20 @@ export function FridgePage() {
               render={({ field }) => (
                 <div className="mt-2 max-h-48 overflow-y-auto overscroll-contain rounded-2xl border border-nourish-border bg-nourish-bg/40 p-1">
                   {addPickerIngredients.length === 0 ? (
-                    <p className="px-3 py-4 text-center text-sm text-nourish-muted">No ingredients match.</p>
+                    <div className="space-y-3 px-3 py-4 text-center">
+                      <p className="text-sm text-nourish-muted">No ingredients match.</p>
+                      <div className="space-y-2">
+                        <input
+                          className="input"
+                          placeholder="Create a new ingredient"
+                          value={customIngredientName}
+                          onChange={(event) => setCustomIngredientName(event.target.value)}
+                        />
+                        <button type="button" className="button-secondary w-full" onClick={handleCreateCustomIngredient} disabled={createIngredientMutation.isPending}>
+                          {createIngredientMutation.isPending ? "Creating..." : `Add “${(customIngredientName.trim() || addIngredientQuery.trim()) || "this ingredient"}”`}
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     <ul className="space-y-0.5">
                       {addPickerIngredients.map((ing) => {
@@ -395,6 +630,8 @@ export function FridgePage() {
                               onClick={() => {
                                 field.onChange(ing.id);
                                 form.clearErrors("ingredientId");
+                                form.setValue("unit", ing.purchaseUnit || ing.servingUnit || "item", { shouldValidate: true });
+                                form.setValue("location", ing.defaultLocation ?? tab);
                               }}
                             >
                               {ing.name}
@@ -407,15 +644,47 @@ export function FridgePage() {
                 </div>
               )}
             />
+            {addPickerIngredients.length > 0 && addIngredientQuery.trim() ? (
+              <div className="mt-2 rounded-2xl border border-dashed border-nourish-border bg-nourish-bg/30 p-3">
+                <p className="text-xs text-nourish-muted">Don’t see it?</p>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    className="input"
+                    placeholder="Create a new ingredient"
+                    value={customIngredientName}
+                    onChange={(event) => setCustomIngredientName(event.target.value)}
+                  />
+                  <button type="button" className="button-secondary shrink-0" onClick={handleCreateCustomIngredient} disabled={createIngredientMutation.isPending}>
+                    {createIngredientMutation.isPending ? "Creating..." : "Add new ingredient"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div>
-            <label className="block text-xs font-medium tracking-wide text-nourish-muted">Quantity</label>
-            <input className="input mt-1" type="number" step="0.1" {...form.register("quantity", { valueAsNumber: true })} />
+            <label className="block text-xs font-medium tracking-wide text-nourish-muted">How much do you have?</label>
+            <input className="input mt-1" type="number" step="0.25" min="0.25" {...form.register("quantity", { valueAsNumber: true })} />
           </div>
           <div>
             <label className="block text-xs font-medium tracking-wide text-nourish-muted">Unit</label>
-            <input className="input mt-1" placeholder="e.g. cups, bag" {...form.register("unit")} />
+            <div className="-mx-1 mt-2 flex flex-wrap gap-2 px-1">
+              {unitOptions.map((unit) => (
+                <button
+                  key={unit}
+                  type="button"
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    form.getValues("unit") === unit
+                      ? "border-nourish-sage bg-nourish-sage text-white"
+                      : "border-nourish-border bg-white text-nourish-muted hover:border-nourish-sage/35 hover:text-nourish-ink"
+                  }`}
+                  onClick={() => form.setValue("unit", unit, { shouldValidate: true })}
+                >
+                  {unit}
+                </button>
+              ))}
+            </div>
+            <input className="input mt-2" placeholder="Or type another unit" {...form.register("unit")} />
           </div>
           <div>
             <label className="block text-xs font-medium tracking-wide text-nourish-muted">Location</label>

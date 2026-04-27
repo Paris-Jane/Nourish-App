@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addDays, format, parseISO } from "date-fns";
-import { ChevronDown, Plus, RefreshCcw } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -10,8 +10,9 @@ import { BottomSheet } from "components/BottomSheet";
 import { GroceryListItemRow } from "components/GroceryListItemRow";
 import { ProgressBar } from "components/ProgressBar";
 import { SectionHeader } from "components/SectionHeader";
-import { useCurrentWeek, useGroceryList, useIngredients, useRecipes, useWeeks } from "hooks/useAppData";
+import { useCurrentWeek, useFridgeItems, useGroceryList, useIngredients, useRecipes, useWeekSlots, useWeeks } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
+import { buildPreviewGroceryListFromPlan } from "lib/groceryFromPlan";
 import { mergeGroceryCheckIntoFridge, removeGroceryCheckFromFridge } from "lib/fridgeFromGrocery";
 import { mockFridgeItems } from "lib/mockData";
 import { cn } from "lib/utils";
@@ -55,8 +56,10 @@ export function GroceryPage() {
   const { week } = useCurrentWeek();
   const { weeks } = useWeeks();
   const { groceryList } = useGroceryList();
+  const { slots } = useWeekSlots();
   const { recipes } = useRecipes();
   const { ingredients } = useIngredients();
+  const { items: fridgeItems } = useFridgeItems();
   const { pushToast } = useToast();
   const setActiveWeekId = useWeekStore((state) => state.setActiveWeekId);
   const setVisibleWeekStartDate = useWeekStore((state) => state.setVisibleWeekStartDate);
@@ -65,6 +68,7 @@ export function GroceryPage() {
   const items = localItems ?? groceryList.items;
 
   const recipeNamesById = useMemo(() => new Map(recipes.map((r) => [r.id, r.name])), [recipes]);
+  const ingredientById = useMemo(() => new Map(ingredients.map((ingredient) => [ingredient.id, ingredient])), [ingredients]);
 
   const [checked, setChecked] = useState<Record<number, boolean>>(() =>
     Object.fromEntries(groceryList.items.map((item) => [item.id, item.isChecked])),
@@ -83,6 +87,7 @@ export function GroceryPage() {
 
   const [deleteRevealedId, setDeleteRevealedId] = useState<number | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const autoSyncSignatureRef = useRef<string | null>(null);
   const currentWeekIndex = useMemo(() => weeks.findIndex((entry) => entry.id === week.id), [week.id, weeks]);
   const previousWeek = currentWeekIndex > 0 ? weeks[currentWeekIndex - 1] : null;
   const nextWeek = currentWeekIndex >= 0 && currentWeekIndex < weeks.length - 1 ? weeks[currentWeekIndex + 1] : null;
@@ -92,10 +97,6 @@ export function GroceryPage() {
     onSuccess: (data) => {
       queryClient.setQueryData(["grocery-list", groceryList.weekId], data);
       setLocalItems(data.items);
-      pushToast("Fresh grocery list generated from this week.");
-    },
-    onError: () => {
-      pushToast("Grocery list refreshed in preview mode.");
     },
   });
 
@@ -147,6 +148,92 @@ export function GroceryPage() {
     setLocalItems(null);
     setDeleteRevealedId(null);
   }, [groceryList.weekId]);
+
+  const previewDerivedGrocery = useMemo(
+    () => buildPreviewGroceryListFromPlan(week, slots, recipes, ingredients, fridgeItems),
+    [fridgeItems, ingredients, recipes, slots, week],
+  );
+
+  const coveredItems = useMemo(() => {
+    const aggregated = new Map<
+      string,
+      {
+        ingredientId: number;
+        ingredientName: string;
+        unit: string;
+        quantityNeeded: number;
+        storeSection: string;
+        recipeIds: Set<number>;
+      }
+    >();
+
+    for (const slot of slots) {
+      if (!slot.recipeId || slot.isSkipped || slot.isEatingOut) continue;
+      const recipe = recipes.find((entry) => entry.id === slot.recipeId);
+      if (!recipe) continue;
+      const scale = recipe.baseYieldServings > 0 ? (slot.servingsPlanned || 1) / recipe.baseYieldServings : 1;
+      const selectedModifierIds = new Set(slot.selectedModifierIngredientIds ?? []);
+
+      for (const recipeIngredient of recipe.ingredients) {
+        if ((recipeIngredient.isModifier || recipeIngredient.isOptional) && !selectedModifierIds.has(recipeIngredient.ingredientId)) continue;
+        const ingredient = ingredientById.get(recipeIngredient.ingredientId);
+        if (!ingredient) continue;
+        const key = `${recipeIngredient.ingredientId}-${recipeIngredient.unit}`;
+        const existing = aggregated.get(key);
+        if (existing) {
+          existing.quantityNeeded += recipeIngredient.quantity * scale;
+          existing.recipeIds.add(slot.recipeId);
+        } else {
+          aggregated.set(key, {
+            ingredientId: recipeIngredient.ingredientId,
+            ingredientName: recipeIngredient.ingredientName,
+            unit: recipeIngredient.unit,
+            quantityNeeded: recipeIngredient.quantity * scale,
+            storeSection: ingredient.storeSection,
+            recipeIds: new Set([slot.recipeId]),
+          });
+        }
+      }
+    }
+
+    return Array.from(aggregated.values())
+      .map((entry) => {
+        const kitchenQuantity = fridgeItems
+          .filter((item) => item.ingredientId === entry.ingredientId && item.unit.toLowerCase() === entry.unit.toLowerCase())
+          .reduce((sum, item) => sum + item.quantity, 0);
+
+        return {
+          ...entry,
+          quantityNeeded: Math.round(entry.quantityNeeded * 100) / 100,
+          kitchenQuantity: Math.round(kitchenQuantity * 100) / 100,
+        };
+      })
+      .filter((entry) => entry.kitchenQuantity >= entry.quantityNeeded && entry.quantityNeeded > 0)
+      .sort((a, b) => a.storeSection.localeCompare(b.storeSection) || a.ingredientName.localeCompare(b.ingredientName));
+  }, [fridgeItems, ingredientById, recipes, slots]);
+
+  useEffect(() => {
+    const signature = JSON.stringify(
+      slots.map((slot) => ({
+        id: slot.id,
+        recipeId: slot.recipeId ?? null,
+        selectedModifierIngredientIds: slot.selectedModifierIngredientIds,
+        isSkipped: slot.isSkipped,
+        servingsPlanned: slot.servingsPlanned,
+        position: slot.position,
+      })),
+    );
+
+    if (!import.meta.env.VITE_API_BASE_URL) {
+      autoSyncSignatureRef.current = signature;
+      setLocalItems(previewDerivedGrocery.items);
+      return;
+    }
+
+    if (autoSyncSignatureRef.current === signature) return;
+    autoSyncSignatureRef.current = signature;
+    generateMutation.mutate();
+  }, [generateMutation, previewDerivedGrocery.items, slots]);
 
   useEffect(
     () => () => {
@@ -206,23 +293,38 @@ export function GroceryPage() {
     [groceryList.items, ingredients, localItems, queryClient],
   );
 
+  const syncFridgeWithQuantityChange = useCallback(
+    (itemId: number, previousQty: number, nextQty: number) => {
+      const list = localItems ?? groceryList.items;
+      const row = list.find((i) => i.id === itemId);
+      if (!row || previousQty === nextQty) return;
+
+      queryClient.setQueryData<FridgeItem[]>(["fridge-items"], (prev) => {
+        const fridge = prev ?? mockFridgeItems;
+        return nextQty > previousQty
+          ? mergeGroceryCheckIntoFridge(fridge, row, nextQty - previousQty, ingredients)
+          : removeGroceryCheckFromFridge(fridge, row, previousQty - nextQty);
+      });
+    },
+    [groceryList.items, ingredients, localItems, queryClient],
+  );
+
   const bumpQty = useCallback((id: number, delta: number) => {
+    let previousValue = 0;
+    let nextValue = 0;
     setActualQty((prev) => {
       const row = items.find((i) => i.id === id);
-      const cur = prev[id] ?? row?.purchasedQuantity ?? row?.plannedQuantity ?? 1;
-      const raw = cur + delta;
-      const next = Math.max(0.25, Math.round(raw * 4) / 4);
-      return { ...prev, [id]: next };
+      previousValue = prev[id] ?? row?.purchasedQuantity ?? row?.plannedQuantity ?? 1;
+      const raw = previousValue + delta;
+      nextValue = Math.max(0.25, Math.round(raw * 4) / 4);
+      return { ...prev, [id]: nextValue };
     });
+    if (checked[id]) {
+      syncFridgeWithQuantityChange(id, previousValue, nextValue);
+    }
     const existing = qtyDebounceRef.current[id];
     if (existing) clearTimeout(existing);
     qtyDebounceRef.current[id] = setTimeout(() => {
-      const nextValue = (() => {
-        const row = items.find((i) => i.id === id);
-        const cur = actualQty[id] ?? row?.purchasedQuantity ?? row?.plannedQuantity ?? 1;
-        return Math.max(0.25, Math.round(cur * 4) / 4);
-      })();
-
       quantityMutation.mutate(
         { itemId: id, purchasedQuantity: nextValue },
         {
@@ -242,7 +344,7 @@ export function GroceryPage() {
         },
       );
     }, 450);
-  }, [actualQty, groceryList.items, items, quantityMutation]);
+  }, [checked, groceryList.items, items, quantityMutation, syncFridgeWithQuantityChange]);
 
   const toggleItem = useCallback(
     (id: number) => {
@@ -355,11 +457,17 @@ export function GroceryPage() {
   return (
     <div className="space-y-5 pb-28 lg:pb-10">
       <div className="card space-y-4 p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-4xl">Grocery List</h1>
             <p className="mt-2 text-sm text-nourish-muted">Check items as you shop. Checked items are added into your kitchen inventory.</p>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
+          </div>
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+            <button type="button" className="button-secondary inline-flex items-center gap-2" onClick={() => setAddOpen(true)}>
+              <Plus size={18} aria-hidden />
+              Add item
+            </button>
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 className="button-secondary"
@@ -372,24 +480,13 @@ export function GroceryPage() {
               >
                 Previous week
               </button>
-              <label className="sr-only" htmlFor="grocery-week-select">
-                Choose grocery week
-              </label>
-              <select
-                id="grocery-week-select"
-                className="input min-w-[220px] bg-white"
-                value={week.id}
-                onChange={(event) => {
-                  setActiveWeekId(Number(event.target.value));
-                  setVisibleWeekStartDate(null);
-                }}
+              <button
+                type="button"
+                className="button-secondary min-w-[220px] justify-center"
+                onClick={() => setVisibleWeekStartDate(null)}
               >
-                {weeks.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {format(parseISO(entry.weekStartDate), "MMM d")} - {format(addDays(parseISO(entry.weekStartDate), 6), "MMM d")}
-                  </option>
-                ))}
-              </select>
+                {format(parseISO(week.weekStartDate), "MMM d")} - {format(addDays(parseISO(week.weekStartDate), 6), "MMM d")}
+              </button>
               <button
                 type="button"
                 className="button-secondary"
@@ -403,28 +500,6 @@ export function GroceryPage() {
                 Next week
               </button>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="button-secondary inline-flex items-center gap-2" onClick={() => setAddOpen(true)}>
-              <Plus size={18} aria-hidden />
-              Add item
-            </button>
-            <button type="button" className="button-secondary inline-flex items-center gap-2" onClick={() => generateMutation.mutate()}>
-              <RefreshCcw size={16} aria-hidden />
-              Refresh list
-            </button>
-            <button
-              type="button"
-              className="button-secondary inline-flex items-center gap-2 border-dashed opacity-95"
-              onClick={() =>
-                pushToast("Receipt scanning isn’t available in this preview — we’ll add camera capture in a future release.")
-              }
-            >
-              Scan receipt
-              <span className="rounded-full bg-nourish-bg px-2 py-0.5 text-[10px] font-semibold tracking-wide text-nourish-muted">
-                Unavailable
-              </span>
-            </button>
           </div>
         </div>
 
@@ -447,14 +522,37 @@ export function GroceryPage() {
       {sectionKeys.length === 0 ? (
         <div className="card p-6 text-center">
           <p className="text-lg font-semibold text-nourish-ink">No grocery list yet</p>
-          <p className="mt-2 text-sm text-nourish-muted">Generate the list from your current week, or add a few manual items to get started.</p>
+          <p className="mt-2 text-sm text-nourish-muted">The list updates from your current week automatically. You can also add manual items any time.</p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <button type="button" className="button-primary" onClick={() => generateMutation.mutate()}>
-              Generate from this week
-            </button>
             <button type="button" className="button-secondary" onClick={() => setAddOpen(true)}>
               Add an item
             </button>
+          </div>
+        </div>
+      ) : null}
+
+      {coveredItems.length > 0 ? (
+        <div className="card p-5">
+          <SectionHeader icon="✓" title="Make sure you have" />
+          <p className="mt-2 text-sm text-nourish-muted">These ingredients are already covered by your fridge, pantry, or freezer, so they do not need to be purchased again for this week.</p>
+          <div className="mt-4 space-y-3">
+            {coveredItems.map((item) => (
+              <div key={`${item.ingredientId}-${item.unit}`} className="rounded-2xl bg-[#fcfaf7] px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-nourish-ink">{item.ingredientName}</p>
+                    <p className="text-sm text-nourish-muted">
+                      Need {item.quantityNeeded} {item.unit} · you already have {item.kitchenQuantity} {item.unit}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-nourish-muted">
+                      <span className="font-medium text-nourish-ink/70">For recipes: </span>
+                      {Array.from(item.recipeIds).map((id) => recipeNamesById.get(id)).filter(Boolean).join(", ")}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-nourish-sage">{item.storeSection}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       ) : null}

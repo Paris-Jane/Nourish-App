@@ -7,6 +7,7 @@ import { addRecipeModifier } from "api/recipes";
 import { swapSlot } from "api/weeks";
 import { useToast } from "hooks/useToast";
 import { buildPreviewGroceryListFromPlan } from "lib/groceryFromPlan";
+import type { DailyFoodGroupProgress } from "lib/plannerNutrition";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
 import { cn, daysUntil } from "lib/utils";
 import { useWeekStore } from "store/weekStore";
@@ -14,7 +15,7 @@ import { RecipeCard } from "./RecipeCard";
 import { TagPill } from "./TagPill";
 import type { FridgeItem, Ingredient, Recipe, Week, WeekMealSlot } from "types/models";
 
-const filters = ["All suggestions", "Expiring soon", "In your fridge", "Ingredient overlap", "Favorites", "Recent"] as const;
+const filters = ["All suggestions", "Top suggestions", "In your fridge", "Meeting nutrient needs", "Expiring soon", "Favorites"] as const;
 
 interface SwapDrawerProps {
   open: boolean;
@@ -24,7 +25,11 @@ interface SwapDrawerProps {
   fridgeItems?: FridgeItem[];
   weekSlots?: WeekMealSlot[];
   week: Pick<Week, "id" | "householdId">;
+  dayProgress?: DailyFoodGroupProgress;
   initialTargetIds?: number[];
+  onCopyCurrentMeal?: () => void;
+  onMarkCurrentDidntHappen?: () => void;
+  onRemoveCurrentMeal?: () => void;
   onClose: () => void;
 }
 
@@ -52,7 +57,11 @@ export function SwapDrawer({
   fridgeItems = [],
   weekSlots = [],
   week,
+  dayProgress,
   initialTargetIds,
+  onCopyCurrentMeal,
+  onMarkCurrentDidntHappen,
+  onRemoveCurrentMeal,
   onClose,
 }: SwapDrawerProps) {
   const queryClient = useQueryClient();
@@ -66,18 +75,19 @@ export function SwapDrawer({
   const [selectedModifierIds, setSelectedModifierIds] = useState<number[]>([]);
   const [customModifierQuery, setCustomModifierQuery] = useState("");
   const isFavorite = useRecipePrefsStore((s) => s.isFavorite);
+  const isDisliked = useRecipePrefsStore((s) => s.isDisliked);
   const setSlotOverrides = useWeekStore((state) => state.setSlotOverrides);
 
   useEffect(() => {
     if (open) {
       setActiveFilter("All suggestions");
       setQuery("");
-      setPendingRecipe(null);
+      setPendingRecipe(currentRecipe ?? null);
       setSelectedTargetIds(initialTargetIds?.length ? initialTargetIds : slot ? [slot.id] : []);
       setSelectedModifierIds(slot?.selectedModifierIngredientIds ?? []);
       setCustomModifierQuery("");
     }
-  }, [initialTargetIds, open, slot?.id]);
+  }, [currentRecipe, initialTargetIds, open, slot?.id, slot?.selectedModifierIngredientIds]);
 
   useEffect(() => {
     if (!open) return;
@@ -102,18 +112,32 @@ export function SwapDrawer({
     [recipes, slot?.id, weekSlots],
   );
 
+  const matchingRecipeSlotsForCurrent = useMemo(() => {
+    if (!slot?.recipeId) return [];
+    return weekSlots.filter((entry) => entry.recipeId === slot.recipeId && entry.id !== slot.id);
+  }, [slot, weekSlots]);
+
   const eligibleTargetSlots = useMemo(() => {
     if (!slot) return [];
+
+    const changingExistingRecipe = Boolean(slot.recipeId && pendingRecipe && pendingRecipe.id !== slot.recipeId);
+    if (changingExistingRecipe) {
+      return [slot, ...matchingRecipeSlotsForCurrent];
+    }
 
     return weekSlots.filter((entry) => {
       if (entry.mealType !== slot.mealType) return false;
       if (entry.id === slot.id) return true;
       return !entry.isEatingOut && !entry.isSkipped;
     });
-  }, [slot, weekSlots]);
+  }, [matchingRecipeSlotsForCurrent, pendingRecipe, slot, weekSlots]);
 
-  const visibleRecipes = useMemo(() => {
-    const pool = recipesForSlotOrFallback(recipes, slot);
+  const nutrientNeedGroups = useMemo(
+    () => Object.entries(dayProgress?.remaining ?? {}).filter(([, value]) => value > 0.01).map(([group]) => group),
+    [dayProgress],
+  );
+
+  const recipeSuggestionMeta = useMemo(() => {
     const expiringIngredientIds = new Set(
       fridgeItems
         .filter((fi) => {
@@ -122,29 +146,67 @@ export function SwapDrawer({
         })
         .map((fi) => fi.ingredientId),
     );
-    const filteredByTab = pool.filter((recipe, index) => {
+
+    return new Map(
+      recipesForSlotOrFallback(recipes, slot).map((recipe, index) => {
+        const ingredientIds = recipe.ingredients.map((ingredient) => ingredient.ingredientId);
+        const fridgeMatches = ingredientIds.filter((id) => fridgeIngredientIds.has(id)).length;
+        const expiringMatches = ingredientIds.filter((id) => expiringIngredientIds.has(id)).length;
+        const overlapMatches = ingredientIds.filter((id) => usedElsewhereIngredientIds.has(id)).length;
+        const nutrientMatches = nutrientNeedGroups.filter((group) => Number(recipe.foodGroupServings[group] ?? 0) > 0).length;
+        const favorite = isFavorite(recipe.id);
+        const disliked = isDisliked(recipe.id);
+        const badges = [
+          ...(expiringMatches > 0 ? ["Expiring soon"] : []),
+          ...(fridgeMatches > 0 ? ["In your fridge"] : []),
+          ...(nutrientMatches > 0 ? ["Meets nutrient needs"] : []),
+          ...(favorite ? ["Favorite"] : []),
+          ...(overlapMatches > 0 ? ["Overlap"] : []),
+        ];
+        const score =
+          expiringMatches * 5 +
+          fridgeMatches * 3 +
+          overlapMatches * 1.5 +
+          nutrientMatches * 4 +
+          (favorite ? 3 : 0) -
+          (disliked ? 8 : 0) -
+          index * 0.01;
+
+        return [
+          recipe.id,
+          { fridgeMatches, expiringMatches, overlapMatches, nutrientMatches, favorite, disliked, badges, score },
+        ] as const;
+      }),
+    );
+  }, [fridgeIngredientIds, fridgeItems, isDisliked, isFavorite, nutrientNeedGroups, recipes, slot, usedElsewhereIngredientIds]);
+
+  const visibleRecipes = useMemo(() => {
+    const pool = recipesForSlotOrFallback(recipes, slot);
+    const filteredByTab = pool.filter((recipe) => {
+      const meta = recipeSuggestionMeta.get(recipe.id);
+      if (!meta) return true;
       switch (activeFilter) {
         case "All suggestions":
           return true;
+        case "Top suggestions":
+          return meta.score > 0;
         case "Expiring soon":
-          return recipe.ingredients.some((ingredient) => expiringIngredientIds.has(ingredient.ingredientId));
+          return meta.expiringMatches > 0;
         case "In your fridge":
-          return recipe.ingredients.some((ingredient) => fridgeIngredientIds.has(ingredient.ingredientId));
-        case "Ingredient overlap":
-          return recipe.ingredients.some((ingredient) => usedElsewhereIngredientIds.has(ingredient.ingredientId));
+          return meta.fridgeMatches > 0;
+        case "Meeting nutrient needs":
+          return meta.nutrientMatches > 0;
         case "Favorites":
-          return isFavorite(recipe.id);
-        case "Recent":
-          return index < 4;
+          return meta.favorite;
         default:
           return true;
       }
     });
 
     const q = query.trim().toLowerCase();
-    if (!q) return filteredByTab;
-    return filteredByTab.filter((recipe) => `${recipe.name} ${recipe.cuisine}`.toLowerCase().includes(q));
-  }, [activeFilter, fridgeIngredientIds, fridgeItems, isFavorite, query, recipes, slot, usedElsewhereIngredientIds]);
+    const searched = !q ? filteredByTab : filteredByTab.filter((recipe) => `${recipe.name} ${recipe.cuisine}`.toLowerCase().includes(q));
+    return searched.sort((a, b) => (recipeSuggestionMeta.get(b.id)?.score ?? 0) - (recipeSuggestionMeta.get(a.id)?.score ?? 0));
+  }, [activeFilter, query, recipeSuggestionMeta, recipes, slot]);
 
   const pendingModifiers = useMemo(
     () => pendingRecipe?.ingredients.filter((ingredient) => ingredient.isModifier || ingredient.isOptional) ?? [],
@@ -351,6 +413,26 @@ export function SwapDrawer({
             {slot ? <p className="mt-2 text-sm text-nourish-muted">{slot.dayOfWeek} · {slot.mealType}</p> : null}
           </button>
 
+          {slot?.recipeId ? (
+            <div className="mb-4 flex flex-wrap gap-2">
+              {onCopyCurrentMeal ? (
+                <button type="button" className="button-secondary" onClick={onCopyCurrentMeal}>
+                  Add to other days
+                </button>
+              ) : null}
+              {onMarkCurrentDidntHappen ? (
+                <button type="button" className="button-secondary" onClick={onMarkCurrentDidntHappen}>
+                  Didn’t happen
+                </button>
+              ) : null}
+              {onRemoveCurrentMeal ? (
+                <button type="button" className="button-secondary" onClick={onRemoveCurrentMeal}>
+                  Remove meal
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
           <div
             className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1"
             onPointerDown={(e) => e.stopPropagation()}
@@ -381,7 +463,9 @@ export function SwapDrawer({
                 <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Ready to add</p>
                 <h3 className="mt-1 text-lg font-medium text-nourish-ink">{pendingRecipe.name}</h3>
                 <p className="mt-1 text-sm text-nourish-muted">
-                  Start with {slot?.dayOfWeek}. Then decide whether this is just for that day or other {slot?.mealType.toLowerCase()} slots too.
+                  {slot?.recipeId && pendingRecipe.id !== slot.recipeId
+                    ? `Start with ${slot.dayOfWeek}. Then decide whether to swap just this meal or every ${slot.mealType.toLowerCase()} slot using ${currentRecipe?.name}.`
+                    : `Start with ${slot?.dayOfWeek}. Then decide whether this is just for that day or other ${slot?.mealType.toLowerCase()} slots too.`}
                 </p>
               </div>
               <div className="space-y-2">
@@ -396,9 +480,9 @@ export function SwapDrawer({
                         checked ? "border-nourish-sage bg-white" : "border-nourish-border bg-white/70",
                       )}
                     >
-                      <span className="text-nourish-ink">
-                        {entry.dayOfWeek} · {entry.mealType}
-                      </span>
+                        <span className="text-nourish-ink">
+                          {entry.dayOfWeek} · {entry.mealType}
+                        </span>
                       <span className="flex items-center gap-2">
                         {entry.recipeName && entry.id !== slot?.id ? <span className="text-xs text-nourish-muted">{entry.recipeName}</span> : null}
                         <input
@@ -495,7 +579,9 @@ export function SwapDrawer({
               </div>
               <div className="mt-4 flex gap-2">
                 <button type="button" className="button-primary flex-1" onClick={applyPendingRecipe} disabled={applyRecipeMutation.isPending}>
-                  {applyRecipeMutation.isPending ? "Saving..." : `Add to ${selectedTargetIds.length} day${selectedTargetIds.length === 1 ? "" : "s"}`}
+                  {applyRecipeMutation.isPending
+                    ? "Saving..."
+                    : `${slot?.recipeId && pendingRecipe.id !== slot.recipeId ? "Swap" : "Add to"} ${selectedTargetIds.length} day${selectedTargetIds.length === 1 ? "" : "s"}`}
                 </button>
                 <button type="button" className="button-secondary" onClick={() => setPendingRecipe(null)}>
                   Cancel
@@ -517,6 +603,7 @@ export function SwapDrawer({
                   compact
                   onSelect={beginPlanningRecipe}
                   actionLabel="Plan this recipe"
+                  badges={recipeSuggestionMeta.get(recipe.id)?.badges.slice(0, 3) ?? []}
                 />
               ))}
             </div>

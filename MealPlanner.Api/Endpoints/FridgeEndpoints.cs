@@ -96,11 +96,18 @@ public static class FridgeEndpoints
             .FirstOrDefaultAsync(f => f.Id == id && f.HouseholdId == householdId);
         if (item == null) return Results.NotFound();
 
+        if (req.IngredientId.HasValue)
+        {
+            var ingredient = await db.Ingredients.FindAsync(req.IngredientId.Value);
+            if (ingredient == null) return Results.BadRequest("Ingredient not found.");
+            item.IngredientId = ingredient.Id;
+        }
         if (req.Quantity.HasValue) item.Quantity = req.Quantity.Value;
         if (req.Unit != null) item.Unit = req.Unit;
         if (req.Location.HasValue) item.Location = req.Location.Value;
         if (req.ExpiresAt.HasValue) item.ExpiresAt = req.ExpiresAt.Value;
         await db.SaveChangesAsync();
+        await db.Entry(item).Reference(f => f.Ingredient).LoadAsync();
         return Results.Ok(ToDto(item));
     }
 
