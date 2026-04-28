@@ -54,16 +54,15 @@ public class RecipeAnalysisService : IRecipeAnalysisService
         var sourceUrl = ExtractFirstUrl(rawText);
         var fetchedSource = sourceUrl is null ? null : await TryFetchSourceAsync(sourceUrl, cancellationToken);
 
-        var promptText = BuildPrompt(rawText, fetchedSource, ingredientCatalog);
         AiRecipeDraft aiDraft;
-        try
+        if (TryBuildSimpleSnackDraft(rawText, out var fallbackDraft))
         {
-            aiDraft = await RequestDraftAsync(model, apiKey, promptText, cancellationToken);
-        }
-        catch (InvalidOperationException ex) when (TryBuildSimpleSnackDraft(rawText, out var fallbackDraft))
-        {
-            _logger.LogWarning(ex, "OpenAI recipe analysis failed; using simple snack fallback for prompt.");
             aiDraft = fallbackDraft;
+        }
+        else
+        {
+            var promptText = BuildPrompt(rawText, fetchedSource, ingredientCatalog);
+            aiDraft = await RequestDraftAsync(model, apiKey, promptText, cancellationToken);
         }
 
         var warnings = new List<string>(aiDraft.Warnings ?? []);

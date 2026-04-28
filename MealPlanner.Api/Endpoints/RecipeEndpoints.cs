@@ -114,6 +114,13 @@ public static class RecipeEndpoints
                 detail: ex.Message,
                 statusCode: StatusCodes.Status502BadGateway);
         }
+        catch (Exception ex)
+        {
+            return Results.Problem(
+                title: "Unexpected AI recipe analysis error",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
     }
 
     private static async Task<IResult> Create(RecipeRequest req, AppDbContext db, ClaimsPrincipal user)
