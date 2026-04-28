@@ -39,6 +39,7 @@ interface SwapDrawerProps {
   week: Week;
   dayProgress?: DailyFoodGroupProgress;
   initialTargetIds?: number[];
+  initialRecipe?: Recipe;
   onCopyCurrentMeal?: () => void;
   onMarkCurrentDidntHappen?: () => void;
   onRemoveCurrentMeal?: () => void;
@@ -71,6 +72,7 @@ export function SwapDrawer({
   week,
   dayProgress,
   initialTargetIds,
+  initialRecipe,
   onCopyCurrentMeal,
   onMarkCurrentDidntHappen,
   onRemoveCurrentMeal,
@@ -106,13 +108,13 @@ export function SwapDrawer({
     if (open) {
       setActiveFilter("All suggestions");
       setQuery("");
-      setPendingRecipe(currentRecipe ?? null);
+      setPendingRecipe(initialRecipe ?? currentRecipe ?? null);
       setSelectedTargetIds(initialTargetIds?.length ? initialTargetIds : slot ? [slot.id] : []);
       setSelectedModifierIds(slot?.selectedModifierIngredientIds ?? []);
       setCustomModifierQuery("");
       setCustomModifierDraft(null);
     }
-  }, [currentRecipe, initialTargetIds, open, slot?.id, slot?.selectedModifierIngredientIds]);
+  }, [currentRecipe, initialRecipe, initialTargetIds, open, slot?.id, slot?.selectedModifierIngredientIds]);
 
   useEffect(() => {
     if (!open) return;

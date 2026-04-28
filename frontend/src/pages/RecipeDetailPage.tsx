@@ -5,14 +5,15 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { createIngredient } from "api/ingredients";
 import { addRecipeModifier, addRecipeStep, getRecipePreference, removeRecipeModifier, upsertRecipePreference } from "api/recipes";
 import { StepList } from "components/StepList";
+import { SwapDrawer } from "components/SwapDrawer";
 import { TagPill } from "components/TagPill";
-import { useIngredients, useRecipes } from "hooks/useAppData";
+import { useCurrentWeek, useFridgeItems, useIngredients, useRecipes, useWeekSlots } from "hooks/useAppData";
 import { buildRenderedRecipeSteps, formatQuantity, getRecipeServingMultiplier } from "lib/recipeStepRendering";
 import { useToast } from "hooks/useToast";
 import { mockIngredients, mockRecipePrefs } from "lib/mockData";
 import { cn } from "lib/utils";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
-import type { Ingredient, MealType, Recipe, RecipeIngredient, UserRecipePref } from "types/models";
+import type { Ingredient, MealType, Recipe, RecipeIngredient, UserRecipePref, WeekMealSlot } from "types/models";
 
 const emptyPreference = (recipeId: number): UserRecipePref => ({
   id: 0,
@@ -32,12 +33,23 @@ function mealTone(mealType: MealType) {
   return mealType.toLowerCase() as "breakfast" | "lunch" | "dinner" | "snack";
 }
 
+function canUseSlotForRecipe(slot: WeekMealSlot, recipe: Recipe) {
+  return (
+    recipe.mealTypeTags.includes(slot.mealType) ||
+    (slot.mealType === "Dinner" && recipe.mealTypeTags.includes("Lunch")) ||
+    (slot.mealType === "Lunch" && recipe.mealTypeTags.includes("Dinner"))
+  );
+}
+
 export function RecipeDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { recipes } = useRecipes();
   const { ingredients } = useIngredients();
+  const { week } = useCurrentWeek();
+  const { slots } = useWeekSlots();
+  const { items: fridgeItems } = useFridgeItems();
   const { pushToast } = useToast();
   const [tab, setTab] = useState<"Prep ahead" | "Day of">("Prep ahead");
   const [showAddSearch, setShowAddSearch] = useState(false);
@@ -50,6 +62,7 @@ export function RecipeDetailPage() {
   const [editingIngredientId, setEditingIngredientId] = useState<number | null>(null);
   const [editorQuantity, setEditorQuantity] = useState("");
   const [editorUnit, setEditorUnit] = useState("");
+  const [plannerSlot, setPlannerSlot] = useState<WeekMealSlot | null>(null);
   const isFavorite = useRecipePrefsStore((s) => s.isFavorite);
   const toggleFavorite = useRecipePrefsStore((s) => s.toggleFavorite);
   const recipe = recipes.find((entry) => String(entry.id) === id);
@@ -293,6 +306,20 @@ export function RecipeDetailPage() {
 
   const favorited = isFavorite(recipe.id);
 
+  const openAddToWeekPlanner = () => {
+    const openSlots = slots.filter((slot) => !slot.recipeId && !slot.isEatingOut && !slot.isSkipped);
+    const matchingSlot = openSlots.find((slot) => canUseSlotForRecipe(slot, recipe));
+    const fallbackSlot = openSlots[0];
+    const targetSlot = matchingSlot ?? fallbackSlot;
+
+    if (!targetSlot) {
+      pushToast("There are no open meal slots this week. Remove a meal first, then add this recipe.");
+      return;
+    }
+
+    setPlannerSlot(targetSlot);
+  };
+
   const handleToggleOptional = async (ingredientId: number) => {
     const ingredient = optionalIngredients.find((entry) => entry.ingredientId === ingredientId);
     const nextSelected = selectedOptionalIds.includes(ingredientId)
@@ -428,7 +455,7 @@ export function RecipeDetailPage() {
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <button
               className="button-primary"
-              onClick={() => pushToast("Adding into the week grid is the next small wiring step.")}
+              onClick={openAddToWeekPlanner}
             >
               Add to this week
             </button>
@@ -699,6 +726,19 @@ export function RecipeDetailPage() {
         </div>
         <div>{tab === "Prep ahead" ? <StepList steps={prepAheadSteps} /> : <StepList steps={dayOfSteps} />}</div>
       </div>
+
+      <SwapDrawer
+        open={Boolean(plannerSlot)}
+        slot={plannerSlot ?? undefined}
+        recipes={recipes}
+        ingredients={ingredients}
+        fridgeItems={fridgeItems}
+        weekSlots={slots}
+        week={week}
+        initialRecipe={recipe}
+        initialTargetIds={plannerSlot ? [plannerSlot.id] : []}
+        onClose={() => setPlannerSlot(null)}
+      />
     </div>
   );
 }
