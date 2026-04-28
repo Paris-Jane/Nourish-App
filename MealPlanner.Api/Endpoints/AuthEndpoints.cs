@@ -66,6 +66,7 @@ public static class AuthEndpoints
         };
         db.Users.Add(user);
         await db.SaveChangesAsync();
+        await RecipeCatalogSeeder.SeedForHouseholdAsync(db, household.Id);
 
         var token = jwt.GenerateToken(user.Id, household.Id, user.Email);
         return Results.Created("/api/auth/register",

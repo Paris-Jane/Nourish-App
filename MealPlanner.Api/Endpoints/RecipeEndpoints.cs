@@ -31,6 +31,8 @@ public static class RecipeEndpoints
     private static async Task<IResult> GetAll(AppDbContext db, ClaimsPrincipal user)
     {
         var householdId = user.GetHouseholdId();
+        await RecipeCatalogSeeder.SeedForHouseholdAsync(db, householdId);
+
         var recipes = await db.Recipes
             .Include(r => r.Ingredients).ThenInclude(ri => ri.Ingredient)
             .Include(r => r.Steps)
