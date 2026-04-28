@@ -102,9 +102,12 @@ function formatQuantity(n: number): string {
     [0.125, "⅛"],
     [0.25, "¼"],
     [0.33, "⅓"],
+    [0.375, "⅜"],
     [0.5, "½"],
+    [0.625, "⅝"],
     [0.67, "⅔"],
     [0.75, "¾"],
+    [0.875, "⅞"],
   ];
   const whole = Math.floor(n);
   const rem = n - whole;
@@ -133,8 +136,7 @@ function scaleInstruction(instruction: string, multiplier: number): string {
   });
 
   if (foundNumber) return scaled;
-  const servings = formatQuantity(multiplier);
-  return `${instruction} (${servings} planned serving${Math.abs(multiplier - 1) < 0.01 ? "" : "s"})`;
+  return instruction;
 }
 
 function countUniqueRecipes(slots: WeekMealSlot[]) {

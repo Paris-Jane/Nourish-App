@@ -963,7 +963,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-25T01:35:15.480Z",
+    "createdAt": "2026-04-28T18:54:28.333Z",
     "ingredients": [
       {
         "id": 1,
@@ -1073,7 +1073,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "dairy": 0.5
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.343Z",
     "ingredients": [
       {
         "id": 4,
@@ -1136,7 +1136,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.343Z",
     "ingredients": [
       {
         "id": 5,
@@ -1218,7 +1218,7 @@ export const mockRecipesFromDbSeeder = [
       "fruit": 1,
       "grains": 1
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.343Z",
     "ingredients": [
       {
         "id": 7,
@@ -1368,7 +1368,7 @@ export const mockRecipesFromDbSeeder = [
     "foodGroupServings": {
       "grains": 1
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
         "id": 15,
@@ -1530,7 +1530,7 @@ export const mockRecipesFromDbSeeder = [
       "grains": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
         "id": 24,
@@ -1740,7 +1740,7 @@ export const mockRecipesFromDbSeeder = [
       "vegetables": 1,
       "dairy": 0.5
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
         "id": 35,
@@ -2003,7 +2003,7 @@ export const mockRecipesFromDbSeeder = [
       "vegetables": 1.5,
       "dairy": 0.5
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
         "id": 48,
@@ -2289,7 +2289,7 @@ export const mockRecipesFromDbSeeder = [
       "grains": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
         "id": 65,
@@ -2449,7 +2449,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 1,
       "vegetables": 1
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
         "id": 74,
@@ -2599,7 +2599,7 @@ export const mockRecipesFromDbSeeder = [
       "vegetables": 2,
       "dairy": 0.5
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
         "id": 82,
@@ -2796,7 +2796,7 @@ export const mockRecipesFromDbSeeder = [
       "grains": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
         "id": 92,
@@ -2950,7 +2950,7 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "vegetables": 1.5
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
         "id": 99,
@@ -2984,6 +2984,16 @@ export const mockRecipesFromDbSeeder = [
       },
       {
         "id": 102,
+        "ingredientId": 67,
+        "ingredientName": "Taco Seasoning",
+        "quantity": 2,
+        "unit": "tbsp",
+        "isModifier": false,
+        "isOptional": false,
+        "substituteIngredientIds": []
+      },
+      {
+        "id": 103,
         "ingredientId": 56,
         "ingredientName": "Corn",
         "quantity": 1.5,
@@ -2993,7 +3003,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 103,
+        "id": 104,
         "ingredientId": 32,
         "ingredientName": "Salsa",
         "quantity": 1,
@@ -3003,7 +3013,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 104,
+        "id": 105,
         "ingredientId": 20,
         "ingredientName": "Avocado",
         "quantity": 2,
@@ -3013,7 +3023,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 105,
+        "id": 106,
         "ingredientId": 30,
         "ingredientName": "Cheddar Cheese",
         "quantity": 4,
@@ -3023,7 +3033,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 106,
+        "id": 107,
         "ingredientId": 24,
         "ingredientName": "Pico de Gallo",
         "quantity": 1,
@@ -3033,7 +3043,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 107,
+        "id": 108,
         "ingredientId": 43,
         "ingredientName": "Romaine Lettuce",
         "quantity": 4,
@@ -3043,7 +3053,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 108,
+        "id": 109,
         "ingredientId": 57,
         "ingredientName": "Sour Cream",
         "quantity": 0.5,
@@ -3053,7 +3063,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 109,
+        "id": 110,
         "ingredientId": 36,
         "ingredientName": "Bell Pepper",
         "quantity": 1,
@@ -3067,35 +3077,73 @@ export const mockRecipesFromDbSeeder = [
       {
         "id": 49,
         "stepNumber": 1,
-        "instruction": "Cook {ingredients} with taco seasoning until browned.",
+        "instruction": "Cook {ingredients} until the beef is browned and seasoned.",
         "timingTag": "PrepAhead",
         "durationMinutes": 10,
         "isPassive": false,
         "prepCategory": "CookProtein",
         "linkedIngredientIds": [
-          49
+          49,
+          67
         ],
         "scaleByLinkedIngredients": true
       },
       {
         "id": 50,
         "stepNumber": 2,
-        "instruction": "Cook or reheat the bowl base: {ingredients}.",
+        "instruction": "Portion {ingredients} as the grain base.",
         "timingTag": "PrepAhead",
-        "durationMinutes": 10,
+        "durationMinutes": 3,
         "isPassive": false,
-        "prepCategory": "CookStarch",
+        "prepCategory": "AssemblePortion",
         "linkedIngredientIds": [
-          2,
-          5,
-          56
+          2
         ],
         "scaleByLinkedIngredients": true
       },
       {
         "id": 51,
         "stepNumber": 3,
-        "instruction": "Cook any selected add-in peppers before packing the bowls: {ingredients}.",
+        "instruction": "Drain, rinse, and portion {ingredients}.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 3,
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          5
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 52,
+        "stepNumber": 4,
+        "instruction": "Thaw or drain, then portion {ingredients} without warming it.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 3,
+        "isPassive": false,
+        "prepCategory": "AssemblePortion",
+        "linkedIngredientIds": [
+          56
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 53,
+        "stepNumber": 5,
+        "instruction": "Pack {ingredients} separately or spoon it into each bowl.",
+        "timingTag": "PrepAhead",
+        "durationMinutes": 2,
+        "isPassive": false,
+        "prepCategory": "MixSauce",
+        "linkedIngredientIds": [
+          32
+        ],
+        "scaleByLinkedIngredients": true
+      },
+      {
+        "id": 54,
+        "stepNumber": 6,
+        "instruction": "Slice selected pepper add-ins and store separately: {ingredients}.",
         "timingTag": "PrepAhead",
         "durationMinutes": 6,
         "isPassive": false,
@@ -3106,24 +3154,23 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 52,
-        "stepNumber": 4,
-        "instruction": "Assemble bowls with the rice, beans, beef, corn, and salsa.",
-        "timingTag": "PrepAhead",
-        "durationMinutes": 8,
+        "id": 55,
+        "stepNumber": 7,
+        "instruction": "Reheat the prepared bowl base if you want it warm.",
+        "timingTag": "DayOfActive",
+        "durationMinutes": 3,
         "isPassive": false,
-        "prepCategory": "AssemblePortion",
+        "prepCategory": "FreshFinish",
         "linkedIngredientIds": [
           2,
           5,
           49,
-          56,
-          32
+          56
         ]
       },
       {
-        "id": 53,
-        "stepNumber": 5,
+        "id": 56,
+        "stepNumber": 8,
         "instruction": "Finish with any fresh toppings you selected: {ingredients}.",
         "timingTag": "DayOfActive",
         "durationMinutes": 2,
@@ -3162,10 +3209,10 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
-        "id": 110,
+        "id": 111,
         "ingredientId": 59,
         "ingredientName": "Naan",
         "quantity": 4,
@@ -3175,7 +3222,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 111,
+        "id": 112,
         "ingredientId": 60,
         "ingredientName": "Gyro Meat",
         "quantity": 16,
@@ -3185,7 +3232,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 112,
+        "id": 113,
         "ingredientId": 61,
         "ingredientName": "Tzatziki",
         "quantity": 1,
@@ -3195,7 +3242,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 113,
+        "id": 114,
         "ingredientId": 25,
         "ingredientName": "Tomatoes",
         "quantity": 1.5,
@@ -3205,7 +3252,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 114,
+        "id": 115,
         "ingredientId": 44,
         "ingredientName": "Cucumber",
         "quantity": 1.5,
@@ -3215,7 +3262,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 115,
+        "id": 116,
         "ingredientId": 45,
         "ingredientName": "Red Onion",
         "quantity": 0.5,
@@ -3225,7 +3272,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 116,
+        "id": 117,
         "ingredientId": 46,
         "ingredientName": "Feta Cheese",
         "quantity": 3,
@@ -3235,7 +3282,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 117,
+        "id": 118,
         "ingredientId": 43,
         "ingredientName": "Romaine Lettuce",
         "quantity": 2,
@@ -3245,7 +3292,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 118,
+        "id": 119,
         "ingredientId": 70,
         "ingredientName": "Olives",
         "quantity": 0.5,
@@ -3257,7 +3304,7 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 54,
+        "id": 57,
         "stepNumber": 1,
         "instruction": "Warm {ingredients}.",
         "timingTag": "DayOfActive",
@@ -3271,7 +3318,7 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 55,
+        "id": 58,
         "stepNumber": 2,
         "instruction": "Chop the fresh vegetables right before serving: {ingredients}.",
         "timingTag": "DayOfActive",
@@ -3286,7 +3333,7 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 56,
+        "id": 59,
         "stepNumber": 3,
         "instruction": "Assemble the wraps with tzatziki and any selected toppings: {ingredients}.",
         "timingTag": "DayOfActive",
@@ -3324,10 +3371,10 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "fruit": 0.5
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
-        "id": 119,
+        "id": 120,
         "ingredientId": 2,
         "ingredientName": "Brown Rice",
         "quantity": 2,
@@ -3337,7 +3384,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 120,
+        "id": 121,
         "ingredientId": 1,
         "ingredientName": "Chicken Breast",
         "quantity": 16,
@@ -3347,7 +3394,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 121,
+        "id": 122,
         "ingredientId": 62,
         "ingredientName": "Cream Sauce",
         "quantity": 3,
@@ -3357,7 +3404,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 122,
+        "id": 123,
         "ingredientId": 63,
         "ingredientName": "Pineapple",
         "quantity": 1.5,
@@ -3367,7 +3414,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 123,
+        "id": 124,
         "ingredientId": 30,
         "ingredientName": "Cheddar Cheese",
         "quantity": 3,
@@ -3377,7 +3424,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 124,
+        "id": 125,
         "ingredientId": 64,
         "ingredientName": "Chow Mein Noodles",
         "quantity": 2,
@@ -3387,7 +3434,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 125,
+        "id": 126,
         "ingredientId": 41,
         "ingredientName": "Green Onions",
         "quantity": 0.5,
@@ -3397,7 +3444,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 126,
+        "id": 127,
         "ingredientId": 65,
         "ingredientName": "Peas",
         "quantity": 1,
@@ -3407,7 +3454,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 127,
+        "id": 128,
         "ingredientId": 66,
         "ingredientName": "Celery",
         "quantity": 1,
@@ -3419,7 +3466,7 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 57,
+        "id": 60,
         "stepNumber": 1,
         "instruction": "Cook {ingredients} ahead of time for the haystack base.",
         "timingTag": "PrepAhead",
@@ -3433,7 +3480,7 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 58,
+        "id": 61,
         "stepNumber": 2,
         "instruction": "Warm {ingredients} and combine with the cooked chicken.",
         "timingTag": "PrepAhead",
@@ -3447,7 +3494,7 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 59,
+        "id": 62,
         "stepNumber": 3,
         "instruction": "Prep any selected toppings so they are ready for serving: {ingredients}.",
         "timingTag": "PrepAhead",
@@ -3465,7 +3512,7 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 60,
+        "id": 63,
         "stepNumber": 4,
         "instruction": "Serve the chicken mixture over rice and add any prepped toppings you chose.",
         "timingTag": "DayOfActive",
@@ -3497,10 +3544,10 @@ export const mockRecipesFromDbSeeder = [
       "protein": 2,
       "vegetables": 1
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
-        "id": 128,
+        "id": 129,
         "ingredientId": 29,
         "ingredientName": "Flour Tortilla",
         "quantity": 8,
@@ -3510,7 +3557,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 129,
+        "id": 130,
         "ingredientId": 49,
         "ingredientName": "Ground Beef",
         "quantity": 16,
@@ -3520,7 +3567,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 130,
+        "id": 131,
         "ingredientId": 67,
         "ingredientName": "Taco Seasoning",
         "quantity": 1,
@@ -3530,7 +3577,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 131,
+        "id": 132,
         "ingredientId": 43,
         "ingredientName": "Romaine Lettuce",
         "quantity": 2,
@@ -3540,7 +3587,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 132,
+        "id": 133,
         "ingredientId": 25,
         "ingredientName": "Tomatoes",
         "quantity": 1,
@@ -3550,7 +3597,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 133,
+        "id": 134,
         "ingredientId": 30,
         "ingredientName": "Cheddar Cheese",
         "quantity": 4,
@@ -3560,7 +3607,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 134,
+        "id": 135,
         "ingredientId": 32,
         "ingredientName": "Salsa",
         "quantity": 0.5,
@@ -3570,7 +3617,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 135,
+        "id": 136,
         "ingredientId": 20,
         "ingredientName": "Avocado",
         "quantity": 1,
@@ -3580,7 +3627,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 136,
+        "id": 137,
         "ingredientId": 5,
         "ingredientName": "Black Beans",
         "quantity": 1,
@@ -3590,7 +3637,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 137,
+        "id": 138,
         "ingredientId": 57,
         "ingredientName": "Sour Cream",
         "quantity": 0.5,
@@ -3602,7 +3649,7 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 61,
+        "id": 64,
         "stepNumber": 1,
         "instruction": "Brown {ingredients}, then stir in taco seasoning.",
         "timingTag": "PrepAhead",
@@ -3615,7 +3662,7 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 62,
+        "id": 65,
         "stepNumber": 2,
         "instruction": "Warm the tortillas.",
         "timingTag": "DayOfActive",
@@ -3628,7 +3675,7 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 63,
+        "id": 66,
         "stepNumber": 3,
         "instruction": "Add any selected fresh toppings: {ingredients}.",
         "timingTag": "DayOfActive",
@@ -3647,7 +3694,7 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 64,
+        "id": 67,
         "stepNumber": 4,
         "instruction": "Fill the tortillas with seasoned beef and the toppings you picked.",
         "timingTag": "DayOfActive",
@@ -3679,10 +3726,10 @@ export const mockRecipesFromDbSeeder = [
       "dairy": 1,
       "vegetables": 1
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
-        "id": 138,
+        "id": 139,
         "ingredientId": 19,
         "ingredientName": "Whole Grain Bread",
         "quantity": 4,
@@ -3692,7 +3739,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 139,
+        "id": 140,
         "ingredientId": 30,
         "ingredientName": "Cheddar Cheese",
         "quantity": 4,
@@ -3702,7 +3749,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 140,
+        "id": 141,
         "ingredientId": 16,
         "ingredientName": "Butter",
         "quantity": 2,
@@ -3712,7 +3759,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 141,
+        "id": 142,
         "ingredientId": 68,
         "ingredientName": "V8 Juice",
         "quantity": 2,
@@ -3722,7 +3769,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 142,
+        "id": 143,
         "ingredientId": 27,
         "ingredientName": "Basil",
         "quantity": 1,
@@ -3732,7 +3779,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 143,
+        "id": 144,
         "ingredientId": 47,
         "ingredientName": "Mozzarella Cheese",
         "quantity": 2,
@@ -3742,7 +3789,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 144,
+        "id": 145,
         "ingredientId": 34,
         "ingredientName": "Ham",
         "quantity": 4,
@@ -3754,7 +3801,7 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 65,
+        "id": 68,
         "stepNumber": 1,
         "instruction": "Butter the bread and build the sandwiches with cheddar and any selected fillings: {ingredients}.",
         "timingTag": "DayOfActive",
@@ -3770,7 +3817,7 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 66,
+        "id": 69,
         "stepNumber": 2,
         "instruction": "Grill the sandwiches until the bread is golden and the cheese is melted.",
         "timingTag": "DayOfActive",
@@ -3782,7 +3829,7 @@ export const mockRecipesFromDbSeeder = [
         ]
       },
       {
-        "id": 67,
+        "id": 70,
         "stepNumber": 3,
         "instruction": "Pour {ingredients} and serve alongside the sandwiches.",
         "timingTag": "DayOfActive",
@@ -3818,10 +3865,10 @@ export const mockRecipesFromDbSeeder = [
       "vegetables": 1.5,
       "dairy": 1
     },
-    "createdAt": "2026-04-25T01:35:15.486Z",
+    "createdAt": "2026-04-28T18:54:28.344Z",
     "ingredients": [
       {
-        "id": 145,
+        "id": 146,
         "ingredientId": 69,
         "ingredientName": "Sweet Potato",
         "quantity": 4,
@@ -3831,7 +3878,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 146,
+        "id": 147,
         "ingredientId": 49,
         "ingredientName": "Ground Beef",
         "quantity": 16,
@@ -3841,7 +3888,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 147,
+        "id": 148,
         "ingredientId": 23,
         "ingredientName": "Cottage Cheese",
         "quantity": 2,
@@ -3851,7 +3898,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 148,
+        "id": 149,
         "ingredientId": 20,
         "ingredientName": "Avocado",
         "quantity": 1,
@@ -3861,7 +3908,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 149,
+        "id": 150,
         "ingredientId": 41,
         "ingredientName": "Green Onions",
         "quantity": 0.5,
@@ -3871,7 +3918,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 150,
+        "id": 151,
         "ingredientId": 42,
         "ingredientName": "Hot Sauce",
         "quantity": 2,
@@ -3881,7 +3928,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 151,
+        "id": 152,
         "ingredientId": 5,
         "ingredientName": "Black Beans",
         "quantity": 1,
@@ -3891,7 +3938,7 @@ export const mockRecipesFromDbSeeder = [
         "substituteIngredientIds": []
       },
       {
-        "id": 152,
+        "id": 153,
         "ingredientId": 35,
         "ingredientName": "Spinach",
         "quantity": 2,
@@ -3903,7 +3950,7 @@ export const mockRecipesFromDbSeeder = [
     ],
     "steps": [
       {
-        "id": 68,
+        "id": 71,
         "stepNumber": 1,
         "instruction": "Roast {ingredients} until tender.",
         "timingTag": "PrepAhead",
@@ -3916,7 +3963,7 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 69,
+        "id": 72,
         "stepNumber": 2,
         "instruction": "Brown and season {ingredients}.",
         "timingTag": "PrepAhead",
@@ -3929,7 +3976,7 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 70,
+        "id": 73,
         "stepNumber": 3,
         "instruction": "Warm any selected beans before serving: {ingredients}.",
         "timingTag": "PrepAhead",
@@ -3942,7 +3989,7 @@ export const mockRecipesFromDbSeeder = [
         "scaleByLinkedIngredients": true
       },
       {
-        "id": 71,
+        "id": 74,
         "stepNumber": 4,
         "instruction": "Assemble bowls with the roasted sweet potato, beef, and cottage cheese.",
         "timingTag": "PrepAhead",
@@ -3956,7 +4003,7 @@ export const mockRecipesFromDbSeeder = [
         ]
       },
       {
-        "id": 72,
+        "id": 75,
         "stepNumber": 5,
         "instruction": "Finish with any selected toppings: {ingredients}.",
         "timingTag": "DayOfActive",
