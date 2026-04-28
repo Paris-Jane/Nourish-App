@@ -165,6 +165,22 @@ export function DayColumn({
                         >
                           <p className="font-medium text-nourish-ink">{suggestion.label}</p>
                           <p className="mt-0.5 text-nourish-muted">{suggestion.description}</p>
+                          {suggestion.items && suggestion.items.length > 1 ? (
+                            <div className="mt-2 space-y-1">
+                              {suggestion.items.map((item) => (
+                                <p key={item.id} className="rounded-lg bg-nourish-bg px-2 py-1 text-[11px] text-nourish-muted">
+                                  {item.label}
+                                  {item.selectedModifierIngredientIds && item.selectedModifierIngredientIds.length > 0
+                                    ? ` · ${item.selectedModifierIngredientIds.length} add-on${item.selectedModifierIngredientIds.length === 1 ? "" : "s"}`
+                                    : ""}
+                                </p>
+                              ))}
+                            </div>
+                          ) : suggestion.selectedModifierIngredientIds && suggestion.selectedModifierIngredientIds.length > 0 ? (
+                            <p className="mt-1 text-[11px] font-medium text-nourish-sage">
+                              Includes {suggestion.selectedModifierIngredientIds.length} helpful add-on{suggestion.selectedModifierIngredientIds.length === 1 ? "" : "s"}
+                            </p>
+                          ) : null}
                           <p className="mt-1 text-[11px] text-nourish-muted">
                             Helps with {suggestion.foodGroups.map((group) => formatGroupLabel(group)).join(", ")}
                             {suggestion.fridgeHint ? ` · ${suggestion.fridgeHint}` : ""}

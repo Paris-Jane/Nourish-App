@@ -17,6 +17,16 @@ export type SnackRecommendation = {
   fridgeHint?: string | null;
   recipeId?: number | null;
   selectedModifierIngredientIds?: number[];
+  items?: SnackRecommendationItem[];
+};
+
+export type SnackRecommendationItem = {
+  id: string;
+  label: string;
+  description: string;
+  foodGroups: MyPlateGroupKey[];
+  recipeId?: number | null;
+  selectedModifierIngredientIds?: number[];
 };
 
 type SnackCatalogItem = {
@@ -24,6 +34,11 @@ type SnackCatalogItem = {
   servingDescription: string;
   doubleServingDescription?: string | null;
   myPlateServings: Partial<Record<MyPlateGroupKey, number>>;
+};
+
+type SnackCandidate = SnackRecommendationItem & {
+  myPlateServings: Partial<Record<MyPlateGroupKey, number>>;
+  fridgeOverlap: number;
 };
 
 const GROUP_ORDER: MyPlateGroupKey[] = ["grains", "protein", "vegetables", "fruit", "dairy"];
@@ -200,48 +215,162 @@ function scoreSnack(item: SnackCatalogItem, remaining: Record<MyPlateGroupKey, n
   }, 0);
 }
 
+function scoreCandidate(item: SnackCandidate, remaining: Record<MyPlateGroupKey, number>) {
+  return Object.entries(item.myPlateServings).reduce((sum, [group, servings]) => {
+    const key = group as MyPlateGroupKey;
+    const gap = remaining[key];
+    return sum + Math.min(gap, servings ?? 0);
+  }, 0);
+}
+
+function reduceRemainingByServings(remaining: Record<MyPlateGroupKey, number>, servingsByGroup: Partial<Record<MyPlateGroupKey, number>>) {
+  GROUP_ORDER.forEach((group) => {
+    const provided = servingsByGroup[group] ?? 0;
+    if (!provided) return;
+    remaining[group] = round2(Math.max(0, remaining[group] - provided));
+  });
+}
+
+function addModifierServings(
+  baseServings: Partial<Record<MyPlateGroupKey, number>>,
+  recipe: Recipe,
+  selectedModifierIngredientIds: number[],
+  ingredients: Ingredient[],
+) {
+  const totals = { ...baseServings };
+  const ingredientMap = new Map(ingredients.map((ingredient) => [ingredient.id, ingredient]));
+  const selectedIds = new Set(selectedModifierIngredientIds);
+  const scale = recipe.baseYieldServings > 0 ? 1 / recipe.baseYieldServings : 1;
+
+  recipe.ingredients
+    .filter((ingredient) => selectedIds.has(ingredient.ingredientId))
+    .forEach((ingredient) => {
+      const details = ingredientMap.get(ingredient.ingredientId);
+      if (!details || details.isMyPlateCounted === false || details.servingSize <= 0) return;
+      const group = normalizeGroupKey(details.foodGroup);
+      if (!group) return;
+      const servings = (ingredient.quantity / details.servingSize) * scale;
+      if (!Number.isFinite(servings) || servings <= 0) return;
+      totals[group] = round2((totals[group] ?? 0) + servings);
+    });
+
+  return totals;
+}
+
+function buildRecipeSnackCandidates(recipes: Recipe[], ingredients: Ingredient[], fridgeItems: FridgeItem[]): SnackCandidate[] {
+  return recipes
+    .filter((recipe) => recipe.mealTypeTags.includes("Snack"))
+    .flatMap((recipe) => {
+      const scale = recipe.baseYieldServings > 0 ? 1 / recipe.baseYieldServings : 1;
+      const baseServings = Object.entries(recipe.foodGroupServings).reduce<Partial<Record<MyPlateGroupKey, number>>>((acc, [group, servings]) => {
+        const normalized = normalizeGroupKey(group);
+        if (!normalized || Number(servings) <= 0) return acc;
+        acc[normalized] = round2((acc[normalized] ?? 0) + Number(servings) * scale);
+        return acc;
+      }, {});
+      const optionalIngredients = recipe.ingredients.filter((ingredient) => ingredient.isModifier || ingredient.isOptional);
+      const helpfulModifierIds = optionalIngredients
+        .filter((ingredient) => {
+          const details = ingredients.find((entry) => entry.id === ingredient.ingredientId);
+          return details && details.isMyPlateCounted !== false && normalizeGroupKey(details.foodGroup);
+        })
+        .map((ingredient) => ingredient.ingredientId);
+      const modifierSets = [
+        [],
+        ...helpfulModifierIds.map((id) => [id]),
+        helpfulModifierIds.length > 1 ? helpfulModifierIds : [],
+      ].filter((set, index, sets) => sets.findIndex((entry) => entry.join(",") === set.join(",")) === index);
+
+      return modifierSets.map((selectedModifierIngredientIds) => {
+        const servingsByGroup = addModifierServings(baseServings, recipe, selectedModifierIngredientIds, ingredients);
+        const groups = GROUP_ORDER.filter((group) => (servingsByGroup[group] ?? 0) > 0);
+        const fridgeOverlap = recipe.ingredients.filter((ingredient) => fridgeItems.some((item) => item.ingredientId === ingredient.ingredientId)).length;
+        const addOnText = selectedModifierIngredientIds.length > 0
+          ? ` with ${selectedModifierIngredientIds.length} add-on${selectedModifierIngredientIds.length === 1 ? "" : "s"}`
+          : "";
+
+        return {
+          id: `recipe-${recipe.id}-${selectedModifierIngredientIds.join("-") || "base"}`,
+          label: `${recipe.name}${addOnText}`,
+          description:
+            recipe.timeTag === "Quick"
+              ? "Quick snack recipe that helps fill today’s gaps."
+              : recipe.timeTag === "Medium"
+                ? "A slightly more filling snack option for today."
+                : "A more involved snack option that helps round out the day.",
+          foodGroups: groups,
+          recipeId: recipe.id,
+          selectedModifierIngredientIds,
+          myPlateServings: servingsByGroup,
+          fridgeOverlap,
+        } satisfies SnackCandidate;
+      });
+    })
+    .filter((candidate) => candidate.foodGroups.length > 0);
+}
+
 export function generateSnackRecommendations(
   progress: DailyFoodGroupProgress | undefined,
   fridgeItems: FridgeItem[],
   recipes: Recipe[] = [],
+  ingredients: Ingredient[] = [],
 ): SnackRecommendation[] {
   if (!progress) return [];
 
-  const snackRecipes = recipes.filter((recipe) => recipe.mealTypeTags.includes("Snack"));
-  if (snackRecipes.length > 0) {
-    const scored = snackRecipes
-      .map((recipe) => {
-        const servingsByGroup = Object.entries(recipe.foodGroupServings).reduce<Partial<Record<MyPlateGroupKey, number>>>((acc, [group, servings]) => {
-          const normalized = normalizeGroupKey(group);
-          if (!normalized || Number(servings) <= 0) return acc;
-          acc[normalized] = (acc[normalized] ?? 0) + Number(servings);
-          return acc;
-        }, {});
-        const groups = Object.keys(servingsByGroup) as MyPlateGroupKey[];
+  const recipeCandidates = buildRecipeSnackCandidates(recipes, ingredients, fridgeItems);
+  if (recipeCandidates.length > 0) {
+    const remaining = { ...progress.remaining };
+    const selectedRecipeIds = new Set<number>();
+    const selectedCandidates: SnackCandidate[] = [];
 
-        const score = groups.reduce((sum, group) => sum + Math.min(progress.remaining[group], servingsByGroup[group] ?? 0), 0);
-        const fridgeOverlap = recipe.ingredients.filter((ingredient) => fridgeItems.some((item) => item.ingredientId === ingredient.ingredientId)).length;
-        return { recipe, groups, score, fridgeOverlap };
-      })
-      .filter((entry) => entry.score > 0 && entry.groups.length > 0)
-      .sort((a, b) => b.score - a.score || b.fridgeOverlap - a.fridgeOverlap || a.recipe.name.localeCompare(b.recipe.name))
-      .slice(0, 3);
+    while (GROUP_ORDER.some((group) => remaining[group] > 0.01) && selectedCandidates.length < 3) {
+      const best = recipeCandidates
+        .filter((candidate) => candidate.recipeId && !selectedRecipeIds.has(candidate.recipeId))
+        .map((candidate) => ({ candidate, score: scoreCandidate(candidate, remaining) }))
+        .filter((entry) => entry.score > 0)
+        .sort((a, b) => b.score - a.score || b.candidate.fridgeOverlap - a.candidate.fridgeOverlap || b.candidate.foodGroups.length - a.candidate.foodGroups.length)[0];
 
-    if (scored.length > 0) {
-      return scored.map(({ recipe, groups, fridgeOverlap }) => ({
-        id: `recipe-${recipe.id}`,
-        label: recipe.name,
+      if (!best || !best.candidate.recipeId) break;
+      selectedRecipeIds.add(best.candidate.recipeId);
+      selectedCandidates.push(best.candidate);
+      reduceRemainingByServings(remaining, best.candidate.myPlateServings);
+    }
+
+    if (selectedCandidates.length > 0) {
+      const comboGroups = Array.from(new Set(selectedCandidates.flatMap((candidate) => candidate.foodGroups)));
+      const fridgeOverlap = selectedCandidates.reduce((sum, candidate) => sum + candidate.fridgeOverlap, 0);
+      const combo: SnackRecommendation = {
+        id: `combo-${selectedCandidates.map((candidate) => candidate.id).join("_")}`,
+        label: selectedCandidates.length === 1 ? selectedCandidates[0].label : `${selectedCandidates.length} snack combo`,
         description:
-          recipe.timeTag === "Quick"
-            ? "Quick snack recipe that helps fill today’s gaps."
-            : recipe.timeTag === "Medium"
-              ? "A slightly more filling snack option for today."
-              : "A more involved snack option that helps round out the day.",
-        foodGroups: groups,
+          selectedCandidates.length === 1
+            ? selectedCandidates[0].description
+            : `Combine ${selectedCandidates.map((candidate) => candidate.label).join(" + ")} to cover more of today’s remaining food groups.`,
+        foodGroups: comboGroups,
         fridgeHint: fridgeOverlap > 0 ? `Uses ${fridgeOverlap} ingredient${fridgeOverlap === 1 ? "" : "s"} already in your kitchen` : null,
-        recipeId: recipe.id,
-        selectedModifierIngredientIds: [],
-      }));
+        recipeId: selectedCandidates.length === 1 ? selectedCandidates[0].recipeId : undefined,
+        selectedModifierIngredientIds: selectedCandidates.length === 1 ? selectedCandidates[0].selectedModifierIngredientIds : undefined,
+        items: selectedCandidates.map(({ myPlateServings: _servings, fridgeOverlap: _fridgeOverlap, ...candidate }) => candidate),
+      };
+
+      const alternates = recipeCandidates
+        .filter((candidate) => !selectedRecipeIds.has(candidate.recipeId ?? 0))
+        .map((candidate) => ({ candidate, score: scoreCandidate(candidate, progress.remaining) }))
+        .filter((entry) => entry.score > 0)
+        .sort((a, b) => b.score - a.score || b.candidate.fridgeOverlap - a.candidate.fridgeOverlap)
+        .slice(0, Math.max(0, 3 - 1))
+        .map(({ candidate }) => ({
+          id: candidate.id,
+          label: candidate.label,
+          description: candidate.description,
+          foodGroups: candidate.foodGroups,
+          fridgeHint: candidate.fridgeOverlap > 0 ? `Uses ${candidate.fridgeOverlap} ingredient${candidate.fridgeOverlap === 1 ? "" : "s"} already in your kitchen` : null,
+          recipeId: candidate.recipeId,
+          selectedModifierIngredientIds: candidate.selectedModifierIngredientIds,
+          items: [candidate],
+        }));
+
+      return [combo, ...alternates].slice(0, 3);
     }
   }
 

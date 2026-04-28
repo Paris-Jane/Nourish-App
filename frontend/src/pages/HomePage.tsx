@@ -300,28 +300,41 @@ export function HomePage() {
 
   const addSuggestedSnackMutation = useMutation({
     mutationFn: async ({ day, suggestion }: { day: WeekDay; suggestion: ReturnType<typeof generateSnackRecommendations>[number] }) => {
-      if (!suggestion.recipeId) throw new Error("Snack suggestion is not linked to a recipe");
+      const suggestionItems = suggestion.items?.length
+        ? suggestion.items.filter((item) => item.recipeId)
+        : suggestion.recipeId
+          ? [suggestion]
+          : [];
+      if (suggestionItems.length === 0) throw new Error("Snack suggestion is not linked to a recipe");
 
-      const existingOpenSnackSlot = slots
+      let availableOpenSnackSlots = slots
         .filter((slot) => slot.dayOfWeek === day && slot.mealType === "Snack")
-        .find((slot) => !slot.recipeId && !slot.isSkipped);
+        .filter((slot) => !slot.recipeId && !slot.isSkipped);
+      const targetSlots = [];
 
-      const targetSlot =
-        existingOpenSnackSlot ??
-        (await createWeekSlot(week.id, {
+      for (const item of suggestionItems) {
+        const targetSlot =
+          availableOpenSnackSlots.shift() ??
+          (await createWeekSlot(week.id, {
           dayOfWeek: day,
           mealType: "Snack",
           servingsPlanned: 1,
-        }));
+          }));
+        targetSlots.push({ targetSlot, item });
+      }
 
-      await swapSlot(week.id, targetSlot.id, {
-        recipeId: suggestion.recipeId,
-        selectedModifierIngredientIds: suggestion.selectedModifierIngredientIds ?? [],
-        isSkipped: false,
-        isEatingOut: false,
-      });
+      await Promise.all(
+        targetSlots.map(({ targetSlot, item }) =>
+          swapSlot(week.id, targetSlot.id, {
+            recipeId: item.recipeId,
+            selectedModifierIngredientIds: item.selectedModifierIngredientIds ?? [],
+            isSkipped: false,
+            isEatingOut: false,
+          }),
+        ),
+      );
 
-      return { day, suggestion, usedExistingSlot: Boolean(existingOpenSnackSlot) };
+      return { day, suggestion };
     },
     onSuccess: async ({ suggestion, day }) => {
       await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
@@ -330,42 +343,51 @@ export function HomePage() {
       pushToast(`${suggestion.label} added to ${day}.`);
     },
     onError: (_error, { day, suggestion }) => {
-      if (!suggestion.recipeId) {
+      const suggestionItems = suggestion.items?.length
+        ? suggestion.items.filter((item) => item.recipeId)
+        : suggestion.recipeId
+          ? [suggestion]
+          : [];
+      if (suggestionItems.length === 0) {
         pushToast("That snack suggestion is not linked to a recipe yet.");
         return;
       }
 
-      const recipe = recipes.find((entry) => entry.id === suggestion.recipeId);
-      const existingOpenSnackSlot = slots
-        .filter((slot) => slot.dayOfWeek === day && slot.mealType === "Snack")
-        .find((slot) => !slot.recipeId && !slot.isSkipped);
-
       let nextSlots = slots.slice();
-      if (existingOpenSnackSlot) {
-        nextSlots = nextSlots.map((slot) =>
-          slot.id === existingOpenSnackSlot.id
-            ? {
-                ...slot,
-                recipeId: suggestion.recipeId,
-                recipeName: recipe?.name ?? suggestion.label,
-                selectedModifierIngredientIds: suggestion.selectedModifierIngredientIds ?? [],
-                isSkipped: false,
-              }
-            : slot,
-        );
-      } else {
-        const daySnackPositions = slots.filter((slot) => slot.dayOfWeek === day && slot.mealType === "Snack").map((slot) => slot.position ?? 0);
+      let openSnackSlots = nextSlots
+        .filter((slot) => slot.dayOfWeek === day && slot.mealType === "Snack")
+        .filter((slot) => !slot.recipeId && !slot.isSkipped);
+
+      suggestionItems.forEach((item, index) => {
+        const recipe = recipes.find((entry) => entry.id === item.recipeId);
+        const existingOpenSnackSlot = openSnackSlots.shift();
+        if (existingOpenSnackSlot) {
+          nextSlots = nextSlots.map((slot) =>
+            slot.id === existingOpenSnackSlot.id
+              ? {
+                  ...slot,
+                  recipeId: item.recipeId,
+                  recipeName: recipe?.name ?? item.label,
+                  selectedModifierIngredientIds: item.selectedModifierIngredientIds ?? [],
+                  isSkipped: false,
+                }
+              : slot,
+          );
+          return;
+        }
+
+        const daySnackPositions = nextSlots.filter((slot) => slot.dayOfWeek === day && slot.mealType === "Snack").map((slot) => slot.position ?? 0);
         const nextPosition = (daySnackPositions.length > 0 ? Math.max(...daySnackPositions) : -1) + 1;
         const planDate = formatISO(addDays(weekStartDate, weekDays.indexOf(day)), { representation: "date" });
         nextSlots = [
           ...nextSlots,
           {
-            id: 970_000 + slots.length + nextPosition,
+            id: 970_000 + slots.length + nextPosition + index,
             weekId: week.id,
             planDate,
-            recipeId: suggestion.recipeId,
-            recipeName: recipe?.name ?? suggestion.label,
-            selectedModifierIngredientIds: suggestion.selectedModifierIngredientIds ?? [],
+            recipeId: item.recipeId,
+            recipeName: recipe?.name ?? item.label,
+            selectedModifierIngredientIds: item.selectedModifierIngredientIds ?? [],
             dayOfWeek: day,
             mealType: "Snack",
             position: nextPosition,
@@ -377,7 +399,7 @@ export function HomePage() {
             markedSkippedAt: null,
           },
         ];
-      }
+      });
 
       setSlotOverrides(nextSlots);
       void refreshDerivedWeekData(nextSlots);
@@ -832,10 +854,10 @@ export function HomePage() {
   const dailySnackRecommendations = useMemo(
     () =>
       weekDays.reduce<Record<WeekDay, ReturnType<typeof generateSnackRecommendations>>>((acc, day) => {
-        acc[day] = generateSnackRecommendations(weeklyFoodProgress[day], fridgeItems, recipes);
+        acc[day] = generateSnackRecommendations(weeklyFoodProgress[day], fridgeItems, recipes, ingredients);
         return acc;
       }, {} as Record<WeekDay, ReturnType<typeof generateSnackRecommendations>>),
-    [fridgeItems, recipes, weeklyFoodProgress],
+    [fridgeItems, ingredients, recipes, weeklyFoodProgress],
   );
 
   function handleSnackSuggestionSelect(day: WeekDay, suggestion: ReturnType<typeof generateSnackRecommendations>[number]) {
