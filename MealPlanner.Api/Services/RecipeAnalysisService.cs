@@ -236,14 +236,14 @@ public class RecipeAnalysisService : IRecipeAnalysisService
             {
                 type = "object",
                 additionalProperties = false,
-                required = new[] { "Grains", "Protein", "Vegetables", "Fruit", "Dairy" },
+                required = new[] { "grains", "protein", "vegetables", "fruit", "dairy" },
                 properties = new
                 {
-                    Grains = new { type = "number" },
-                    Protein = new { type = "number" },
-                    Vegetables = new { type = "number" },
-                    Fruit = new { type = "number" },
-                    Dairy = new { type = "number" }
+                    grains = new { type = "number" },
+                    protein = new { type = "number" },
+                    vegetables = new { type = "number" },
+                    fruit = new { type = "number" },
+                    dairy = new { type = "number" }
                 }
             },
             warnings = new
