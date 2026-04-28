@@ -15,9 +15,19 @@ import { cn, daysUntil } from "lib/utils";
 import { useWeekStore } from "store/weekStore";
 import { RecipeCard } from "./RecipeCard";
 import { TagPill } from "./TagPill";
-import type { FridgeItem, Ingredient, Recipe, Week, WeekMealSlot } from "types/models";
+import type { FridgeItem, Ingredient, Recipe, Week, WeekDay, WeekMealSlot } from "types/models";
 
 const filters = ["All suggestions", "Top suggestions", "In your fridge", "Meeting nutrient needs", "Expiring soon", "Favorites"] as const;
+const targetDayOrder: WeekDay[] = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const targetDayLabels: Record<WeekDay, string> = {
+  Sunday: "S",
+  Monday: "M",
+  Tuesday: "Tu",
+  Wednesday: "W",
+  Thursday: "Th",
+  Friday: "F",
+  Saturday: "Sa",
+};
 
 interface SwapDrawerProps {
   open: boolean;
@@ -154,6 +164,19 @@ export function SwapDrawer({
       return !entry.isEatingOut && !entry.isSkipped;
     });
   }, [matchingRecipeSlotsForCurrent, pendingRecipe, slot, weekSlots]);
+
+  const sortedTargetSlots = useMemo(
+    () =>
+      eligibleTargetSlots
+        .slice()
+        .sort(
+          (a, b) =>
+            targetDayOrder.indexOf(a.dayOfWeek) - targetDayOrder.indexOf(b.dayOfWeek) ||
+            a.position - b.position ||
+            a.mealType.localeCompare(b.mealType),
+        ),
+    [eligibleTargetSlots],
+  );
 
   const nutrientNeedGroups = useMemo(
     () => Object.entries(dayProgress?.remaining ?? {}).filter(([, value]) => value > 0.01).map(([group]) => group),
@@ -617,32 +640,29 @@ export function SwapDrawer({
                     : `Start with ${slot?.dayOfWeek}. Then decide whether this is just for that day or other ${slot?.mealType.toLowerCase()} slots too.`}
                 </p>
               </div>
-              <div className="space-y-2">
-                {eligibleTargetSlots.map((entry) => {
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                {sortedTargetSlots.map((entry) => {
                   const checked = selectedTargetIds.includes(entry.id);
                   const disabled = entry.id === slot?.id;
                   return (
-                    <label
+                    <button
                       key={entry.id}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => toggleTargetSlot(entry.id)}
                       className={cn(
-                        "flex items-center justify-between rounded-xl border px-3 py-2 text-sm",
-                        checked ? "border-nourish-sage bg-white" : "border-nourish-border bg-white/70",
+                        "min-h-[4.25rem] rounded-2xl border px-2 py-2 text-center transition",
+                        checked ? "border-nourish-sage bg-white text-nourish-ink shadow-sm" : "border-nourish-border bg-white/70 text-nourish-muted hover:border-nourish-sage/50 hover:bg-white",
+                        disabled && "cursor-default opacity-80",
                       )}
+                      aria-pressed={checked}
+                      aria-label={`${checked ? "Remove" : "Add"} ${pendingRecipe.name} ${entry.dayOfWeek} ${entry.mealType}`}
                     >
-                        <span className="text-nourish-ink">
-                          {entry.dayOfWeek} · {entry.mealType}
-                        </span>
-                      <span className="flex items-center gap-2">
-                        {entry.recipeName && entry.id !== slot?.id ? <span className="text-xs text-nourish-muted">{entry.recipeName}</span> : null}
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={disabled}
-                          onChange={() => toggleTargetSlot(entry.id)}
-                          className="h-4 w-4 rounded border-nourish-border text-nourish-sage focus:ring-nourish-sage"
-                        />
-                      </span>
-                    </label>
+                      <span className="block text-lg font-semibold">{targetDayLabels[entry.dayOfWeek]}</span>
+                      <span className="mt-1 block truncate text-[11px] leading-tight">{entry.mealType}</span>
+                      {entry.recipeName && entry.id !== slot?.id ? <span className="mt-1 block truncate text-[10px] leading-tight text-nourish-muted">{entry.recipeName}</span> : null}
+                      {checked ? <span className="mt-1 inline-flex h-4 w-4 items-center justify-center rounded border border-nourish-sage bg-nourish-sage text-[10px] text-white">✓</span> : null}
+                    </button>
                   );
                 })}
               </div>
