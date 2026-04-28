@@ -436,6 +436,7 @@ export function PrepSheetPage() {
       return new Set<string>();
     }
   });
+  const [manuallyExpandedCategories, setManuallyExpandedCategories] = useState<Set<PrepCategory>>(() => new Set());
 
   const prevWeekIdRef = useRef(week.id);
   useEffect(() => {
@@ -447,6 +448,7 @@ export function PrepSheetPage() {
       } catch {
         setCompletedIds(new Set<string>());
       }
+      setManuallyExpandedCategories(new Set());
     } else {
       localStorage.setItem(`prep-done-${week.id}`, JSON.stringify([...completedIds]));
     }
@@ -462,6 +464,14 @@ export function PrepSheetPage() {
   };
 
   const resetProgress = () => setCompletedIds(new Set());
+  const toggleCategoryExpanded = (category: PrepCategory) => {
+    setManuallyExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  };
   const [finishLaterOpen, setFinishLaterOpen] = useState(false);
 
   const recipePlans = useMemo(() => buildWeeklyRecipePlans(slots, recipes), [recipes, slots]);
@@ -618,15 +628,29 @@ export function PrepSheetPage() {
               <div className="space-y-5">
                 {tasksByCategory.map(({ category, tasks }) => {
                   const doneTasks = tasks.filter((t) => completedIds.has(t.id)).length;
+                  const categoryDone = tasks.length > 0 && doneTasks === tasks.length;
+                  const collapsed = categoryDone && !manuallyExpandedCategories.has(category);
                   return (
                     <section key={category} className="rounded-2xl border border-nourish-border bg-[#fcfaf7] p-4">
-                      <div className="mb-3 flex items-center justify-between gap-2">
-                        <h3 className="text-base font-semibold text-nourish-ink">{category}</h3>
-                        <span className="text-xs text-nourish-muted">
+                      <button
+                        type="button"
+                        onClick={() => toggleCategoryExpanded(category)}
+                        className={cn(
+                          "flex w-full items-center justify-between gap-2 text-left",
+                          collapsed ? "mb-0" : "mb-3",
+                        )}
+                        aria-expanded={!collapsed}
+                      >
+                        <div>
+                          <h3 className="text-base font-semibold text-nourish-ink">{category}</h3>
+                          {categoryDone ? <p className="mt-0.5 text-xs font-medium text-nourish-sage">Complete</p> : null}
+                        </div>
+                        <span className="inline-flex items-center gap-2 text-xs text-nourish-muted">
                           {doneTasks}/{tasks.length}
+                          <ChevronDown size={15} className={cn("transition-transform duration-200", !collapsed && "rotate-180")} />
                         </span>
-                      </div>
-                      <div className="space-y-2">
+                      </button>
+                      {!collapsed ? <div className="space-y-2">
                         {tasks.map((task) => {
                           const done = completedIds.has(task.id);
                           return (
@@ -695,7 +719,7 @@ export function PrepSheetPage() {
                             </div>
                           );
                         })}
-                      </div>
+                      </div> : null}
                     </section>
                   );
                 })}
