@@ -65,6 +65,12 @@ var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
     .Get<string[]>() ?? Array.Empty<string>();
 
+allowedOrigins = allowedOrigins
+    .Select(origin => origin.Trim().TrimEnd('/'))
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>

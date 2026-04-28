@@ -4,7 +4,7 @@ import { TagPill } from "./TagPill";
 import { cn } from "lib/utils";
 import { useToast } from "hooks/useToast";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
-import type { Recipe } from "types/models";
+import type { MealType, Recipe } from "types/models";
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -12,6 +12,10 @@ interface RecipeCardProps {
   onSelect?: (recipe: Recipe) => void;
   actionLabel?: string;
   badges?: string[];
+}
+
+function mealTone(mealType: MealType) {
+  return mealType.toLowerCase() as "breakfast" | "lunch" | "dinner" | "snack";
 }
 
 export function RecipeCard({ recipe, compact, onSelect, actionLabel, badges = [] }: RecipeCardProps) {
@@ -70,7 +74,11 @@ export function RecipeCard({ recipe, compact, onSelect, actionLabel, badges = []
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <TagPill tone="cuisine">{recipe.cuisine}</TagPill>
+        {recipe.mealTypeTags.map((mealType) => (
+          <TagPill key={mealType} tone={mealTone(mealType)}>
+            {mealType}
+          </TagPill>
+        ))}
         <TagPill tone="accent">{recipe.timeTag}</TagPill>
         {badges.map((badge) => (
           <TagPill key={badge}>

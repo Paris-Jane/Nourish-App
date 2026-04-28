@@ -79,8 +79,8 @@ export function RecipeFormPage() {
           ingredientId: ingredient.ingredientId,
           quantity: ingredient.quantity,
           unit: ingredient.unit,
-          isOptional: ingredient.isOptional,
-          isModifier: ingredient.isModifier,
+          isOptional: ingredient.isOptional || ingredient.isModifier,
+          isModifier: ingredient.isModifier || ingredient.isOptional,
         })) ?? [{ ingredientId: ingredients[0]?.id ?? 1, quantity: 1, unit: "cup", isOptional: false, isModifier: false }],
       steps:
         existing?.steps.map((step) => ({
@@ -122,13 +122,16 @@ export function RecipeFormPage() {
           Object.keys(estimateFoodGroupServings(values, ingredients)).length > 0
             ? estimateFoodGroupServings(values, ingredients)
             : fallbackFoodGroupServings ?? {},
-        ingredients: values.ingredients.map((ingredient) => ({
-          ingredientId: ingredient.ingredientId,
-          quantity: ingredient.quantity,
-          unit: ingredient.unit,
-          isOptional: ingredient.isOptional,
-          isModifier: ingredient.isModifier,
-        })),
+        ingredients: values.ingredients.map((ingredient) => {
+          const isAddOn = ingredient.isOptional || ingredient.isModifier;
+          return {
+            ingredientId: ingredient.ingredientId,
+            quantity: ingredient.quantity,
+            unit: ingredient.unit,
+            isOptional: isAddOn,
+            isModifier: isAddOn,
+          };
+        }),
         steps: values.steps.map((step, index) => ({
           stepNumber: index + 1,
           instruction: step.instruction,
@@ -188,8 +191,8 @@ export function RecipeFormPage() {
             ingredientName: ingredientMeta?.name ?? "Unknown ingredient",
             quantity: ingredient.quantity,
             unit: ingredient.unit,
-            isModifier: ingredient.isModifier,
-            isOptional: ingredient.isOptional,
+            isModifier: ingredient.isModifier || ingredient.isOptional,
+            isOptional: ingredient.isOptional || ingredient.isModifier,
             substituteIngredientIds: [],
             notes: null,
           };
@@ -306,37 +309,38 @@ export function RecipeFormPage() {
         />
       </div>
 
-      <section className="card overflow-hidden p-0">
-        <div className="border-b border-nourish-border bg-[#f7f2ec] px-6 py-5">
-          <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-nourish-muted">
-            <span className="rounded-full bg-white px-3 py-1 text-nourish-sage">1. Add source</span>
-            <span className="rounded-full bg-white px-3 py-1">2. Review AI draft</span>
-            <span className="rounded-full bg-white px-3 py-1">3. Edit & save</span>
+      {!existing ? (
+        <section className="card overflow-hidden p-0">
+          <div className="border-b border-nourish-border bg-[#f7f2ec] px-6 py-5">
+            <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-nourish-muted">
+              <span className="rounded-full bg-white px-3 py-1 text-nourish-sage">1. Add source</span>
+              <span className="rounded-full bg-white px-3 py-1">2. Review AI draft</span>
+              <span className="rounded-full bg-white px-3 py-1">3. Edit & save</span>
+            </div>
+            <h2 className="mt-4 text-3xl text-nourish-ink">Format with AI</h2>
+            <p className="mt-2 max-w-2xl text-sm text-nourish-muted">
+              Paste a recipe, describe what you want, or include a recipe link. AI will turn it into a structured draft, then you can review and edit everything before saving.
+            </p>
           </div>
-          <h2 className="mt-4 text-3xl text-nourish-ink">Format with AI</h2>
-          <p className="mt-2 max-w-2xl text-sm text-nourish-muted">
-            Paste a recipe, describe what you want, or include a recipe link. AI will turn it into a structured draft, then you can review and edit everything before saving.
-          </p>
-        </div>
-        <div className="space-y-4 p-6">
-          <textarea
-            className="input min-h-36"
-            value={rawRecipeText}
-            onChange={(event) => setRawRecipeText(event.target.value)}
-            placeholder="Example: a link, pasted recipe text, or 'make a high-protein avocado toast with optional ham and basil...'"
-          />
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-nourish-muted">Nothing saves yet. This only creates a draft for you to inspect.</p>
-            <button
-              type="button"
-              className="button-secondary inline-flex items-center justify-center gap-2"
-              onClick={() => analyzeRecipeMutation.mutate(rawRecipeText)}
-              disabled={analyzeRecipeMutation.isPending || rawRecipeText.trim().length < 10}
-            >
-              <Sparkles size={16} aria-hidden />
-              {analyzeRecipeMutation.isPending ? "Formatting..." : "Create AI draft"}
-            </button>
-          </div>
+          <div className="space-y-4 p-6">
+            <textarea
+              className="input min-h-36"
+              value={rawRecipeText}
+              onChange={(event) => setRawRecipeText(event.target.value)}
+              placeholder="Example: a link, pasted recipe text, or 'make a high-protein avocado toast with optional ham and basil...'"
+            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-nourish-muted">Nothing saves yet. This only creates a draft for you to inspect.</p>
+              <button
+                type="button"
+                className="button-secondary inline-flex items-center justify-center gap-2"
+                onClick={() => analyzeRecipeMutation.mutate(rawRecipeText)}
+                disabled={analyzeRecipeMutation.isPending || rawRecipeText.trim().length < 10}
+              >
+                <Sparkles size={16} aria-hidden />
+                {analyzeRecipeMutation.isPending ? "Formatting..." : "Create AI draft"}
+              </button>
+            </div>
 
           {analysisPreview ? (
             <div className="rounded-2xl border border-nourish-border bg-nourish-bg/50 p-4">
@@ -411,8 +415,9 @@ export function RecipeFormPage() {
               </div>
             </div>
           ) : null}
-        </div>
-      </section>
+          </div>
+        </section>
+      ) : null}
 
       <form
         className="space-y-6"
@@ -503,12 +508,15 @@ export function RecipeFormPage() {
                 <input className="input" placeholder="Unit" {...form.register(`ingredients.${index}.unit`)} />
                 <div className="flex items-center gap-4 text-sm text-nourish-muted">
                   <label className="flex items-center gap-2">
-                    <input type="checkbox" {...form.register(`ingredients.${index}.isOptional`)} />
-                    Optional
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" {...form.register(`ingredients.${index}.isModifier`)} />
-                    Modifier
+                    <input
+                      type="checkbox"
+                      checked={form.watch(`ingredients.${index}.isOptional`) || form.watch(`ingredients.${index}.isModifier`)}
+                      onChange={(event) => {
+                        form.setValue(`ingredients.${index}.isOptional`, event.target.checked, { shouldDirty: true, shouldValidate: true });
+                        form.setValue(`ingredients.${index}.isModifier`, event.target.checked, { shouldDirty: true, shouldValidate: true });
+                      }}
+                    />
+                    Optional add-on
                   </label>
                 </div>
               </div>

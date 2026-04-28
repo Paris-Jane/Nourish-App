@@ -12,7 +12,7 @@ import { useToast } from "hooks/useToast";
 import { mockIngredients, mockRecipePrefs } from "lib/mockData";
 import { cn } from "lib/utils";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
-import type { Ingredient, Recipe, RecipeIngredient, UserRecipePref } from "types/models";
+import type { Ingredient, MealType, Recipe, RecipeIngredient, UserRecipePref } from "types/models";
 
 const emptyPreference = (recipeId: number): UserRecipePref => ({
   id: 0,
@@ -26,6 +26,10 @@ const emptyPreference = (recipeId: number): UserRecipePref => ({
 function upsertRecipeInCache(recipes: Recipe[] | undefined, recipeId: number, updater: (recipe: Recipe) => Recipe) {
   if (!recipes) return recipes;
   return recipes.map((recipe) => (recipe.id === recipeId ? updater(recipe) : recipe));
+}
+
+function mealTone(mealType: MealType) {
+  return mealType.toLowerCase() as "breakfast" | "lunch" | "dinner" | "snack";
 }
 
 export function RecipeDetailPage() {
@@ -434,12 +438,13 @@ export function RecipeDetailPage() {
           </div>
           <h1 className="mb-4 text-3xl font-semibold tracking-tight text-nourish-ink sm:text-4xl md:text-5xl">{recipe.name}</h1>
           <div className="mb-5 flex flex-wrap gap-2">
-            <TagPill tone="cuisine">{recipe.cuisine}</TagPill>
+            {recipe.mealTypeTags.map((mealType) => (
+              <TagPill key={mealType} tone={mealTone(mealType)}>
+                {mealType}
+              </TagPill>
+            ))}
             <TagPill tone="accent">{recipe.timeTag}</TagPill>
             <TagPill>{recipe.scalabilityTag}</TagPill>
-            {recipe.mealTypeTags.map((mealType) => (
-              <TagPill key={mealType}>{mealType}</TagPill>
-            ))}
           </div>
           <p className="text-sm leading-relaxed text-nourish-muted">
             Build the version you actually want this week by choosing optional add-ons below. Those choices can flow into groceries and MyPlate once the week is planned.

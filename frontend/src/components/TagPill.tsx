@@ -5,13 +5,21 @@ import { cn } from "lib/utils";
 interface TagPillProps {
   children: ReactNode;
   active?: boolean;
-  tone?: "default" | "accent" | "warm" | "cuisine";
+  tone?: "default" | "accent" | "warm" | "cuisine" | "breakfast" | "lunch" | "dinner" | "snack";
   onClick?: () => void;
 }
 
 export function TagPill({ children, active, tone = "default", onClick }: TagPillProps) {
   const inactive =
-    tone === "accent"
+    tone === "breakfast"
+      ? "border-amber-200/90 bg-amber-100 text-amber-900 hover:bg-amber-100/90 hover:text-amber-950"
+      : tone === "lunch"
+        ? "border-emerald-200/90 bg-emerald-100 text-emerald-900 hover:bg-emerald-100/90 hover:text-emerald-950"
+        : tone === "dinner"
+          ? "border-sky-200/90 bg-sky-100 text-sky-900 hover:bg-sky-100/90 hover:text-sky-950"
+          : tone === "snack"
+            ? "border-rose-200/90 bg-rose-100 text-rose-900 hover:bg-rose-100/90 hover:text-rose-950"
+            : tone === "accent"
       ? "border-transparent bg-nourish-sage/12 text-nourish-sage hover:bg-nourish-sage/20 hover:text-nourish-sage"
       : tone === "warm"
         ? "border-transparent bg-nourish-terracotta/12 text-nourish-terracotta hover:bg-nourish-terracotta/20 hover:text-nourish-terracotta"
