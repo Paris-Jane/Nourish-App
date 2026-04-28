@@ -232,6 +232,10 @@ public static class RecipeEndpoints
 
     private static async Task<IResult> Delete(int id, AppDbContext db, ClaimsPrincipal user)
     {
+        var email = user.FindFirst(ClaimTypes.Email)?.Value;
+        if (!string.Equals(email, "pariward@icloud.com", StringComparison.OrdinalIgnoreCase))
+            return Results.Forbid();
+
         var householdId = user.GetHouseholdId();
         var recipe = await db.Recipes.FirstOrDefaultAsync(r => r.Id == id && r.HouseholdId == householdId);
         if (recipe == null) return Results.NotFound();

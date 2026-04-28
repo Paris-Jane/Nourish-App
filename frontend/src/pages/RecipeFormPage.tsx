@@ -2,13 +2,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFieldArray, useForm } from "react-hook-form";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles, Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "components/PageHeader";
-import { analyzeRecipe, createRecipe, type RecipeAnalysisResult, updateRecipe } from "api/recipes";
+import { analyzeRecipe, createRecipe, deleteRecipe, type RecipeAnalysisResult, updateRecipe } from "api/recipes";
 import { useIngredients, useRecipes } from "hooks/useAppData";
 import { useToast } from "hooks/useToast";
 import { estimateFoodGroupServings } from "lib/foodGroupMath";
+import { useAuthStore } from "store/authStore";
 import { recipeFormSchema, type RecipeFormValues } from "types/forms";
 import type { MealType, Recipe } from "types/models";
 
@@ -29,10 +30,12 @@ export function RecipeFormPage() {
   const queryClient = useQueryClient();
   const { ingredients } = useIngredients();
   const { recipes } = useRecipes();
+  const user = useAuthStore((state) => state.user);
   const { pushToast } = useToast();
   const [rawRecipeText, setRawRecipeText] = useState("");
   const [analysisPreview, setAnalysisPreview] = useState<RecipeAnalysisResult | null>(null);
   const existing = recipes.find((recipe) => String(recipe.id) === id);
+  const canDeleteRecipe = user?.email?.toLowerCase() === "pariward@icloud.com";
 
   const form = useForm<RecipeFormValues>({
     resolver: zodResolver(recipeFormSchema),
@@ -211,6 +214,19 @@ export function RecipeFormPage() {
     },
     onError: () => {
       pushToast("AI couldn’t format that recipe yet. Check your OpenAI key and try again.");
+    },
+  });
+
+  const deleteRecipeMutation = useMutation({
+    mutationFn: () => deleteRecipe(String(existing!.id)),
+    onSuccess: async () => {
+      queryClient.setQueryData<Recipe[]>(["recipes"], (current) => current?.filter((recipe) => recipe.id !== existing?.id) ?? current);
+      await queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      pushToast("Recipe deleted.");
+      navigate("/recipes");
+    },
+    onError: () => {
+      pushToast("Could not delete this recipe.");
     },
   });
 
@@ -550,6 +566,29 @@ export function RecipeFormPage() {
           {saveRecipeMutation.isPending ? "Saving..." : "Save recipe"}
         </button>
       </form>
+
+      {existing && canDeleteRecipe ? (
+        <div className="card border-red-100 bg-red-50/50 p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-2xl text-red-950">Delete recipe</h2>
+              <p className="mt-1 text-sm text-red-800">This removes the recipe from this household.</p>
+            </div>
+            <button
+              type="button"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-red-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={deleteRecipeMutation.isPending}
+              onClick={() => {
+                if (!window.confirm(`Delete "${existing.name}"? This cannot be undone.`)) return;
+                deleteRecipeMutation.mutate();
+              }}
+            >
+              <Trash2 size={16} />
+              {deleteRecipeMutation.isPending ? "Deleting..." : "Delete recipe"}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

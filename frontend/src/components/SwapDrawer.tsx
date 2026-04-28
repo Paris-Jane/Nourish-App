@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRightLeft, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { generateGroceryList } from "api/groceryList";
@@ -74,6 +74,7 @@ export function SwapDrawer({
   const [selectedTargetIds, setSelectedTargetIds] = useState<number[]>([]);
   const [selectedModifierIds, setSelectedModifierIds] = useState<number[]>([]);
   const [customModifierQuery, setCustomModifierQuery] = useState("");
+  const contentRef = useRef<HTMLDivElement>(null);
   const isFavorite = useRecipePrefsStore((s) => s.isFavorite);
   const isDisliked = useRecipePrefsStore((s) => s.isDisliked);
   const setSlotOverrides = useWeekStore((state) => state.setSlotOverrides);
@@ -123,6 +124,14 @@ export function SwapDrawer({
     const changingExistingRecipe = Boolean(slot.recipeId && pendingRecipe && pendingRecipe.id !== slot.recipeId);
     if (changingExistingRecipe) {
       return [slot, ...matchingRecipeSlotsForCurrent];
+    }
+
+    if (!slot.recipeId && pendingRecipe) {
+      return weekSlots.filter((entry) => {
+        if (entry.mealType !== slot.mealType) return false;
+        if (entry.id === slot.id) return true;
+        return !entry.recipeId && !entry.isEatingOut && !entry.isSkipped;
+      });
     }
 
     return weekSlots.filter((entry) => {
@@ -342,6 +351,7 @@ export function SwapDrawer({
     setSelectedTargetIds(initialTargetIds?.length ? initialTargetIds : [slot.id]);
     setSelectedModifierIds(slot.recipeId === recipe.id ? (slot.selectedModifierIngredientIds ?? []) : []);
     setCustomModifierQuery("");
+    requestAnimationFrame(() => contentRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
   }
 
   function toggleTargetSlot(slotId: number) {
@@ -391,7 +401,7 @@ export function SwapDrawer({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6">
+        <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6">
           <button
             type="button"
             disabled={!currentRecipe}
@@ -463,7 +473,9 @@ export function SwapDrawer({
                 <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Ready to add</p>
                 <h3 className="mt-1 text-lg font-medium text-nourish-ink">{pendingRecipe.name}</h3>
                 <p className="mt-1 text-sm text-nourish-muted">
-                  {slot?.recipeId && pendingRecipe.id !== slot.recipeId
+                  {!slot?.recipeId
+                    ? `Choose which empty ${slot?.mealType.toLowerCase()} slots should get this recipe, then pick any add-ons.`
+                    : slot.recipeId && pendingRecipe.id !== slot.recipeId
                     ? `Start with ${slot.dayOfWeek}. Then decide whether to swap just this meal or every ${slot.mealType.toLowerCase()} slot using ${currentRecipe?.name}.`
                     : `Start with ${slot?.dayOfWeek}. Then decide whether this is just for that day or other ${slot?.mealType.toLowerCase()} slots too.`}
                 </p>
