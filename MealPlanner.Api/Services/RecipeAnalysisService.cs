@@ -169,7 +169,7 @@ public class RecipeAnalysisService : IRecipeAnalysisService
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("OpenAI recipe analysis failed: {StatusCode} {Body}", response.StatusCode, raw);
-            throw new InvalidOperationException("OpenAI recipe analysis failed.");
+            throw new InvalidOperationException(BuildOpenAiFailureMessage((int)response.StatusCode, response.StatusCode.ToString(), raw));
         }
 
         var parsed = JsonSerializer.Deserialize<ChatCompletionResponse>(raw, JsonOptions);
@@ -182,6 +182,30 @@ public class RecipeAnalysisService : IRecipeAnalysisService
             throw new InvalidOperationException("OpenAI returned an unreadable recipe draft.");
 
         return draft;
+    }
+
+    private static string BuildOpenAiFailureMessage(int statusCode, string statusText, string raw)
+    {
+        var detail = TryReadOpenAiErrorMessage(raw);
+        return string.IsNullOrWhiteSpace(detail)
+            ? $"OpenAI recipe analysis failed ({statusCode} {statusText})."
+            : $"OpenAI recipe analysis failed ({statusCode} {statusText}): {detail}";
+    }
+
+    private static string? TryReadOpenAiErrorMessage(string raw)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            return doc.RootElement.TryGetProperty("error", out var error) &&
+                   error.TryGetProperty("message", out var message)
+                ? message.GetString()
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static object BuildSchema() => new

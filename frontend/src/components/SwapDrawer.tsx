@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRightLeft, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { generateGroceryList } from "api/groceryList";
-import { addRecipeModifier } from "api/recipes";
+import { addRecipeModifier, addRecipeStep } from "api/recipes";
 import { swapSlot } from "api/weeks";
 import { useToast } from "hooks/useToast";
 import { buildPreviewGroceryListFromPlan } from "lib/groceryFromPlan";
@@ -74,6 +74,14 @@ export function SwapDrawer({
   const [selectedTargetIds, setSelectedTargetIds] = useState<number[]>([]);
   const [selectedModifierIds, setSelectedModifierIds] = useState<number[]>([]);
   const [customModifierQuery, setCustomModifierQuery] = useState("");
+  const [customModifierDraft, setCustomModifierDraft] = useState<{
+    ingredient: Ingredient;
+    quantity: string;
+    unit: string;
+    stepInstruction: string;
+    stepTiming: "PrepAhead" | "DayOfActive";
+    durationMinutes: string;
+  } | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const isFavorite = useRecipePrefsStore((s) => s.isFavorite);
   const isDisliked = useRecipePrefsStore((s) => s.isDisliked);
@@ -87,6 +95,7 @@ export function SwapDrawer({
       setSelectedTargetIds(initialTargetIds?.length ? initialTargetIds : slot ? [slot.id] : []);
       setSelectedModifierIds(slot?.selectedModifierIngredientIds ?? []);
       setCustomModifierQuery("");
+      setCustomModifierDraft(null);
     }
   }, [currentRecipe, initialTargetIds, open, slot?.id, slot?.selectedModifierIngredientIds]);
 
@@ -226,11 +235,15 @@ export function SwapDrawer({
     if (!pendingRecipe) return [];
     const q = customModifierQuery.trim().toLowerCase();
     if (!q) return [];
-    const existingIds = new Set(pendingRecipe.ingredients.map((ingredient) => ingredient.ingredientId));
     return ingredients
-      .filter((ingredient) => !existingIds.has(ingredient.id) && ingredient.name.toLowerCase().includes(q))
+      .filter((ingredient) => ingredient.name.toLowerCase().includes(q))
       .slice(0, 6);
   }, [customModifierQuery, ingredients, pendingRecipe]);
+
+  const pendingRecipeIngredientIds = useMemo(
+    () => new Set(pendingRecipe?.ingredients.map((ingredient) => ingredient.ingredientId) ?? []),
+    [pendingRecipe],
+  );
 
   const applyRecipeMutation = useMutation({
     mutationFn: async ({ recipeId, targetIds, modifierIds }: { recipeId: number; targetIds: number[]; modifierIds: number[] }) => {
@@ -279,16 +292,44 @@ export function SwapDrawer({
   });
 
   const addCustomModifierMutation = useMutation({
-    mutationFn: async (ingredient: Ingredient) => {
+    mutationFn: async ({
+      ingredient,
+      quantity,
+      unit,
+      stepInstruction,
+      stepTiming,
+      durationMinutes,
+    }: {
+      ingredient: Ingredient;
+      quantity: number;
+      unit: string;
+      stepInstruction: string;
+      stepTiming: "PrepAhead" | "DayOfActive";
+      durationMinutes: number;
+    }) => {
       if (!pendingRecipe) throw new Error("No recipe selected");
-      return addRecipeModifier(pendingRecipe.id, {
+      const modifier = await addRecipeModifier(pendingRecipe.id, {
         ingredientId: ingredient.id,
-        quantity: ingredient.servingSize > 0 ? ingredient.servingSize : 1,
-        unit: ingredient.servingUnit || ingredient.purchaseUnit,
+        quantity,
+        unit,
         notes: "Added while planning this week",
       });
+      const instruction = stepInstruction.trim();
+      const step = instruction
+        ? await addRecipeStep(pendingRecipe.id, {
+            stepNumber: (pendingRecipe.steps.length ?? 0) + 1,
+            instruction,
+            timingTag: stepTiming,
+            durationMinutes,
+            isPassive: stepTiming === "PrepAhead",
+            prepCategory: stepTiming === "PrepAhead" ? "AssemblePortion" : "FreshFinish",
+            linkedIngredientIds: [ingredient.id],
+            scaleByLinkedIngredients: true,
+          })
+        : null;
+      return { modifier, step };
     },
-    onSuccess: async (modifier) => {
+    onSuccess: async ({ modifier, step }) => {
       if (!pendingRecipe) return;
       await queryClient.invalidateQueries({ queryKey: ["recipes"] });
       setPendingRecipe((current) =>
@@ -298,14 +339,16 @@ export function SwapDrawer({
               ingredients: current.ingredients.some((ingredient) => ingredient.ingredientId === modifier.ingredientId)
                 ? current.ingredients
                 : [...current.ingredients, modifier],
+              steps: step ? [...current.steps, step] : current.steps,
             }
           : current,
       );
       setSelectedModifierIds((current) => (current.includes(modifier.ingredientId) ? current : [...current, modifier.ingredientId]));
       setCustomModifierQuery("");
+      setCustomModifierDraft(null);
       pushToast(`${modifier.ingredientName} added to optional add-ons.`);
     },
-    onError: (_error, ingredient) => {
+    onError: (_error, { ingredient, quantity, unit, stepInstruction, stepTiming, durationMinutes }) => {
       setPendingRecipe((current) =>
         current
           ? {
@@ -318,19 +361,36 @@ export function SwapDrawer({
                       id: 990_000 + ingredient.id,
                       ingredientId: ingredient.id,
                       ingredientName: ingredient.name,
-                      quantity: ingredient.servingSize > 0 ? ingredient.servingSize : 1,
-                      unit: ingredient.servingUnit || ingredient.purchaseUnit,
+                      quantity,
+                      unit,
                       isModifier: true,
                       isOptional: true,
                       substituteIngredientIds: [],
                       notes: "Added while planning this week",
                     },
                   ],
+              steps: stepInstruction.trim()
+                ? [
+                    ...current.steps,
+                    {
+                      id: 980_000 + ingredient.id,
+                      stepNumber: current.steps.length + 1,
+                      instruction: stepInstruction.trim(),
+                      timingTag: stepTiming,
+                      durationMinutes,
+                      isPassive: stepTiming === "PrepAhead",
+                      prepCategory: stepTiming === "PrepAhead" ? "AssemblePortion" : "FreshFinish",
+                      linkedIngredientIds: [ingredient.id],
+                      scaleByLinkedIngredients: true,
+                    },
+                  ]
+                : current.steps,
             }
           : current,
       );
       setSelectedModifierIds((current) => (current.includes(ingredient.id) ? current : [...current, ingredient.id]));
       setCustomModifierQuery("");
+      setCustomModifierDraft(null);
       pushToast(`${ingredient.name} added in preview mode.`);
     },
   });
@@ -351,7 +411,37 @@ export function SwapDrawer({
     setSelectedTargetIds(initialTargetIds?.length ? initialTargetIds : [slot.id]);
     setSelectedModifierIds(slot.recipeId === recipe.id ? (slot.selectedModifierIngredientIds ?? []) : []);
     setCustomModifierQuery("");
+    setCustomModifierDraft(null);
     requestAnimationFrame(() => contentRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+  }
+
+  function startCustomModifier(ingredient: Ingredient) {
+    setCustomModifierDraft({
+      ingredient,
+      quantity: String(ingredient.servingSize > 0 ? ingredient.servingSize : 1),
+      unit: ingredient.servingUnit || ingredient.purchaseUnit || "serving",
+      stepInstruction: "",
+      stepTiming: "DayOfActive",
+      durationMinutes: "2",
+    });
+  }
+
+  function saveCustomModifierDraft() {
+    if (!customModifierDraft) return;
+    const quantity = Number(customModifierDraft.quantity);
+    const durationMinutes = Number(customModifierDraft.durationMinutes);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      pushToast("Add a quantity before saving the add-on.");
+      return;
+    }
+    addCustomModifierMutation.mutate({
+      ingredient: customModifierDraft.ingredient,
+      quantity,
+      unit: customModifierDraft.unit.trim() || customModifierDraft.ingredient.servingUnit || "serving",
+      stepInstruction: customModifierDraft.stepInstruction,
+      stepTiming: customModifierDraft.stepTiming,
+      durationMinutes: Number.isFinite(durationMinutes) && durationMinutes >= 0 ? durationMinutes : 2,
+    });
   }
 
   function toggleTargetSlot(slotId: number) {
@@ -559,7 +649,7 @@ export function SwapDrawer({
               <div className="mt-4 rounded-2xl border border-nourish-border bg-white/80 p-3">
                 <div className="mb-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-nourish-muted">Add your own</p>
-                  <p className="mt-1 text-sm text-nourish-muted">Search ingredients to turn them into optional add-ons for this recipe.</p>
+                  <p className="mt-1 text-sm text-nourish-muted">Search the ingredient catalog, then add quantity and prep instructions for the add-on.</p>
                 </div>
                 <div className="relative">
                   <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-nourish-muted" />
@@ -573,20 +663,96 @@ export function SwapDrawer({
                 {customModifierResults.length > 0 ? (
                   <div className="mt-3 space-y-2">
                     {customModifierResults.map((ingredient) => (
-                      <button
-                        key={ingredient.id}
-                        type="button"
-                        className="flex w-full items-center justify-between rounded-xl border border-nourish-border px-3 py-2 text-left text-sm text-nourish-ink transition hover:border-nourish-sage/40 hover:bg-nourish-bg"
-                        onClick={() => addCustomModifierMutation.mutate(ingredient)}
-                        disabled={addCustomModifierMutation.isPending}
-                      >
-                        <span>{ingredient.name}</span>
-                        <span className="text-xs text-nourish-muted">{ingredient.servingSize} {ingredient.servingUnit}</span>
-                      </button>
+                      (() => {
+                        const alreadyInRecipe = pendingRecipeIngredientIds.has(ingredient.id);
+                        return (
+                          <button
+                            key={ingredient.id}
+                            type="button"
+                            className={cn(
+                              "flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition",
+                              alreadyInRecipe
+                                ? "cursor-not-allowed border-nourish-border bg-nourish-bg/70 text-nourish-muted"
+                                : "border-nourish-border text-nourish-ink hover:border-nourish-sage/40 hover:bg-nourish-bg",
+                            )}
+                            onClick={() => {
+                              if (alreadyInRecipe) return;
+                              startCustomModifier(ingredient);
+                            }}
+                            disabled={alreadyInRecipe || addCustomModifierMutation.isPending}
+                          >
+                            <span>{ingredient.name}</span>
+                            <span className="text-xs text-nourish-muted">
+                              {alreadyInRecipe ? "Already in recipe" : `${ingredient.servingSize} ${ingredient.servingUnit}`}
+                            </span>
+                          </button>
+                        );
+                      })()
                     ))}
                   </div>
                 ) : customModifierQuery.trim() ? (
                   <p className="mt-3 text-sm text-nourish-muted">No matching ingredients found.</p>
+                ) : null}
+                {customModifierDraft ? (
+                  <div className="mt-3 rounded-xl border border-nourish-sage/30 bg-white p-3">
+                    <p className="text-sm font-medium text-nourish-ink">{customModifierDraft.ingredient.name}</p>
+                    <div className="mt-3 grid grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)] gap-2">
+                      <input
+                        className="input"
+                        type="number"
+                        step="0.1"
+                        value={customModifierDraft.quantity}
+                        onChange={(event) => setCustomModifierDraft((current) => current ? { ...current, quantity: event.target.value } : current)}
+                      />
+                      <input
+                        className="input"
+                        value={customModifierDraft.unit}
+                        onChange={(event) => setCustomModifierDraft((current) => current ? { ...current, unit: event.target.value } : current)}
+                        placeholder="Unit"
+                      />
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem]">
+                      <select
+                        className="input"
+                        value={customModifierDraft.stepTiming}
+                        onChange={(event) =>
+                          setCustomModifierDraft((current) =>
+                            current ? { ...current, stepTiming: event.target.value as "PrepAhead" | "DayOfActive" } : current,
+                          )
+                        }
+                      >
+                        <option value="DayOfActive">Day of step</option>
+                        <option value="PrepAhead">Prep-ahead step</option>
+                      </select>
+                      <input
+                        className="input"
+                        type="number"
+                        min={0}
+                        value={customModifierDraft.durationMinutes}
+                        onChange={(event) => setCustomModifierDraft((current) => current ? { ...current, durationMinutes: event.target.value } : current)}
+                        aria-label="Step minutes"
+                      />
+                    </div>
+                    <textarea
+                      className="input mt-3 min-h-[88px]"
+                      value={customModifierDraft.stepInstruction}
+                      onChange={(event) => setCustomModifierDraft((current) => current ? { ...current, stepInstruction: event.target.value } : current)}
+                      placeholder={`Example: Add ${customModifierDraft.ingredient.name.toLowerCase()} before serving.`}
+                    />
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        className="button-primary flex-1"
+                        onClick={saveCustomModifierDraft}
+                        disabled={addCustomModifierMutation.isPending}
+                      >
+                        {addCustomModifierMutation.isPending ? "Adding..." : "Add modifier"}
+                      </button>
+                      <button type="button" className="button-secondary" onClick={() => setCustomModifierDraft(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 ) : null}
               </div>
               <div className="mt-4 flex gap-2">

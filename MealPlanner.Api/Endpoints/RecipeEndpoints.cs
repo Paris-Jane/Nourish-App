@@ -101,9 +101,19 @@ public static class RecipeEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        var householdId = user.GetHouseholdId();
-        var draft = await analysisService.AnalyzeAsync(householdId, req.RawText, cancellationToken);
-        return Results.Ok(draft);
+        try
+        {
+            var householdId = user.GetHouseholdId();
+            var draft = await analysisService.AnalyzeAsync(householdId, req.RawText, cancellationToken);
+            return Results.Ok(draft);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.Problem(
+                title: "AI recipe analysis failed",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status502BadGateway);
+        }
     }
 
     private static async Task<IResult> Create(RecipeRequest req, AppDbContext db, ClaimsPrincipal user)

@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import axios from "axios";
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -212,8 +213,12 @@ export function RecipeFormPage() {
       setAnalysisPreview(result);
       pushToast("AI draft ready for review.");
     },
-    onError: () => {
-      pushToast("AI couldn’t format that recipe yet. Check your OpenAI key and try again.");
+    onError: (error) => {
+      const detail =
+        axios.isAxiosError(error) && typeof error.response?.data?.detail === "string"
+          ? error.response.data.detail
+          : "AI could not format that recipe yet.";
+      pushToast(detail);
     },
   });
 
