@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using MealPlanner.Api.Data;
 using MealPlanner.Api.Endpoints;
 using MealPlanner.Api.Services;
@@ -8,6 +9,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // ── Database ──────────────────────────────────────────────────────────────────
 
