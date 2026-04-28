@@ -24,7 +24,7 @@ interface WeekState {
 }
 
 export const useWeekStore = create<WeekState>((set) => ({
-  activeWeekId: 1,
+  activeWeekId: null,
   visibleWeekStartDate: null,
   selectedSlotId: null,
   swapDrawerOpen: false,

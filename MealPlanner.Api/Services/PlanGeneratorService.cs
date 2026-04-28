@@ -108,7 +108,10 @@ public class PlanGeneratorService : IPlanGeneratorService
 
             var best = scored.First().Recipe;
             slot.RecipeId = best.Id;
-            slot.ServingsPlanned = best.BaseYieldServings;
+            if (slot.ServingsPlanned <= 0)
+            {
+                slot.ServingsPlanned = week.Household.Size > 0 ? week.Household.Size : 1;
+            }
 
             // Track ingredient overlap for remaining slots
             foreach (var ing in best.Ingredients)

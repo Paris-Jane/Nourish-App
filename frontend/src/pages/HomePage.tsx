@@ -145,6 +145,10 @@ export function HomePage() {
     () => Object.values(grouped).flat().find((slot) => slot.id === selectedSlotId),
     [grouped, selectedSlotId],
   );
+  const selectedSlotRecipe = selectedSlot?.recipeId ? recipes.find((recipe) => recipe.id === selectedSlot.recipeId) : undefined;
+  const selectedSlotForDrawer = selectedSlot && selectedSlot.recipeId && !selectedSlotRecipe
+    ? { ...selectedSlot, recipeId: null, recipeName: null, selectedModifierIngredientIds: [] }
+    : selectedSlot;
 
   const monthDays = useMemo(
     () =>
@@ -641,8 +645,9 @@ export function HomePage() {
   }
 
   function openRecipeOrPlanner(slot: WeekMealSlot) {
-    if (slot.recipeId && !planMode) {
-      navigate(`/recipes/${slot.recipeId}`);
+    const recipe = slot.recipeId ? recipes.find((entry) => entry.id === slot.recipeId) : undefined;
+    if (recipe && !planMode) {
+      navigate(`/recipes/${recipe.id}`);
       return;
     }
 
@@ -652,7 +657,8 @@ export function HomePage() {
   }
 
   function matchingRecipeSlots(slot: WeekMealSlot) {
-    if (!slot.recipeId) return [];
+    const recipe = slot.recipeId ? recipes.find((entry) => entry.id === slot.recipeId) : undefined;
+    if (!recipe) return [];
     return slots.filter((entry) => entry.recipeId === slot.recipeId && entry.id !== slot.id);
   }
 
@@ -1433,25 +1439,25 @@ export function HomePage() {
 
         <SwapDrawer
           open={swapDrawerOpen}
-          slot={selectedSlot}
+          slot={selectedSlotForDrawer}
           recipes={recipes}
           ingredients={ingredients}
           fridgeItems={fridgeItems}
           weekSlots={slots}
           week={week}
-          dayProgress={selectedSlot ? weeklyFoodProgress[selectedSlot.dayOfWeek] : undefined}
+          dayProgress={selectedSlotForDrawer ? weeklyFoodProgress[selectedSlotForDrawer.dayOfWeek] : undefined}
           initialTargetIds={swapTargetIds}
-          onCopyCurrentMeal={selectedSlot?.recipeId ? () => {
+          onCopyCurrentMeal={selectedSlotForDrawer?.recipeId ? () => {
             setSwapDrawerOpen(false);
-            openCopyMeal(selectedSlot);
+            openCopyMeal(selectedSlotForDrawer);
           } : undefined}
-          onMarkCurrentDidntHappen={selectedSlot?.recipeId ? () => {
+          onMarkCurrentDidntHappen={selectedSlotForDrawer?.recipeId ? () => {
             setSwapDrawerOpen(false);
-            skipSlotMutation.mutate(selectedSlot.id);
+            skipSlotMutation.mutate(selectedSlotForDrawer.id);
           } : undefined}
-          onRemoveCurrentMeal={selectedSlot?.recipeId ? () => {
+          onRemoveCurrentMeal={selectedSlotForDrawer?.recipeId ? () => {
             setSwapDrawerOpen(false);
-            startRemove(selectedSlot);
+            startRemove(selectedSlotForDrawer);
           } : undefined}
           onClose={() => setSwapDrawerOpen(false)}
         />

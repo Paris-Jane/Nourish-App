@@ -194,27 +194,30 @@ export function DayColumn({
 
       <div className="relative min-h-0 flex-1 space-y-3">
         <div className="space-y-3">
-          {slots.map((slot) => (
-            <MealCard
-              key={slot.id}
-              slot={slot}
-              recipe={recipes.find((recipe) => recipe.id === slot.recipeId)}
-              ingredients={ingredients}
-              planningMode={planningMode}
-              onPrimaryAction={() => onSlotPrimaryAction(slot)}
-              onSwap={() => onSlotEdit(slot)}
-              onCopyMeal={onCopyMeal ? () => onCopyMeal(slot) : undefined}
-              onDidntHappen={onSkipSlot ? () => onSkipSlot(slot.id) : undefined}
-              onRemoveMeal={onClearSlot ? () => onClearSlot(slot.id) : undefined}
-              onDeleteSlot={slot.mealType === "Snack" && slot.position > 0 && onDeleteSlot ? () => onDeleteSlot(slot.id) : undefined}
-              draggable={slot.recipeId != null}
-              dropActive={dragState?.dropTargetSlotId === slot.id}
-              onDragStart={dragState ? () => dragState.onDragStart(slot.id) : undefined}
-              onDragEnd={dragState?.onDragEnd}
-              onDragOver={dragState ? () => dragState.onDragOver(slot.id) : undefined}
-              onDrop={dragState ? () => dragState.onDrop(slot.id) : undefined}
-            />
-          ))}
+          {slots.map((slot) => {
+            const recipe = recipes.find((entry) => entry.id === slot.recipeId);
+            return (
+              <MealCard
+                key={slot.id}
+                slot={slot}
+                recipe={recipe}
+                ingredients={ingredients}
+                planningMode={planningMode}
+                onPrimaryAction={() => onSlotPrimaryAction(slot)}
+                onSwap={() => onSlotEdit(slot)}
+                onCopyMeal={onCopyMeal ? () => onCopyMeal(slot) : undefined}
+                onDidntHappen={onSkipSlot ? () => onSkipSlot(slot.id) : undefined}
+                onRemoveMeal={onClearSlot ? () => onClearSlot(slot.id) : undefined}
+                onDeleteSlot={slot.mealType === "Snack" && slot.position > 0 && onDeleteSlot ? () => onDeleteSlot(slot.id) : undefined}
+                draggable={Boolean(recipe)}
+                dropActive={dragState?.dropTargetSlotId === slot.id}
+                onDragStart={dragState ? () => dragState.onDragStart(slot.id) : undefined}
+                onDragEnd={dragState?.onDragEnd}
+                onDragOver={dragState ? () => dragState.onDragOver(slot.id) : undefined}
+                onDrop={dragState ? () => dragState.onDrop(slot.id) : undefined}
+              />
+            );
+          })}
           {planningMode && onAddSnack ? (
             <button
               type="button"

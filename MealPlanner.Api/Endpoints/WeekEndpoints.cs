@@ -37,6 +37,7 @@ public static class WeekEndpoints
     private static async Task<IResult> ListWeeks(AppDbContext db, ClaimsPrincipal user)
     {
         var householdId = user.GetHouseholdId();
+        await WeekBootstrapper.EnsureCurrentWeekAsync(db, householdId);
         var weeks = await db.Weeks
             .Where(w => w.HouseholdId == householdId && !w.IsSavedTemplate)
             .OrderBy(w => w.WeekStartDate)
@@ -53,7 +54,7 @@ public static class WeekEndpoints
             .Where(h => h.Id == householdId)
             .Select(h => h.Size)
             .FirstOrDefaultAsync();
-        var defaultServings = householdSize > 0 ? householdSize : 2;
+        var defaultServings = householdSize > 0 ? householdSize : 1;
 
         var week = new Week
         {
@@ -212,9 +213,13 @@ public static class WeekEndpoints
             .DefaultIfEmpty(-1)
             .Max() + 1;
 
+        var householdSize = await db.Households
+            .Where(h => h.Id == householdId)
+            .Select(h => h.Size)
+            .FirstOrDefaultAsync();
         var defaultServings = req.ServingsPlanned
             ?? week.MealSlots.FirstOrDefault(s => s.DayOfWeek == req.DayOfWeek && s.MealType == req.MealType)?.ServingsPlanned
-            ?? 2;
+            ?? (householdSize > 0 ? householdSize : 1);
 
         var slot = new WeekMealSlot
         {

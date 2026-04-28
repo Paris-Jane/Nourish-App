@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { getFridgeItems } from "api/fridge";
 import { getGroceryList } from "api/groceryList";
 import { getIngredients } from "api/ingredients";
@@ -12,30 +12,52 @@ import { mealTypes, weekDays } from "lib/utils";
 import { useWeekStore } from "store/weekStore";
 import type { FridgeItem, GroceryList, Ingredient, Recipe, SavedWeekTemplate, Week, WeekMealSlot } from "types/models";
 
-export function useWeeks(): { weeks: Week[]; isLoading: boolean } {
+function useResolvedWeeks() {
+  const previewFallbackEnabled = shouldUsePreviewFallback();
+  const activeWeekId = useWeekStore((state) => state.activeWeekId);
+  const setActiveWeekId = useWeekStore((state) => state.setActiveWeekId);
   const query = usePreviewQuery({
     queryKey: ["weeks"],
     queryFn: listWeeks,
     fallbackData: mockWeeks,
   });
+  const weeks = useMemo(
+    () => (query.data ?? (previewFallbackEnabled ? mockWeeks : [])).slice().sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate)),
+    [previewFallbackEnabled, query.data],
+  );
+  const resolvedWeekId =
+    activeWeekId && weeks.some((week) => week.id === activeWeekId) ? activeWeekId : weeks[0]?.id ?? (previewFallbackEnabled ? 1 : null);
+
+  useEffect(() => {
+    if (resolvedWeekId && activeWeekId !== resolvedWeekId) {
+      setActiveWeekId(resolvedWeekId);
+    }
+  }, [activeWeekId, resolvedWeekId, setActiveWeekId]);
+
+  return { weeks, activeWeekId: resolvedWeekId, isLoading: query.isLoading, previewFallbackEnabled };
+}
+
+export function useWeeks(): { weeks: Week[]; isLoading: boolean } {
+  const { weeks, isLoading } = useResolvedWeeks();
 
   return {
-    weeks: (query.data ?? mockWeeks).slice().sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate)),
-    isLoading: query.isLoading,
+    weeks,
+    isLoading,
   };
 }
 
 export function useCurrentWeek(): { week: Week; anchorWeekStartDate: string; isLoading: boolean } {
-  const activeWeekId = useWeekStore((state) => state.activeWeekId) ?? 1;
+  const { activeWeekId, weeks, previewFallbackEnabled } = useResolvedWeeks();
   const visibleWeekStartDate = useWeekStore((state) => state.visibleWeekStartDate);
   const fallbackWeek = mockWeeks.find((entry) => entry.id === activeWeekId) ?? mockWeek;
   const query = usePreviewQuery({
-    queryKey: ["week", activeWeekId],
-    queryFn: () => getWeek(activeWeekId),
+    queryKey: ["week", activeWeekId ?? "none"],
+    queryFn: () => (activeWeekId ? getWeek(activeWeekId) : Promise.reject(new Error("No active week selected."))),
     fallbackData: fallbackWeek,
+    enabled: Boolean(activeWeekId),
   });
 
-  const data = query.data ?? fallbackWeek;
+  const data = query.data ?? (previewFallbackEnabled ? fallbackWeek : weeks[0] ?? fallbackWeek);
   const anchorWeekStartDate = data.weekStartDate;
   const week = { ...data, weekStartDate: visibleWeekStartDate ?? data.weekStartDate };
 
@@ -43,9 +65,10 @@ export function useCurrentWeek(): { week: Week; anchorWeekStartDate: string; isL
 }
 
 export function useWeekSlots(): { slots: WeekMealSlot[]; isLoading: boolean } {
-  const activeWeekId = useWeekStore((state) => state.activeWeekId) ?? 1;
+  const previewFallbackEnabled = shouldUsePreviewFallback();
   const slotOverrides = useWeekStore((state) => state.slotOverrides);
   const { week, anchorWeekStartDate } = useCurrentWeek();
+  const activeWeekId = week.id;
   const fallbackSlots = useMemo(
     () =>
       injectPlanDates(
@@ -61,9 +84,10 @@ export function useWeekSlots(): { slots: WeekMealSlot[]; isLoading: boolean } {
     queryKey: ["week-slots", activeWeekId],
     queryFn: () => getWeekSlots(activeWeekId),
     fallbackData: fallbackSlots,
+    enabled: Boolean(activeWeekId),
   });
 
-  const anchorSlots = query.data ?? fallbackSlots;
+  const anchorSlots = query.data ?? (previewFallbackEnabled ? fallbackSlots : []);
   const displayedStart = week.weekStartDate;
 
   const slotsForDisplayedWeek = useMemo(() => {
@@ -78,9 +102,10 @@ export function useWeekSlots(): { slots: WeekMealSlot[]; isLoading: boolean } {
 
 /** Anchor week meal cells (ignores “browse another week” blank planner) — for inventory / consumption logic. */
 export function usePlannerAnchorSlots(): { slots: WeekMealSlot[]; isLoading: boolean } {
-  const activeWeekId = useWeekStore((state) => state.activeWeekId) ?? 1;
+  const previewFallbackEnabled = shouldUsePreviewFallback();
   const slotOverrides = useWeekStore((state) => state.slotOverrides);
   const { week } = useCurrentWeek();
+  const activeWeekId = week.id;
   const fallbackSlots = useMemo(
     () =>
       injectPlanDates(
@@ -96,40 +121,49 @@ export function usePlannerAnchorSlots(): { slots: WeekMealSlot[]; isLoading: boo
     queryKey: ["week-slots", activeWeekId],
     queryFn: () => getWeekSlots(activeWeekId),
     fallbackData: fallbackSlots,
+    enabled: Boolean(activeWeekId),
   });
-  const anchorSlots = query.data ?? fallbackSlots;
+  const anchorSlots = query.data ?? (previewFallbackEnabled ? fallbackSlots : []);
   return { slots: slotOverrides ?? anchorSlots, isLoading: query.isLoading };
 }
 
 export function useRecipes(): { recipes: Recipe[]; isLoading: boolean } {
+  const previewFallbackEnabled = shouldUsePreviewFallback();
   const query = usePreviewQuery({
     queryKey: ["recipes"],
     queryFn: getRecipes,
     fallbackData: mockRecipes,
   });
 
-  return { recipes: query.data ?? mockRecipes, isLoading: query.isLoading };
+  return { recipes: query.data ?? (previewFallbackEnabled ? mockRecipes : []), isLoading: query.isLoading };
 }
 
 export function useGroceryList(): { groceryList: GroceryList; isLoading: boolean } {
-  const activeWeekId = useWeekStore((state) => state.activeWeekId) ?? 1;
+  const previewFallbackEnabled = shouldUsePreviewFallback();
+  const { week } = useCurrentWeek();
+  const activeWeekId = week.id;
   const query = usePreviewQuery({
     queryKey: ["grocery-list", activeWeekId],
     queryFn: () => getGroceryList(activeWeekId),
     fallbackData: { ...mockGroceryList, weekId: activeWeekId, generatedAt: new Date().toISOString() },
+    enabled: Boolean(activeWeekId),
   });
 
-  return { groceryList: query.data ?? { ...mockGroceryList, weekId: activeWeekId }, isLoading: query.isLoading };
+  return {
+    groceryList: query.data ?? (previewFallbackEnabled ? { ...mockGroceryList, weekId: activeWeekId } : { ...mockGroceryList, weekId: activeWeekId, items: [] }),
+    isLoading: query.isLoading,
+  };
 }
 
 export function useFridgeItems(): { items: FridgeItem[]; isLoading: boolean } {
+  const previewFallbackEnabled = shouldUsePreviewFallback();
   const query = usePreviewQuery({
     queryKey: ["fridge-items"],
     queryFn: getFridgeItems,
     fallbackData: mockFridgeItems,
   });
 
-  return { items: query.data ?? mockFridgeItems, isLoading: query.isLoading };
+  return { items: query.data ?? (previewFallbackEnabled ? mockFridgeItems : []), isLoading: query.isLoading };
 }
 
 export function useIngredients(): { ingredients: Ingredient[]; isLoading: boolean } {
@@ -144,13 +178,14 @@ export function useIngredients(): { ingredients: Ingredient[]; isLoading: boolea
 }
 
 export function useSavedWeeks() {
+  const previewFallbackEnabled = shouldUsePreviewFallback();
   const query = usePreviewQuery({
     queryKey: ["saved-weeks"],
     queryFn: getSavedWeeks,
     fallbackData: mockSavedTemplates,
   });
 
-  return { savedTemplates: (query.data ?? mockSavedTemplates) as SavedWeekTemplate[], isLoading: query.isLoading };
+  return { savedTemplates: (query.data ?? (previewFallbackEnabled ? mockSavedTemplates : [])) as SavedWeekTemplate[], isLoading: query.isLoading };
 }
 
 export function useGroupedSlots() {
