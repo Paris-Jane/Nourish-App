@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "components/PageHeader";
 import { addDays, format, parseISO } from "date-fns";
-import { ArrowLeft, CheckCircle2, ChevronDown, Circle, Clock3, Package2, UtensilsCrossed } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ArrowLeft, CheckCircle2, ChevronDown, Circle, Clock3, Package2, UserRound, UtensilsCrossed } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { useCurrentWeek, useIngredients, useRecipes, useWeekSlots, useWeeks } from "hooks/useAppData";
 import { cn, getCurrentWeekStart } from "lib/utils";
 import { useWeekStore } from "store/weekStore";
@@ -414,6 +414,7 @@ function buildIngredientGroups(recipePlans: WeeklyRecipePlan[], ingredients: Ing
 }
 
 export function PrepSheetPage() {
+  const navigate = useNavigate();
   const { week } = useCurrentWeek();
   const { weeks } = useWeeks();
   const { slots } = useWeekSlots();
@@ -492,6 +493,16 @@ export function PrepSheetPage() {
         <PageHeader
           title="Sunday meal prep"
           subtitle={`Week of ${format(parseISO(week.weekStartDate), "MMMM d, yyyy")}`}
+          action={
+            <button
+              type="button"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-nourish-border bg-white text-nourish-ink shadow-sm transition hover:bg-nourish-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-nourish-sage lg:hidden"
+              onClick={() => navigate("/profile")}
+              aria-label="Open profile"
+            >
+              <UserRound size={19} aria-hidden />
+            </button>
+          }
         />
       </div>
       <div className="space-y-2 rounded-2xl border border-nourish-border bg-white p-3 shadow-sm sm:p-4">

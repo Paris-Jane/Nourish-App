@@ -201,10 +201,12 @@ function scoreSnack(item: SnackCatalogItem, remaining: Record<MyPlateGroupKey, n
 }
 
 export function generateSnackRecommendations(
-  progress: DailyFoodGroupProgress,
+  progress: DailyFoodGroupProgress | undefined,
   fridgeItems: FridgeItem[],
   recipes: Recipe[] = [],
 ): SnackRecommendation[] {
+  if (!progress) return [];
+
   const snackRecipes = recipes.filter((recipe) => recipe.mealTypeTags.includes("Snack"));
   if (snackRecipes.length > 0) {
     const scored = snackRecipes
@@ -278,15 +280,13 @@ export function buildWeeklyFoodProgress(
   ingredients: Ingredient[],
   targets?: MyPlateTargets | null,
 ) {
-  return slots.reduce<Record<WeekDay, DailyFoodGroupProgress>>((acc, slot) => {
-    if (!acc[slot.dayOfWeek]) {
-      acc[slot.dayOfWeek] = calculateDayFoodGroupProgress(
-        slots.filter((entry) => entry.dayOfWeek === slot.dayOfWeek),
-        recipes,
-        ingredients,
-        targets,
-      );
-    }
+  return (["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as WeekDay[]).reduce<Record<WeekDay, DailyFoodGroupProgress>>((acc, day) => {
+    acc[day] = calculateDayFoodGroupProgress(
+      slots.filter((entry) => entry.dayOfWeek === day),
+      recipes,
+      ingredients,
+      targets,
+    );
     return acc;
   }, {} as Record<WeekDay, DailyFoodGroupProgress>);
 }
