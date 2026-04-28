@@ -8,7 +8,7 @@ import { getWeek, getWeekSlots, listWeeks } from "api/weeks";
 import { shouldUsePreviewFallback, usePreviewQuery } from "./usePreviewQuery";
 import { buildBlankSlotsForWeek, injectPlanDates } from "lib/mealPlanDates";
 import { mockFridgeItems, mockGroceryList, mockIngredients, mockRecipes, mockSavedTemplates, mockSlots, mockWeek, mockWeeks } from "lib/mockData";
-import { mealTypes, weekDays } from "lib/utils";
+import { mealTypes, sortSlotsByMealType, weekDays } from "lib/utils";
 import { useWeekStore } from "store/weekStore";
 import type { FridgeItem, GroceryList, Ingredient, Recipe, SavedWeekTemplate, Week, WeekMealSlot } from "types/models";
 
@@ -206,13 +206,17 @@ export function useGroupedSlots() {
         return acc;
       }, {});
     }
-    return slots
+    const next = slots
       .filter((slot) => visibleMealTypes.includes(slot.mealType))
       .reduce<Record<string, WeekMealSlot[]>>((acc, slot) => {
         acc[slot.dayOfWeek] ??= [];
         acc[slot.dayOfWeek].push(slot);
         return acc;
       }, {});
+    weekDays.forEach((day) => {
+      next[day] = sortSlotsByMealType(next[day] ?? []);
+    });
+    return next;
   }, [slots, visibleMealTypes]);
 
   return { grouped, isLoading };
