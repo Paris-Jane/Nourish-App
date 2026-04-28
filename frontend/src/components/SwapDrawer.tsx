@@ -1,11 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRightLeft, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { generateGroceryList } from "api/groceryList";
 import { addRecipeModifier, addRecipeStep } from "api/recipes";
-import { swapSlot } from "api/weeks";
+import { createWeek, getWeekSlots, swapSlot } from "api/weeks";
 import { useToast } from "hooks/useToast";
+import { shouldUsePreviewFallback } from "hooks/usePreviewQuery";
 import { buildPreviewGroceryListFromPlan } from "lib/groceryFromPlan";
 import type { DailyFoodGroupProgress } from "lib/plannerNutrition";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
@@ -24,7 +26,7 @@ interface SwapDrawerProps {
   ingredients?: Ingredient[];
   fridgeItems?: FridgeItem[];
   weekSlots?: WeekMealSlot[];
-  week: Pick<Week, "id" | "householdId">;
+  week: Week;
   dayProgress?: DailyFoodGroupProgress;
   initialTargetIds?: number[];
   onCopyCurrentMeal?: () => void;
@@ -86,6 +88,9 @@ export function SwapDrawer({
   const isFavorite = useRecipePrefsStore((s) => s.isFavorite);
   const isDisliked = useRecipePrefsStore((s) => s.isDisliked);
   const setSlotOverrides = useWeekStore((state) => state.setSlotOverrides);
+  const setActiveWeekId = useWeekStore((state) => state.setActiveWeekId);
+  const setVisibleWeekStartDate = useWeekStore((state) => state.setVisibleWeekStartDate);
+  const previewFallbackEnabled = shouldUsePreviewFallback();
 
   useEffect(() => {
     if (open) {
@@ -245,12 +250,37 @@ export function SwapDrawer({
     [pendingRecipe],
   );
 
+  async function resolvePersistedTargets(targetIds: number[]) {
+    const selectedSlots = targetIds.map((targetId) => weekSlots.find((entry) => entry.id === targetId)).filter((entry): entry is WeekMealSlot => Boolean(entry));
+    const needsPersistedWeek = selectedSlots.some((entry) => entry.id >= 800_000);
+    if (!needsPersistedWeek) {
+      return { weekId: slot?.weekId ?? week.id, targetIds };
+    }
+
+    const persistedWeek = await createWeek({
+      weekStartDate: week.weekStartDate,
+      prepStyle: week.prepStyle,
+      maxCookTime: week.maxCookTime,
+    });
+    const persistedSlots = await getWeekSlots(persistedWeek.id);
+    const persistedTargetIds = selectedSlots
+      .map((localSlot) => persistedSlots.find((entry) => entry.dayOfWeek === localSlot.dayOfWeek && entry.mealType === localSlot.mealType && entry.position === localSlot.position)?.id)
+      .filter((id): id is number => typeof id === "number");
+
+    if (persistedTargetIds.length !== selectedSlots.length) {
+      throw new Error("Could not create meal slots for this week.");
+    }
+
+    return { weekId: persistedWeek.id, targetIds: persistedTargetIds, createdWeekId: persistedWeek.id };
+  }
+
   const applyRecipeMutation = useMutation({
     mutationFn: async ({ recipeId, targetIds, modifierIds }: { recipeId: number; targetIds: number[]; modifierIds: number[] }) => {
       if (!slot) throw new Error("No slot selected");
+      const persistedTargets = await resolvePersistedTargets(targetIds);
       await Promise.all(
-        targetIds.map((slotId) =>
-          swapSlot(slot.weekId, slotId, {
+        persistedTargets.targetIds.map((slotId) =>
+          swapSlot(persistedTargets.weekId, slotId, {
             recipeId,
             selectedModifierIngredientIds: modifierIds,
             isSkipped: false,
@@ -258,13 +288,19 @@ export function SwapDrawer({
           }),
         ),
       );
-      return { recipeId, targetIds, modifierIds };
+      return { recipeId, targetIds: persistedTargets.targetIds, modifierIds, weekId: persistedTargets.weekId, createdWeekId: persistedTargets.createdWeekId };
     },
-    onSuccess: async ({ recipeId, targetIds, modifierIds }) => {
+    onSuccess: async ({ recipeId, targetIds, modifierIds, weekId, createdWeekId }) => {
       if (!slot) return;
-      await queryClient.invalidateQueries({ queryKey: ["week-slots", slot.weekId] });
+      if (createdWeekId) {
+        setActiveWeekId(createdWeekId);
+        setVisibleWeekStartDate(null);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["weeks"] });
+      await queryClient.invalidateQueries({ queryKey: ["week", weekId] });
+      await queryClient.invalidateQueries({ queryKey: ["week-slots", weekId] });
       setSlotOverrides(null);
-      await refreshDerivedWeekData();
+      await refreshDerivedWeekData(weekId);
       const recipe = recipes.find((entry) => entry.id === recipeId);
       if (recipe) {
         const count = targetIds.length;
@@ -273,8 +309,19 @@ export function SwapDrawer({
       }
       onClose();
     },
-    onError: (_error, { recipeId, targetIds, modifierIds }) => {
+    onError: (error, { recipeId, targetIds, modifierIds }) => {
       if (!slot) return;
+      if (!previewFallbackEnabled) {
+        const detail =
+          axios.isAxiosError(error) && typeof error.response?.data?.message === "string"
+            ? error.response.data.message
+            : axios.isAxiosError(error) && typeof error.response?.data === "string"
+              ? error.response.data
+              : "The meal was not saved. Please try again.";
+        pushToast(detail);
+        void queryClient.invalidateQueries({ queryKey: ["week-slots", slot.weekId] });
+        return;
+      }
       const recipe = recipes.find((entry) => entry.id === recipeId);
       const nextSlots = weekSlots.map((entry) =>
         targetIds.includes(entry.id)
@@ -282,7 +329,7 @@ export function SwapDrawer({
           : entry,
       );
       setSlotOverrides(nextSlots);
-      void refreshDerivedWeekData(nextSlots);
+      void refreshDerivedWeekData(week.id, nextSlots);
       if (recipe) {
         const count = targetIds.length;
         pushToast(count > 1 ? `${recipe.name} added in preview mode to ${count} slots.` : `${recipe.name} added in preview mode.`);
@@ -395,13 +442,13 @@ export function SwapDrawer({
     },
   });
 
-  async function refreshDerivedWeekData(nextSlots?: WeekMealSlot[]) {
+  async function refreshDerivedWeekData(targetWeekId = week.id, nextSlots?: WeekMealSlot[]) {
     try {
-      const grocery = await generateGroceryList(week.id);
-      queryClient.setQueryData(["grocery-list", week.id], grocery);
+      const grocery = await generateGroceryList(targetWeekId);
+      queryClient.setQueryData(["grocery-list", targetWeekId], grocery);
     } catch {
       const previewGrocery = buildPreviewGroceryListFromPlan(week, nextSlots ?? weekSlots, recipes, ingredients, fridgeItems);
-      queryClient.setQueryData(["grocery-list", week.id], previewGrocery);
+      queryClient.setQueryData(["grocery-list", targetWeekId], previewGrocery);
     }
   }
 

@@ -15,7 +15,9 @@ import type { FridgeItem, GroceryList, Ingredient, Recipe, SavedWeekTemplate, We
 function useResolvedWeeks() {
   const previewFallbackEnabled = shouldUsePreviewFallback();
   const activeWeekId = useWeekStore((state) => state.activeWeekId);
+  const visibleWeekStartDate = useWeekStore((state) => state.visibleWeekStartDate);
   const setActiveWeekId = useWeekStore((state) => state.setActiveWeekId);
+  const setVisibleWeekStartDate = useWeekStore((state) => state.setVisibleWeekStartDate);
   const query = usePreviewQuery({
     queryKey: ["weeks"],
     queryFn: listWeeks,
@@ -25,14 +27,19 @@ function useResolvedWeeks() {
     () => (query.data ?? (previewFallbackEnabled ? mockWeeks : [])).slice().sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate)),
     [previewFallbackEnabled, query.data],
   );
+  const visibleWeek = visibleWeekStartDate ? weeks.find((week) => week.weekStartDate === visibleWeekStartDate) : undefined;
   const resolvedWeekId =
-    activeWeekId && weeks.some((week) => week.id === activeWeekId) ? activeWeekId : weeks[0]?.id ?? (previewFallbackEnabled ? 1 : null);
+    visibleWeek?.id ??
+    (activeWeekId && weeks.some((week) => week.id === activeWeekId) ? activeWeekId : weeks[0]?.id ?? (previewFallbackEnabled ? 1 : null));
 
   useEffect(() => {
     if (resolvedWeekId && activeWeekId !== resolvedWeekId) {
       setActiveWeekId(resolvedWeekId);
     }
-  }, [activeWeekId, resolvedWeekId, setActiveWeekId]);
+    if (visibleWeek) {
+      setVisibleWeekStartDate(null);
+    }
+  }, [activeWeekId, resolvedWeekId, setActiveWeekId, setVisibleWeekStartDate, visibleWeek]);
 
   return { weeks, activeWeekId: resolvedWeekId, isLoading: query.isLoading, previewFallbackEnabled };
 }

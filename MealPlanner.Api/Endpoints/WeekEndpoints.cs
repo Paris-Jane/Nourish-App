@@ -48,6 +48,12 @@ public static class WeekEndpoints
     private static async Task<IResult> CreateWeek(CreateWeekRequest req, AppDbContext db, ClaimsPrincipal user)
     {
         var householdId = user.GetHouseholdId();
+        var existingWeek = await db.Weeks
+            .FirstOrDefaultAsync(w => w.HouseholdId == householdId && !w.IsSavedTemplate && w.WeekStartDate == req.WeekStartDate);
+        if (existingWeek != null)
+        {
+            return Results.Ok(ToDto(existingWeek));
+        }
 
         // Fetch household size to use as default ServingsPlanned — avoid null nav property
         var householdSize = await db.Households
