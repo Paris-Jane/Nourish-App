@@ -139,16 +139,6 @@ export function MealCard({
         ) : (
           <>
             <h4 className="mb-2 text-sm leading-snug text-nourish-ink line-clamp-2">{recipe.name}</h4>
-            <div className="mb-2 flex items-center gap-2">
-              <span className="rounded-full bg-nourish-bg px-2 py-1 text-[11px] text-nourish-muted">
-                {recipe.timeTag === "Quick" ? "25 min" : recipe.timeTag === "Medium" ? "45 min" : "No limit"}
-              </span>
-              {slot.selectedModifierIngredientIds.length > 0 ? (
-                <span className="rounded-full bg-nourish-sage/10 px-2 py-1 text-[11px] font-medium text-nourish-sage">
-                  {slot.selectedModifierIngredientIds.length} add-on{slot.selectedModifierIngredientIds.length === 1 ? "" : "s"}
-                </span>
-              ) : null}
-            </div>
             <div className="relative w-fit" ref={nutritionRef}>
               <button
                 type="button"
