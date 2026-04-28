@@ -55,7 +55,16 @@ public class RecipeAnalysisService : IRecipeAnalysisService
         var fetchedSource = sourceUrl is null ? null : await TryFetchSourceAsync(sourceUrl, cancellationToken);
 
         var promptText = BuildPrompt(rawText, fetchedSource, ingredientCatalog);
-        var aiDraft = await RequestDraftAsync(model, apiKey, promptText, cancellationToken);
+        AiRecipeDraft aiDraft;
+        try
+        {
+            aiDraft = await RequestDraftAsync(model, apiKey, promptText, cancellationToken);
+        }
+        catch (InvalidOperationException ex) when (TryBuildSimpleSnackDraft(rawText, out var fallbackDraft))
+        {
+            _logger.LogWarning(ex, "OpenAI recipe analysis failed; using simple snack fallback for prompt.");
+            aiDraft = fallbackDraft;
+        }
 
         var warnings = new List<string>(aiDraft.Warnings ?? []);
         var createdIngredients = new List<IngredientResponse>();
@@ -356,6 +365,96 @@ public class RecipeAnalysisService : IRecipeAnalysisService
         builder.AppendLine();
         builder.AppendLine("If the input is incomplete, make sensible household-friendly assumptions and add warnings describing what you inferred.");
         return builder.ToString();
+    }
+
+    private static bool TryBuildSimpleSnackDraft(string rawText, out AiRecipeDraft draft)
+    {
+        var normalized = Normalize(rawText);
+        var asksForApple = normalized.Contains("apple", StringComparison.OrdinalIgnoreCase) ||
+                           normalized.Contains("apples", StringComparison.OrdinalIgnoreCase);
+        var asksForPeanutButter = normalized.Contains("peanut butter", StringComparison.OrdinalIgnoreCase);
+
+        if (!asksForApple || !asksForPeanutButter)
+        {
+            draft = new AiRecipeDraft();
+            return false;
+        }
+
+        draft = new AiRecipeDraft
+        {
+            Name = "Apple and Peanut Butter",
+            Cuisine = "Snack",
+            ScalabilityTag = ScalabilityTag.Flexible,
+            TimeTag = TimeTag.Quick,
+            PrepStyleTag = RecipePrepStyleTag.CookFresh,
+            IsFreezerFriendly = false,
+            IsCookFreshOnly = true,
+            BaseYieldServings = 1,
+            MealTypeTags = new List<MealType> { MealType.Snack },
+            FoodGroupServings = new Dictionary<string, decimal>
+            {
+                ["grains"] = 0m,
+                ["protein"] = 0.5m,
+                ["vegetables"] = 0m,
+                ["fruit"] = 1m,
+                ["dairy"] = 0m
+            },
+            Ingredients = new List<AiIngredientDraft>
+            {
+                new()
+                {
+                    Name = "Apple",
+                    Quantity = 1m,
+                    Unit = "whole",
+                    IsModifier = false,
+                    IsOptional = false,
+                    FoodGroup = FoodGroup.Fruit,
+                    DefaultLocation = DefaultLocation.Fridge,
+                    StoreSection = StoreSection.Produce,
+                    IsPerishable = true,
+                    Notes = "Use any crisp apple variety."
+                },
+                new()
+                {
+                    Name = "Peanut Butter",
+                    Quantity = 2m,
+                    Unit = "tbsp",
+                    IsModifier = false,
+                    IsOptional = false,
+                    FoodGroup = FoodGroup.Protein,
+                    DefaultLocation = DefaultLocation.Pantry,
+                    StoreSection = StoreSection.Pantry,
+                    IsPerishable = false,
+                    Notes = "Use creamy or crunchy peanut butter."
+                }
+            },
+            Steps = new List<AiStepDraft>
+            {
+                new()
+                {
+                    Instruction = "Wash and slice the apple just before eating.",
+                    TimingTag = TimingTag.DayOfActive,
+                    DurationMinutes = 3,
+                    IsPassive = false,
+                    PrepCategory = PrepStepCategory.FreshFinish,
+                    LinkedIngredientNames = new List<string> { "Apple" },
+                    ScaleByLinkedIngredients = true
+                },
+                new()
+                {
+                    Instruction = "Serve the apple slices with peanut butter for dipping.",
+                    TimingTag = TimingTag.DayOfActive,
+                    DurationMinutes = 2,
+                    IsPassive = false,
+                    PrepCategory = PrepStepCategory.AssemblePortion,
+                    LinkedIngredientNames = new List<string> { "Apple", "Peanut Butter" },
+                    ScaleByLinkedIngredients = true
+                }
+            },
+            Warnings = new List<string> { "OpenAI formatting failed, so Nourish created a simple snack draft from your prompt." },
+            SourceUrl = null
+        };
+        return true;
     }
 
     private Ingredient? ResolveIngredient(AiIngredientDraft draftIngredient, Dictionary<int, Ingredient> ingredientMap, List<Ingredient> ingredients)

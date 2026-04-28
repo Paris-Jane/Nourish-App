@@ -25,6 +25,30 @@ const prepCategoryOptions = [
   { value: "FreshFinish", label: "Fresh finish" },
 ] as const;
 
+function extractApiErrorDetail(error: unknown, fallback: string) {
+  if (!axios.isAxiosError(error)) return fallback;
+
+  const data = error.response?.data;
+  if (typeof data === "string" && data.trim()) return data;
+  if (!data || typeof data !== "object") return fallback;
+
+  const record = data as Record<string, unknown>;
+  for (const key of ["detail", "Detail", "message", "Message", "title", "Title"]) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+
+  const errors = record.errors;
+  if (errors && typeof errors === "object") {
+    const messages = Object.values(errors as Record<string, unknown>)
+      .flatMap((value) => (Array.isArray(value) ? value : [value]))
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+    if (messages.length > 0) return messages.join(" ");
+  }
+
+  return fallback;
+}
+
 export function RecipeFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -214,11 +238,7 @@ export function RecipeFormPage() {
       pushToast("AI draft ready for review.");
     },
     onError: (error) => {
-      const detail =
-        axios.isAxiosError(error) && typeof error.response?.data?.detail === "string"
-          ? error.response.data.detail
-          : "AI could not format that recipe yet.";
-      pushToast(detail);
+      pushToast(extractApiErrorDetail(error, "AI could not format that recipe yet."));
     },
   });
 
