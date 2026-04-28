@@ -235,7 +235,16 @@ public class RecipeAnalysisService : IRecipeAnalysisService
             foodGroupServings = new
             {
                 type = "object",
-                additionalProperties = new { type = "number" }
+                additionalProperties = false,
+                required = new[] { "Grains", "Protein", "Vegetables", "Fruit", "Dairy" },
+                properties = new
+                {
+                    Grains = new { type = "number" },
+                    Protein = new { type = "number" },
+                    Vegetables = new { type = "number" },
+                    Fruit = new { type = "number" },
+                    Dairy = new { type = "number" }
+                }
             },
             warnings = new
             {
