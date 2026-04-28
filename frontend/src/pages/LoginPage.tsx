@@ -162,37 +162,6 @@ export function LoginPage() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,#f5eee6_0%,#f8f4ef_45%,#fffdf9_100%)] px-4 py-8">
       <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-8 lg:grid-cols-[1.05fr,0.95fr]">
-        <section className="rounded-[32px] border border-nourish-border/70 bg-white/75 p-6 shadow-card backdrop-blur sm:p-8 lg:p-10">
-          <div className="inline-flex items-center gap-2 rounded-full bg-nourish-sage/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-nourish-sage">
-            <Sparkles size={14} />
-            Future auth flow
-          </div>
-          <h1 className="mt-5 font-heading text-5xl leading-none text-nourish-ink sm:text-6xl">Nourish</h1>
-          <p className="mt-5 max-w-xl text-base leading-7 text-nourish-muted">
-            Create an account to connect Nourish to your live backend data, including the ingredients stored in your Supabase database.
-            Preview mode is still available when you want to browse with local sample data.
-          </p>
-
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-3xl border border-nourish-border bg-[#fcfaf7] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-nourish-muted">Account</p>
-              <p className="mt-2 text-sm leading-6 text-nourish-ink">Create a household owner account with your home kitchen defaults.</p>
-            </div>
-            <div className="rounded-3xl border border-nourish-border bg-[#fcfaf7] p-4">
-              <div className="flex items-center gap-2 text-nourish-sage">
-                <Ruler size={16} />
-                <Scale size={16} />
-              </div>
-              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-nourish-muted">Nutrition baseline</p>
-              <p className="mt-2 text-sm leading-6 text-nourish-ink">Height, weight, age, sex, and activity are collected here for future MyPlate personalization.</p>
-            </div>
-            <div className="rounded-3xl border border-nourish-border bg-[#fcfaf7] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-nourish-muted">Onboarding next</p>
-              <p className="mt-2 text-sm leading-6 text-nourish-ink">After account creation, onboarding will gather food preferences and planning style before the first week.</p>
-            </div>
-          </div>
-        </section>
-
         <section className="card w-full p-6 lg:p-8">
           <div className="mb-6 grid grid-cols-2 rounded-2xl bg-nourish-bg p-1">
             <button
