@@ -32,7 +32,7 @@ export function buildBlankSlotsForWeek(weekId: number, weekStartISO: string, typ
         isEatingOut: false,
         isSkipped: false,
         isLocked: false,
-        servingsPlanned: 2,
+        servingsPlanned: 1,
         assumedCompleted: false,
         markedSkippedAt: null,
       })),

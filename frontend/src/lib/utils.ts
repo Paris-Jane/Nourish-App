@@ -62,7 +62,7 @@ export function createBlankWeekSlots(weekId: number, visibleMealTypes: MealType[
       isEatingOut: false,
       isSkipped: false,
       isLocked: false,
-      servingsPlanned: 2,
+      servingsPlanned: 1,
       assumedCompleted: false,
       markedSkippedAt: null,
     })),
@@ -125,7 +125,7 @@ export function createSavedWeekSlots({
         isEatingOut: false,
         isSkipped: false,
         isLocked: false,
-        servingsPlanned: 2,
+        servingsPlanned: 1,
         assumedCompleted: false,
         markedSkippedAt: null,
       };

@@ -10,6 +10,7 @@ import { useToast } from "hooks/useToast";
 import { shouldUsePreviewFallback } from "hooks/usePreviewQuery";
 import { buildPreviewGroceryListFromPlan } from "lib/groceryFromPlan";
 import { calculateSlotFoodGroupServings, type DailyFoodGroupProgress } from "lib/plannerNutrition";
+import { formatQuantity, getRecipeServingMultiplier } from "lib/recipeStepRendering";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
 import { cn, daysUntil } from "lib/utils";
 import { useWeekStore } from "store/weekStore";
@@ -299,6 +300,7 @@ export function SwapDrawer({
     () => pendingRecipe?.ingredients.filter((ingredient) => ingredient.isModifier || ingredient.isOptional) ?? [],
     [pendingRecipe],
   );
+  const pendingRecipeServingScale = useMemo(() => (pendingRecipe ? getRecipeServingMultiplier(pendingRecipe, 1) : 1), [pendingRecipe]);
 
   const customModifierResults = useMemo(() => {
     if (!pendingRecipe) return [];
@@ -746,7 +748,7 @@ export function SwapDrawer({
                           <div className="min-w-0">
                             <p className="font-medium text-nourish-ink">{ingredient.ingredientName}</p>
                             <p className="mt-0.5 text-xs text-nourish-muted">
-                              {ingredient.quantity} {ingredient.unit}
+                              {formatQuantity(ingredient.quantity * pendingRecipeServingScale)} {ingredient.unit}
                             </p>
                             {ingredient.notes ? <p className="mt-1 text-xs text-nourish-muted">{ingredient.notes}</p> : null}
                             <div className="mt-2 flex flex-wrap gap-1.5">

@@ -118,7 +118,7 @@ public class RecipeAnalysisService : IRecipeAnalysisService
                 step.ScaleByLinkedIngredients))
             .ToList();
 
-        var draft = new RecipeRequest(
+        var draft = RecipeServingNormalizer.NormalizeRequestToSingleServing(new RecipeRequest(
             aiDraft.Name.Trim(),
             aiDraft.Cuisine.Trim(),
             aiDraft.ScalabilityTag,
@@ -132,7 +132,7 @@ public class RecipeAnalysisService : IRecipeAnalysisService
             resolvedIngredients,
             resolvedSteps,
             null,
-            sourceUrl ?? aiDraft.SourceUrl);
+            sourceUrl ?? aiDraft.SourceUrl));
 
         return new RecipeAnalysisResponse(draft, warnings.Distinct().ToList(), createdIngredients);
     }

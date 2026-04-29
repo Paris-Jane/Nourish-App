@@ -10,6 +10,7 @@ import type {
   UserWeekPref,
   Week,
   WeekMealSlot,
+  Recipe,
 } from "types/models";
 import { mockIngredientsFromDbSeeder, mockRecipesFromDbSeeder } from "./dbSeederMockData";
 
@@ -42,7 +43,21 @@ export const mockWeeks: Week[] = [
   },
 ];
 
-export const mockRecipes = mockRecipesFromDbSeeder;
+function normalizeMockRecipeToSingleServing(recipe: Recipe): Recipe {
+  const divisor = recipe.baseYieldServings > 0 ? recipe.baseYieldServings : 1;
+  if (divisor <= 1) return recipe;
+
+  return {
+    ...recipe,
+    baseYieldServings: 1,
+    ingredients: recipe.ingredients.map((ingredient) => ({
+      ...ingredient,
+      quantity: Math.round((ingredient.quantity / divisor) * 10_000) / 10_000,
+    })),
+  };
+}
+
+export const mockRecipes = mockRecipesFromDbSeeder.map(normalizeMockRecipeToSingleServing);
 export const mockIngredients = mockIngredientsFromDbSeeder;
 
 const mealRotation = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, null];
@@ -66,7 +81,7 @@ export const mockSlots: WeekMealSlot[] = weekDays.flatMap((day, index) =>
       isEatingOut: false,
       isSkipped: false,
       isLocked: false,
-      servingsPlanned: 2,
+      servingsPlanned: 1,
       assumedCompleted: false,
       markedSkippedAt: null,
     };

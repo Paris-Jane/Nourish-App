@@ -125,6 +125,7 @@ public static class RecipeEndpoints
 
     private static async Task<IResult> Create(RecipeRequest req, AppDbContext db, ClaimsPrincipal user)
     {
+        req = RecipeServingNormalizer.NormalizeRequestToSingleServing(req);
         var householdId = user.GetHouseholdId();
         var recipe = new Recipe
         {
@@ -187,6 +188,7 @@ public static class RecipeEndpoints
 
     private static async Task<IResult> Update(int id, RecipeRequest req, AppDbContext db, ClaimsPrincipal user)
     {
+        req = RecipeServingNormalizer.NormalizeRequestToSingleServing(req);
         var householdId = user.GetHouseholdId();
         var recipe = await db.Recipes
             .Include(r => r.Ingredients)

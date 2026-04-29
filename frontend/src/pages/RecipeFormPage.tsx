@@ -72,7 +72,7 @@ export function RecipeFormPage() {
       prepStyleTag: existing?.prepStyleTag ?? "BatchFriendly",
       isFreezerFriendly: existing?.isFreezerFriendly ?? false,
       isCookFreshOnly: existing?.isCookFreshOnly ?? false,
-      baseYieldServings: existing?.baseYieldServings ?? 4,
+      baseYieldServings: existing?.baseYieldServings ?? 1,
       mealTypeTags: existing?.mealTypeTags ?? ["Dinner"],
       ingredients:
         existing?.ingredients.map((ingredient) => ({
@@ -442,7 +442,11 @@ export function RecipeFormPage() {
               <option value="CookFresh">Cook fresh</option>
               <option value="FreezerFriendly">Freezer-friendly</option>
             </select>
-            <input className="input" type="number" {...form.register("baseYieldServings", { valueAsNumber: true })} />
+            <label className="space-y-1 text-sm text-nourish-muted">
+              <span>Recipe yield</span>
+              <input className="input" type="number" min={1} {...form.register("baseYieldServings", { valueAsNumber: true })} />
+              <span className="block text-xs">Enter the servings the source recipe makes. Nourish saves ingredients per one meal.</span>
+            </label>
           </div>
           <div className="mt-4">
             <p className="mb-3 text-sm text-nourish-muted">Best fit meal types</p>

@@ -158,6 +158,8 @@ using (var scope = app.Services.CreateScope())
         await db.Database.MigrateAsync();
         logger.LogInformation("Seeding database...");
         await DbSeeder.SeedAsync(db);
+        logger.LogInformation("Normalizing recipe quantities to one-serving units...");
+        await RecipeServingRepair.NormalizeExistingRecipesAsync(db);
         logger.LogInformation("Repairing canonical recipe prep steps...");
         await RecipeStepRepair.RepairAsync(db);
         logger.LogInformation("Database ready.");
