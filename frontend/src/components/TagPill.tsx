@@ -12,13 +12,13 @@ interface TagPillProps {
 export function TagPill({ children, active, tone = "default", onClick }: TagPillProps) {
   const inactive =
     tone === "breakfast"
-      ? "border-amber-200/90 bg-amber-100 text-amber-900 hover:bg-amber-100/90 hover:text-amber-950"
+      ? "border-[#e5d3b8] bg-[#f7eddf] text-[#7b5731] hover:bg-[#f3e4d1] hover:text-[#5f3f22]"
       : tone === "lunch"
-        ? "border-emerald-200/90 bg-emerald-100 text-emerald-900 hover:bg-emerald-100/90 hover:text-emerald-950"
+        ? "border-[#c9dccd] bg-[#eef5ee] text-[#52745d] hover:bg-[#e4efe6] hover:text-[#3f6049]"
         : tone === "dinner"
-          ? "border-sky-200/90 bg-sky-100 text-sky-900 hover:bg-sky-100/90 hover:text-sky-950"
+          ? "border-[#c9d7da] bg-[#edf3f2] text-[#4f6970] hover:bg-[#e2eceb] hover:text-[#3c555c]"
           : tone === "snack"
-            ? "border-rose-200/90 bg-rose-100 text-rose-900 hover:bg-rose-100/90 hover:text-rose-950"
+            ? "border-[#e4c9c4] bg-[#f7eeeb] text-[#87584f] hover:bg-[#f1e1dd] hover:text-[#70453e]"
             : tone === "accent"
       ? "border-transparent bg-nourish-sage/12 text-nourish-sage hover:bg-nourish-sage/20 hover:text-nourish-sage"
       : tone === "warm"
