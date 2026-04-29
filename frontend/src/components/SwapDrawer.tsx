@@ -9,7 +9,7 @@ import { createWeek, getWeekSlots, swapSlot } from "api/weeks";
 import { useToast } from "hooks/useToast";
 import { shouldUsePreviewFallback } from "hooks/usePreviewQuery";
 import { buildPreviewGroceryListFromPlan } from "lib/groceryFromPlan";
-import type { DailyFoodGroupProgress } from "lib/plannerNutrition";
+import { calculateSlotFoodGroupServings, type DailyFoodGroupProgress } from "lib/plannerNutrition";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
 import { cn, daysUntil } from "lib/utils";
 import { useWeekStore } from "store/weekStore";
@@ -17,7 +17,7 @@ import { RecipeCard } from "./RecipeCard";
 import { TagPill } from "./TagPill";
 import type { FridgeItem, Ingredient, Recipe, Week, WeekDay, WeekMealSlot } from "types/models";
 
-const filters = ["All suggestions", "Top suggestions", "In your fridge", "Meeting nutrient needs", "Expiring soon", "Favorites"] as const;
+const filters = ["Top suggestions", "All suggestions", "In your fridge", "Meeting nutrient needs", "Expiring soon", "Favorites"] as const;
 const targetDayOrder: WeekDay[] = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const targetDayLabels: Record<WeekDay, string> = {
   Sunday: "S",
@@ -53,6 +53,10 @@ function matchesSlotMealType(recipe: Recipe, slot: WeekMealSlot | undefined): bo
     (slot.mealType === "Dinner" && recipe.mealTypeTags.includes("Lunch")) ||
     (slot.mealType === "Lunch" && recipe.mealTypeTags.includes("Dinner"))
   );
+}
+
+function exactlyMatchesSlotMealType(recipe: Recipe, slot: WeekMealSlot | undefined): boolean {
+  return !slot || recipe.mealTypeTags.includes(slot.mealType);
 }
 
 /** When no recipes are tagged for this slot’s meal type, fall back to the full catalog. */
@@ -106,7 +110,7 @@ export function SwapDrawer({
 
   useEffect(() => {
     if (open) {
-      setActiveFilter("All suggestions");
+      setActiveFilter("Top suggestions");
       setQuery("");
       setPendingRecipe(initialRecipe ?? currentRecipe ?? null);
       setSelectedTargetIds(initialTargetIds?.length ? initialTargetIds : slot ? [slot.id] : []);
@@ -222,14 +226,22 @@ export function SwapDrawer({
     );
 
     return new Map(
-      recipesForSlotOrFallback(recipes, slot).map((recipe, index) => {
+      recipes.map((recipe, index) => {
         const ingredientIds = recipe.ingredients.map((ingredient) => ingredient.ingredientId);
         const fridgeMatches = ingredientIds.filter((id) => fridgeIngredientIds.has(id)).length;
         const expiringMatches = ingredientIds.filter((id) => expiringIngredientIds.has(id)).length;
         const overlapMatches = ingredientIds.filter((id) => usedElsewhereIngredientIds.has(id)).length;
-        const nutrientMatches = nutrientNeedGroups.filter((group) => Number(recipe.foodGroupServings[group] ?? 0) > 0).length;
+        const recipeFoodGroups = slot ? calculateSlotFoodGroupServings({ ...slot, recipeId: recipe.id, selectedModifierIngredientIds: [] }, recipe, ingredients) : null;
+        const nutrientMatches = nutrientNeedGroups.filter((group) => Number(recipeFoodGroups?.[group as keyof typeof recipeFoodGroups] ?? recipe.foodGroupServings[group] ?? 0) > 0).length;
         const favorite = isFavorite(recipe.id);
         const disliked = isDisliked(recipe.id);
+        const conditionMatches = [
+          overlapMatches > 0,
+          expiringMatches > 0,
+          favorite,
+          nutrientMatches > 0,
+          fridgeMatches > 0,
+        ].filter(Boolean).length;
         const badges = [
           ...(expiringMatches > 0 ? ["Expiring soon"] : []),
           ...(fridgeMatches > 0 ? ["In your fridge"] : []),
@@ -238,11 +250,12 @@ export function SwapDrawer({
           ...(overlapMatches > 0 ? ["Overlap"] : []),
         ];
         const score =
-          expiringMatches * 5 +
-          fridgeMatches * 3 +
-          overlapMatches * 1.5 +
-          nutrientMatches * 4 +
-          (favorite ? 3 : 0) -
+          conditionMatches * 100 +
+          overlapMatches * 8 +
+          expiringMatches * 7 +
+          (favorite ? 6 : 0) +
+          nutrientMatches * 5 +
+          fridgeMatches * 3 -
           (disliked ? 8 : 0) -
           index * 0.01;
 
@@ -252,10 +265,10 @@ export function SwapDrawer({
         ] as const;
       }),
     );
-  }, [fridgeIngredientIds, fridgeItems, isDisliked, isFavorite, nutrientNeedGroups, recipes, slot, usedElsewhereIngredientIds]);
+  }, [fridgeIngredientIds, fridgeItems, ingredients, isDisliked, isFavorite, nutrientNeedGroups, recipes, slot, usedElsewhereIngredientIds]);
 
   const visibleRecipes = useMemo(() => {
-    const pool = recipesForSlotOrFallback(recipes, slot);
+    const pool = activeFilter === "Top suggestions" ? recipes.filter((recipe) => exactlyMatchesSlotMealType(recipe, slot)) : recipesForSlotOrFallback(recipes, slot);
     const filteredByTab = pool.filter((recipe) => {
       const meta = recipeSuggestionMeta.get(recipe.id);
       if (!meta) return true;
