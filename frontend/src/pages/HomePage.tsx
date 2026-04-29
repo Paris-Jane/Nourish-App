@@ -313,6 +313,25 @@ export function HomePage() {
     },
   });
 
+  function slotWithPlanDate(slot: WeekMealSlot): WeekMealSlot {
+    return {
+      ...slot,
+      planDate: slot.planDate ?? formatISO(addDays(weekStartDate, weekDays.indexOf(slot.dayOfWeek)), { representation: "date" }),
+    };
+  }
+
+  function mergeUpdatedSlots(updatedSlots: WeekMealSlot[]) {
+    const normalized = updatedSlots.map(slotWithPlanDate);
+    const byId = new Map(normalized.map((slot) => [slot.id, slot]));
+    const next = slots.map((slot) => byId.get(slot.id) ?? slot);
+    normalized.forEach((slot) => {
+      if (!next.some((entry) => entry.id === slot.id)) {
+        next.push(slot);
+      }
+    });
+    return next;
+  }
+
   const addSuggestedSnackMutation = useMutation({
     mutationFn: async ({ day, suggestion }: { day: WeekDay; suggestion: ReturnType<typeof generateSnackRecommendations>[number] }) => {
       if (suggestion.customSnackItems?.length) {
@@ -326,7 +345,7 @@ export function HomePage() {
             servingsPlanned: 1,
           }));
 
-        await swapSlot(week.id, targetSlot.id, {
+        const updatedSlot = await swapSlot(week.id, targetSlot.id, {
           recipeId: 0,
           selectedModifierIngredientIds: [],
           isSkipped: false,
@@ -337,7 +356,7 @@ export function HomePage() {
           customFoodGroupServings: suggestion.customFoodGroupServings,
         });
 
-        return { day, suggestion };
+        return { day, suggestion, updatedSlots: [updatedSlot] };
       }
 
       const suggestionItems = suggestion.items?.length
@@ -363,7 +382,7 @@ export function HomePage() {
         targetSlots.push({ targetSlot, item });
       }
 
-      await Promise.all(
+      const updatedSlots = await Promise.all(
         targetSlots.map(({ targetSlot, item }) =>
           swapSlot(week.id, targetSlot.id, {
             recipeId: item.recipeId,
@@ -374,12 +393,14 @@ export function HomePage() {
         ),
       );
 
-      return { day, suggestion };
+      return { day, suggestion, updatedSlots };
     },
-    onSuccess: async ({ suggestion, day }) => {
-      await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+    onSuccess: async ({ suggestion, day, updatedSlots }) => {
+      const nextSlots = mergeUpdatedSlots(updatedSlots);
+      queryClient.setQueryData(["week-slots", week.id], nextSlots);
       setSlotOverrides(null);
-      await refreshDerivedWeekData();
+      void queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+      await refreshDerivedWeekData(nextSlots);
       pushToast(`${suggestion.label} added to ${day}.`);
     },
     onError: (_error, { day, suggestion }) => {
