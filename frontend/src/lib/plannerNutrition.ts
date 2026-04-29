@@ -1,4 +1,5 @@
 import type { FridgeItem, Ingredient, MyPlateTargets, Recipe, WeekDay, WeekMealSlot } from "types/models";
+import { formatQuantity, pluralUnit } from "./recipeStepRendering";
 
 export type MyPlateGroupKey = "grains" | "protein" | "vegetables" | "fruit" | "dairy";
 
@@ -96,6 +97,31 @@ const SNACK_CATALOG: SnackCatalogItem[] = [
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function friendlyQuantityForUnit(rawQuantity: number, unit: string): number | null {
+  if (!Number.isFinite(rawQuantity) || rawQuantity <= 0) return null;
+  const normalized = unit.toLowerCase();
+  const portions = normalized.includes("cup")
+    ? [2, 1.5, 1, 0.75, 2 / 3, 0.5, 1 / 3, 0.25]
+    : normalized.includes("tbsp") || normalized.includes("tablespoon")
+      ? [4, 3, 2, 1, 0.5]
+      : normalized.includes("tsp") || normalized.includes("teaspoon")
+        ? [2, 1, 0.5, 0.25]
+        : normalized.includes("oz") || normalized.includes("ounce")
+          ? [4, 3, 2, 1.5, 1, 0.5]
+          : normalized.includes("whole") || normalized.includes("egg") || normalized.includes("stick")
+            ? [2, 1, 0.5]
+            : [2, 1.5, 1, 0.75, 0.5, 0.25];
+
+  return portions.find((portion) => portion <= rawQuantity + 0.001) ?? null;
+}
+
+export function formatSnackItemAmount(item: Pick<CustomSnackPlateItem, "quantity" | "unit" | "ingredientName">) {
+  const unit = pluralUnit(item.unit, item.quantity);
+  const amount = formatQuantity(item.quantity);
+  if (item.unit.toLowerCase() === "whole") return `${amount} ${item.ingredientName.toLowerCase()}`;
+  return `${amount} ${unit} ${item.ingredientName.toLowerCase()}`;
 }
 
 function normalizeGroupKey(group: string | Ingredient["foodGroup"]): MyPlateGroupKey | null {
@@ -311,15 +337,19 @@ function findPlateIngredient(group: MyPlateGroupKey, ingredients: Ingredient[], 
 function buildSnackPlateSuggestion(progress: DailyFoodGroupProgress, ingredients: Ingredient[], fridgeItems: FridgeItem[]): SnackRecommendation | null {
   const plateItems = GROUP_ORDER.flatMap((group) => {
     const needed = progress.remaining[group];
-    if (needed <= 0.01) return [];
+    if (needed <= 0.2) return [];
     const ingredient = findPlateIngredient(group, ingredients, fridgeItems);
     if (!ingredient || ingredient.servingSize <= 0) return [];
+    const rawQuantity = ingredient.servingSize * needed;
+    const quantity = friendlyQuantityForUnit(rawQuantity, ingredient.servingUnit || ingredient.purchaseUnit);
+    if (!quantity) return [];
+    const servings = round2(Math.min(needed, quantity / ingredient.servingSize));
     return [{
       ingredientId: ingredient.id,
       ingredientName: ingredient.name,
-      quantity: round2(ingredient.servingSize * needed),
+      quantity: round2(quantity),
       unit: ingredient.servingUnit || ingredient.purchaseUnit,
-      foodGroupServings: { [group]: round2(needed) },
+      foodGroupServings: { [group]: servings },
     }];
   });
 
@@ -337,12 +367,12 @@ function buildSnackPlateSuggestion(progress: DailyFoodGroupProgress, ingredients
 
   const fridgeIds = new Set(fridgeItems.map((item) => item.ingredientId));
   const fridgeOverlap = plateItems.filter((item) => fridgeIds.has(item.ingredientId)).length;
-  const itemText = plateItems.map((item) => `${item.quantity} ${item.unit} ${item.ingredientName.toLowerCase()}`).join(" + ");
+  const itemText = plateItems.map(formatSnackItemAmount).join(" + ");
 
   return {
     id: `snack-plate-${plateItems.map((item) => item.ingredientId).join("-")}`,
     label: "Snack Plate",
-    description: `A custom snack plate for today: ${itemText}.`,
+    description: `A custom snack plate for today with ${itemText}.`,
     foodGroups: GROUP_ORDER.filter((group) => (customFoodGroupServings[group] ?? 0) > 0),
     fridgeHint: fridgeOverlap > 0 ? `Uses ${fridgeOverlap} item${fridgeOverlap === 1 ? "" : "s"} already in your kitchen` : null,
     customSnackItems: plateItems,

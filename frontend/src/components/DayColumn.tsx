@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { MealCard } from "./MealCard";
 import { cn } from "lib/utils";
-import { formatGroupLabel, type DailyFoodGroupProgress, type MyPlateGroupKey, type SnackRecommendation } from "lib/plannerNutrition";
+import { formatGroupLabel, formatSnackItemAmount, type DailyFoodGroupProgress, type MyPlateGroupKey, type SnackRecommendation } from "lib/plannerNutrition";
 import type { Ingredient, Recipe, WeekMealSlot } from "types/models";
 
 interface DayColumnProps {
@@ -165,6 +165,15 @@ export function DayColumn({
                         >
                           <p className="font-medium text-nourish-ink">{suggestion.label}</p>
                           <p className="mt-0.5 text-nourish-muted">{suggestion.description}</p>
+                          {suggestion.customSnackItems?.length ? (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {suggestion.customSnackItems.map((item) => (
+                                <span key={item.ingredientId} className="rounded-full bg-nourish-bg px-2 py-1 text-[11px] text-nourish-muted">
+                                  {formatSnackItemAmount(item)}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                           {suggestion.items && suggestion.items.length > 1 ? (
                             <div className="mt-2 space-y-1">
                               {suggestion.items.map((item) => (

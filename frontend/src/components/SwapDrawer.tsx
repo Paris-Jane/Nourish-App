@@ -9,7 +9,7 @@ import { createWeek, getWeekSlots, swapSlot } from "api/weeks";
 import { useToast } from "hooks/useToast";
 import { shouldUsePreviewFallback } from "hooks/usePreviewQuery";
 import { buildPreviewGroceryListFromPlan } from "lib/groceryFromPlan";
-import { calculateSlotFoodGroupServings, type DailyFoodGroupProgress } from "lib/plannerNutrition";
+import { calculateSlotFoodGroupServings, formatSnackItemAmount, type DailyFoodGroupProgress, type MyPlateGroupKey } from "lib/plannerNutrition";
 import { formatQuantity, getRecipeServingMultiplier } from "lib/recipeStepRendering";
 import { useRecipePrefsStore } from "store/recipePrefsStore";
 import { cn, daysUntil } from "lib/utils";
@@ -65,6 +65,39 @@ function recipesForSlotOrFallback(recipes: Recipe[], slot: WeekMealSlot | undefi
   if (!slot) return recipes;
   const matched = recipes.filter((recipe) => matchesSlotMealType(recipe, slot));
   return matched.length > 0 ? matched : recipes;
+}
+
+function normalizeFoodGroup(group: string | undefined): MyPlateGroupKey | null {
+  switch (group) {
+    case "Grains":
+    case "grains":
+      return "grains";
+    case "Protein":
+    case "protein":
+    case "Legume":
+      return "protein";
+    case "Vegetable":
+    case "Vegetables":
+    case "vegetables":
+      return "vegetables";
+    case "Fruit":
+    case "Fruits":
+    case "fruit":
+      return "fruit";
+    case "Dairy":
+    case "dairy":
+      return "dairy";
+    default:
+      return null;
+  }
+}
+
+function primarySnackItemGroup(item: NonNullable<WeekMealSlot["customSnackItems"]>[number]): MyPlateGroupKey | null {
+  return (Object.entries(item.foodGroupServings ?? {}).find(([, servings]) => Number(servings) > 0)?.[0] as MyPlateGroupKey | undefined) ?? null;
+}
+
+function roundSnackQuantity(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 export function SwapDrawer({
@@ -508,6 +541,69 @@ export function SwapDrawer({
     },
   });
 
+  const customSnackItems = slot?.customSnackItems ?? [];
+
+  function findSnackPlateSwap(item: (typeof customSnackItems)[number]) {
+    const group = primarySnackItemGroup(item);
+    if (!group) return null;
+    const fridgeIds = new Set(fridgeItems.map((fridgeItem) => fridgeItem.ingredientId));
+    return ingredients
+      .filter((ingredient) => {
+        if (ingredient.id === item.ingredientId || ingredient.servingSize <= 0 || ingredient.isMyPlateCounted === false) return false;
+        return normalizeFoodGroup(ingredient.foodGroup) === group;
+      })
+      .sort((a, b) => Number(fridgeIds.has(b.id)) - Number(fridgeIds.has(a.id)) || a.name.localeCompare(b.name))[0] ?? null;
+  }
+
+  const updateCustomSnackMutation = useMutation({
+    mutationFn: async (nextItems: typeof customSnackItems) => {
+      if (!slot?.customSnackName) throw new Error("No custom snack selected");
+      await swapSlot(week.id, slot.id, {
+        recipeId: 0,
+        selectedModifierIngredientIds: [],
+        isSkipped: false,
+        isEatingOut: false,
+        customSnackName: slot.customSnackName,
+        customSnackDescription: slot.customSnackDescription,
+        customSnackItems: nextItems,
+        customFoodGroupServings: slot.customFoodGroupServings ?? {},
+      });
+      return nextItems;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["week-slots", week.id] });
+      setSlotOverrides(null);
+      await refreshDerivedWeekData(week.id);
+      pushToast("Snack Plate updated.");
+    },
+    onError: (_error, nextItems) => {
+      if (!slot) return;
+      const nextSlots = weekSlots.map((entry) => (entry.id === slot.id ? { ...entry, customSnackItems: nextItems } : entry));
+      setSlotOverrides(nextSlots);
+      void refreshDerivedWeekData(week.id, nextSlots);
+      pushToast("Snack Plate updated in preview mode.");
+    },
+  });
+
+  function swapSnackPlateItem(item: (typeof customSnackItems)[number]) {
+    const replacement = findSnackPlateSwap(item);
+    const group = primarySnackItemGroup(item);
+    const servings = group ? Number(item.foodGroupServings?.[group] ?? 0) : 0;
+    if (!replacement || !group || servings <= 0) {
+      pushToast("No easy swap found for that item yet.");
+      return;
+    }
+
+    const nextItem = {
+      ingredientId: replacement.id,
+      ingredientName: replacement.name,
+      quantity: roundSnackQuantity(replacement.servingSize * servings),
+      unit: replacement.servingUnit || replacement.purchaseUnit || item.unit,
+      foodGroupServings: item.foodGroupServings,
+    };
+    updateCustomSnackMutation.mutate(customSnackItems.map((entry) => (entry.ingredientId === item.ingredientId ? nextItem : entry)));
+  }
+
   async function refreshDerivedWeekData(targetWeekId = week.id, nextSlots?: WeekMealSlot[]) {
     try {
       const grocery = await generateGroceryList(targetWeekId);
@@ -592,7 +688,7 @@ export function SwapDrawer({
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-nourish-border/70 px-5 pb-4 pt-5 lg:rounded-t-[28px] lg:border-b-0">
           <h2 className="text-xl font-semibold text-nourish-ink sm:text-2xl">
-            {slot?.recipeId ? "Plan this meal" : "Add a meal"}
+            {slot?.customSnackName ? "Plan this snack" : slot?.recipeId ? "Plan this meal" : "Add a meal"}
           </h2>
           <button
             type="button"
@@ -620,20 +716,52 @@ export function SwapDrawer({
           >
             <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-nourish-muted">
               <ArrowRightLeft size={14} aria-hidden />
-                {slot?.recipeId ? "Current pick" : "Open slot"}
+                {slot?.recipeId || slot?.customSnackName ? "Current pick" : "Open slot"}
             </div>
-            <h3 className="text-lg text-nourish-ink">{currentRecipe?.name ?? "Open slot"}</h3>
+            <h3 className="text-lg text-nourish-ink">{currentRecipe?.name ?? slot?.customSnackName ?? "Open slot"}</h3>
             {slot ? <p className="mt-2 text-sm text-nourish-muted">{slot.dayOfWeek} · {slot.mealType}</p> : null}
           </button>
 
-          {slot?.recipeId ? (
+          {slot?.customSnackName && customSnackItems.length > 0 ? (
+            <section className="mb-4 rounded-2xl border border-nourish-border bg-white p-4">
+              <div className="mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-nourish-muted">Snack Plate details</p>
+                <p className="mt-1 text-sm text-nourish-muted">
+                  Tap swap to trade an item for another ingredient in the same food group. The MyPlate math stays the same.
+                </p>
+              </div>
+              <div className="space-y-2">
+                {customSnackItems.map((item) => {
+                  const replacement = findSnackPlateSwap(item);
+                  return (
+                    <div key={item.ingredientId} className="flex items-center justify-between gap-3 rounded-xl border border-nourish-border/80 bg-[#fdfaf6] px-3 py-2">
+                      <div>
+                        <p className="font-medium text-nourish-ink">{item.ingredientName}</p>
+                        <p className="text-xs text-nourish-muted">{formatSnackItemAmount(item)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-full border border-nourish-border bg-white px-3 py-1.5 text-xs font-medium text-nourish-sage transition hover:border-nourish-sage disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={!replacement || updateCustomSnackMutation.isPending}
+                        onClick={() => swapSnackPlateItem(item)}
+                      >
+                        {replacement ? `Swap to ${replacement.name}` : "No swap"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          {slot?.recipeId || slot?.customSnackName ? (
             <div className="mb-4 flex flex-wrap gap-2">
-              {onCopyCurrentMeal ? (
+              {slot?.recipeId && onCopyCurrentMeal ? (
                 <button type="button" className="button-secondary" onClick={onCopyCurrentMeal}>
                   Add to other days
                 </button>
               ) : null}
-              {onMarkCurrentDidntHappen ? (
+              {slot?.recipeId && onMarkCurrentDidntHappen ? (
                 <button type="button" className="button-secondary" onClick={onMarkCurrentDidntHappen}>
                   Didn’t happen
                 </button>

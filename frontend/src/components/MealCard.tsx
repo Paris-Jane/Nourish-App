@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMatchMedia } from "hooks/useMatchMedia";
 import { getSelectedMealFoodGroups } from "lib/foodGroupMath";
-import { calculateSlotFoodGroupServings, formatGroupLabel } from "lib/plannerNutrition";
+import { calculateSlotFoodGroupServings, formatGroupLabel, formatSnackItemAmount } from "lib/plannerNutrition";
 import { cn } from "lib/utils";
 import { NutritionDots } from "./NutritionDots";
 import type { Ingredient, MealType, Recipe, WeekMealSlot } from "types/models";
@@ -84,6 +84,7 @@ export function MealCard({
         .map((group) => formatGroupLabel(group as Parameters<typeof formatGroupLabel>[0]))
     : getSelectedMealFoodGroups(recipe, slot.selectedModifierIngredientIds ?? [], ingredients);
   const foodGroupServings = useMemo(() => calculateSlotFoodGroupServings(slot, recipe, ingredients), [slot, recipe, ingredients]);
+  const customSnackItems = slot.customSnackItems ?? [];
 
   function closeActions() {
     setMenuOpen(false);
@@ -144,6 +145,12 @@ export function MealCard({
         ) : (
           <>
             <h4 className="mb-2 text-sm leading-snug text-nourish-ink line-clamp-2">{customSnackName ?? recipe?.name}</h4>
+            {customSnackName && customSnackItems.length > 0 ? (
+              <p className="mb-2 text-xs leading-snug text-nourish-muted line-clamp-3">
+                {customSnackItems.slice(0, 3).map(formatSnackItemAmount).join(" · ")}
+                {customSnackItems.length > 3 ? ` · +${customSnackItems.length - 3} more` : ""}
+              </p>
+            ) : null}
             <div className="relative w-fit" ref={nutritionRef}>
               <button
                 type="button"

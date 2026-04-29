@@ -191,6 +191,10 @@ export function HomePage() {
             selectedModifierIngredientIds: [],
             isSkipped: false,
             isEatingOut: false,
+            customSnackName: "",
+            customSnackDescription: "",
+            customSnackItems: [],
+            customFoodGroupServings: {},
           }),
         ),
       );
@@ -212,6 +216,10 @@ export function HomePage() {
               selectedModifierIngredientIds: [],
               isSkipped: false,
               isEatingOut: false,
+              customSnackName: null,
+              customSnackDescription: null,
+              customSnackItems: [],
+              customFoodGroupServings: {},
             }
           : s,
       );
@@ -1558,7 +1566,7 @@ export function HomePage() {
             setSwapDrawerOpen(false);
             skipSlotMutation.mutate(selectedSlotForDrawer.id);
           } : undefined}
-          onRemoveCurrentMeal={selectedSlotForDrawer?.recipeId ? () => {
+          onRemoveCurrentMeal={selectedSlotForDrawer?.recipeId || selectedSlotForDrawer?.customSnackName ? () => {
             setSwapDrawerOpen(false);
             startRemove(selectedSlotForDrawer);
           } : undefined}
