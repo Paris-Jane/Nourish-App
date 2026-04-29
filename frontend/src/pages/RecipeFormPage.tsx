@@ -500,7 +500,7 @@ export function RecipeFormPage() {
           </div>
           <div className="space-y-3">
             {ingredientFields.fields.map((field, index) => (
-              <div key={field.id} className="grid gap-3 rounded-2xl bg-nourish-bg p-4 lg:grid-cols-4">
+              <div key={field.id} className="grid gap-3 rounded-2xl bg-nourish-bg p-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.5fr)_minmax(0,0.7fr)_minmax(0,1fr)_auto]">
                 <select className="input" {...form.register(`ingredients.${index}.ingredientId`, { valueAsNumber: true })}>
                   {ingredients.map((ingredient) => (
                     <option key={ingredient.id} value={ingredient.id}>
@@ -523,6 +523,14 @@ export function RecipeFormPage() {
                     Optional add-on
                   </label>
                 </div>
+                <button
+                  type="button"
+                  className="rounded-full border border-nourish-border bg-white px-3 py-2 text-sm font-medium text-nourish-muted transition hover:border-nourish-terracotta/40 hover:text-nourish-terracotta disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={() => ingredientFields.remove(index)}
+                  disabled={ingredientFields.fields.length <= 1}
+                >
+                  Remove
+                </button>
               </div>
             ))}
           </div>
