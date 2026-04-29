@@ -44,6 +44,9 @@ public class AppDbContext : DbContext
         return true;
     }
 
+    private static bool SnackItemsEqual(List<CustomSnackItem> c1, List<CustomSnackItem> c2) =>
+        JsonSerializer.Serialize(c1, JsonOptions) == JsonSerializer.Serialize(c2, JsonOptions);
+
     private static string SerializeMealTypes(List<MealType> v) =>
         JsonSerializer.Serialize(v.Select(t => t.ToString()).ToList(), JsonOptions);
 
@@ -116,6 +119,17 @@ public class AppDbContext : DbContext
         var myPlateConverter = new ValueConverter<MyPlateTargets?, string?>(
             v => v == null ? null : JsonSerializer.Serialize(v, JsonOptions),
             v => string.IsNullOrEmpty(v) ? null : JsonSerializer.Deserialize<MyPlateTargets>(v, JsonOptions)
+        );
+        var customSnackItemsConverter = new ValueConverter<List<CustomSnackItem>, string>(
+            v => JsonSerializer.Serialize(v, JsonOptions),
+            v => string.IsNullOrEmpty(v)
+                ? new List<CustomSnackItem>()
+                : JsonSerializer.Deserialize<List<CustomSnackItem>>(v, JsonOptions) ?? new List<CustomSnackItem>()
+        );
+        var customSnackItemsComparer = new ValueComparer<List<CustomSnackItem>>(
+            (c1, c2) => c1 != null && c2 != null && SnackItemsEqual(c1, c2),
+            c => JsonSerializer.Serialize(c, JsonOptions).GetHashCode(),
+            c => JsonSerializer.Deserialize<List<CustomSnackItem>>(JsonSerializer.Serialize(c, JsonOptions), JsonOptions) ?? new List<CustomSnackItem>()
         );
 
         // ── Household ─────────────────────────────────────────────────────────
@@ -230,6 +244,8 @@ public class AppDbContext : DbContext
             b.Property(s => s.DayOfWeek).HasConversion<string>();
             b.Property(s => s.MealType).HasConversion<string>();
             b.Property(s => s.SelectedModifierIngredientIds).HasColumnType("jsonb").HasConversion(intListConverter, intListComparer);
+            b.Property(s => s.CustomSnackItems).HasColumnType("jsonb").HasConversion(customSnackItemsConverter, customSnackItemsComparer);
+            b.Property(s => s.CustomFoodGroupServings).HasColumnType("jsonb").HasConversion(dictDecimalConverter, dictDecimalComparer);
             b.HasOne(s => s.Recipe)
                 .WithMany(r => r.MealSlots)
                 .HasForeignKey(s => s.RecipeId)

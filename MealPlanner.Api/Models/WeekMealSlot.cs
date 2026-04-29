@@ -15,6 +15,10 @@ public class WeekMealSlot
     public int ServingsPlanned { get; set; }
     public bool AssumedCompleted { get; set; }
     public DateTime? MarkedSkippedAt { get; set; }
+    public string? CustomSnackName { get; set; }
+    public string? CustomSnackDescription { get; set; }
+    public List<CustomSnackItem> CustomSnackItems { get; set; } = new();
+    public Dictionary<string, decimal> CustomFoodGroupServings { get; set; } = new();
 
     public Week Week { get; set; } = null!;
     public Recipe? Recipe { get; set; }

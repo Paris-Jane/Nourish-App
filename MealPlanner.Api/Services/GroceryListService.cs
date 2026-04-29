@@ -14,7 +14,7 @@ public class GroceryListService : IGroceryListService
     public async Task<GroceryList> GenerateAsync(int weekId, int householdId)
     {
         var week = await _db.Weeks
-            .Include(w => w.MealSlots.Where(s => !s.IsSkipped && !s.IsEatingOut && s.RecipeId != null))
+            .Include(w => w.MealSlots.Where(s => !s.IsSkipped && !s.IsEatingOut))
                 .ThenInclude(s => s.Recipe!)
                     .ThenInclude(r => r.Ingredients)
                         .ThenInclude(ri => ri.Ingredient)
@@ -36,8 +36,32 @@ public class GroceryListService : IGroceryListService
         // Aggregate quantities per ingredient across all meal slots
         var aggregated = new Dictionary<int, AggregatedItem>();
 
-        foreach (var slot in week.MealSlots.Where(s => s.Recipe != null))
+        foreach (var slot in week.MealSlots)
         {
+            if (slot.CustomSnackItems.Count > 0)
+            {
+                foreach (var item in slot.CustomSnackItems)
+                {
+                    var ingredient = await _db.Ingredients.FindAsync(item.IngredientId);
+                    if (ingredient == null) continue;
+                    if (aggregated.TryGetValue(item.IngredientId, out var agg))
+                    {
+                        agg.Quantity += item.Quantity;
+                    }
+                    else
+                    {
+                        aggregated[item.IngredientId] = new AggregatedItem
+                        {
+                            Ingredient = ingredient,
+                            Quantity = item.Quantity,
+                            Unit = item.Unit,
+                            RecipeIds = new List<int>()
+                        };
+                    }
+                }
+                continue;
+            }
+            if (slot.Recipe == null) continue;
             var recipe = slot.Recipe!;
             var scale = recipe.BaseYieldServings > 0
                 ? (decimal)slot.ServingsPlanned / recipe.BaseYieldServings

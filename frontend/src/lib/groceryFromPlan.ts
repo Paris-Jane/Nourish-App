@@ -25,8 +25,29 @@ export function buildPreviewGroceryListFromPlan(
   const ingredientMap = new Map(ingredients.map((ingredient) => [ingredient.id, ingredient]));
 
   slots
-    .filter((slot) => slot.recipeId && !slot.isSkipped)
+    .filter((slot) => !slot.isSkipped)
     .forEach((slot) => {
+      if (slot.customSnackItems?.length) {
+        slot.customSnackItems.forEach((item) => {
+          const meta = ingredientMap.get(item.ingredientId);
+          const key = `${item.ingredientId}:${item.unit}`;
+          const existing = aggregated.get(key);
+          if (existing) {
+            existing.plannedQuantity += item.quantity;
+            return;
+          }
+          aggregated.set(key, {
+            ingredientId: item.ingredientId,
+            ingredientName: item.ingredientName,
+            plannedQuantity: item.quantity,
+            plannedUnit: item.unit,
+            storeSection: meta?.storeSection ?? "Other",
+            recipeIds: [],
+          });
+        });
+        return;
+      }
+      if (!slot.recipeId) return;
       const recipe = recipeMap.get(slot.recipeId!);
       if (!recipe) return;
       const scale = recipe.baseYieldServings > 0 ? (slot.servingsPlanned || 1) / recipe.baseYieldServings : 1;

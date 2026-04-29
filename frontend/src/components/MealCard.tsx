@@ -48,8 +48,9 @@ export function MealCard({
   onDragOver,
   onDrop,
 }: MealCardProps) {
-  const empty = !recipe;
-  const skipped = slot.isSkipped && !recipe;
+  const customSnackName = slot.customSnackName?.trim();
+  const empty = !recipe && !customSnackName;
+  const skipped = slot.isSkipped && !recipe && !customSnackName;
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 10, y: 10 });
   const [nutritionOpen, setNutritionOpen] = useState(false);
@@ -77,7 +78,11 @@ export function MealCard({
 
   const filled = !empty && !skipped;
   const showActions = planningMode && Boolean(onDidntHappen || onRemoveMeal || onCopyMeal || onDeleteSlot);
-  const selectedFoodGroups = getSelectedMealFoodGroups(recipe, slot.selectedModifierIngredientIds ?? [], ingredients);
+  const selectedFoodGroups = customSnackName
+    ? Object.keys(slot.customFoodGroupServings ?? {})
+        .filter((group) => Number(slot.customFoodGroupServings?.[group] ?? 0) > 0)
+        .map((group) => formatGroupLabel(group as Parameters<typeof formatGroupLabel>[0]))
+    : getSelectedMealFoodGroups(recipe, slot.selectedModifierIngredientIds ?? [], ingredients);
   const foodGroupServings = useMemo(() => calculateSlotFoodGroupServings(slot, recipe, ingredients), [slot, recipe, ingredients]);
 
   function closeActions() {
@@ -138,7 +143,7 @@ export function MealCard({
           </div>
         ) : (
           <>
-            <h4 className="mb-2 text-sm leading-snug text-nourish-ink line-clamp-2">{recipe.name}</h4>
+            <h4 className="mb-2 text-sm leading-snug text-nourish-ink line-clamp-2">{customSnackName ?? recipe?.name}</h4>
             <div className="relative w-fit" ref={nutritionRef}>
               <button
                 type="button"

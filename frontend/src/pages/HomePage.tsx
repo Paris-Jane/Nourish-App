@@ -300,6 +300,31 @@ export function HomePage() {
 
   const addSuggestedSnackMutation = useMutation({
     mutationFn: async ({ day, suggestion }: { day: WeekDay; suggestion: ReturnType<typeof generateSnackRecommendations>[number] }) => {
+      if (suggestion.customSnackItems?.length) {
+        const targetSlot =
+          slots
+            .filter((slot) => slot.dayOfWeek === day && slot.mealType === "Snack")
+            .find((slot) => !slot.recipeId && !slot.customSnackName && !slot.isSkipped) ??
+          (await createWeekSlot(week.id, {
+            dayOfWeek: day,
+            mealType: "Snack",
+            servingsPlanned: 1,
+          }));
+
+        await swapSlot(week.id, targetSlot.id, {
+          recipeId: 0,
+          selectedModifierIngredientIds: [],
+          isSkipped: false,
+          isEatingOut: false,
+          customSnackName: suggestion.label,
+          customSnackDescription: suggestion.description,
+          customSnackItems: suggestion.customSnackItems,
+          customFoodGroupServings: suggestion.customFoodGroupServings,
+        });
+
+        return { day, suggestion };
+      }
+
       const suggestionItems = suggestion.items?.length
         ? suggestion.items.filter((item) => item.recipeId)
         : suggestion.recipeId
@@ -349,7 +374,56 @@ export function HomePage() {
           ? [suggestion]
           : [];
       if (suggestionItems.length === 0) {
-        pushToast("That snack suggestion is not linked to a recipe yet.");
+        if (suggestion.customSnackItems?.length) {
+          const existingOpenSnackSlot = slots
+            .filter((slot) => slot.dayOfWeek === day && slot.mealType === "Snack")
+            .find((slot) => !slot.recipeId && !slot.customSnackName && !slot.isSkipped);
+          const nextSlots = existingOpenSnackSlot
+            ? slots.map((slot) =>
+                slot.id === existingOpenSnackSlot.id
+                  ? {
+                      ...slot,
+                      recipeId: null,
+                      recipeName: suggestion.label,
+                      selectedModifierIngredientIds: [],
+                      customSnackName: suggestion.label,
+                      customSnackDescription: suggestion.description,
+                      customSnackItems: suggestion.customSnackItems,
+                      customFoodGroupServings: suggestion.customFoodGroupServings,
+                      isSkipped: false,
+                    }
+                  : slot,
+              )
+            : [
+                ...slots,
+                {
+                  id: 970_000 + slots.length,
+                  weekId: week.id,
+                  planDate: formatISO(addDays(weekStartDate, weekDays.indexOf(day)), { representation: "date" }),
+                  recipeId: null,
+                  recipeName: suggestion.label,
+                  selectedModifierIngredientIds: [],
+                  dayOfWeek: day,
+                  mealType: "Snack" as const,
+                  position: slots.filter((slot) => slot.dayOfWeek === day && slot.mealType === "Snack").length,
+                  isEatingOut: false,
+                  isSkipped: false,
+                  isLocked: false,
+                  servingsPlanned: 1,
+                  assumedCompleted: false,
+                  markedSkippedAt: null,
+                  customSnackName: suggestion.label,
+                  customSnackDescription: suggestion.description,
+                  customSnackItems: suggestion.customSnackItems,
+                  customFoodGroupServings: suggestion.customFoodGroupServings,
+                },
+              ];
+          setSlotOverrides(nextSlots);
+          void refreshDerivedWeekData(nextSlots);
+          pushToast(`${suggestion.label} added to ${day} in preview mode.`);
+          return;
+        }
+        pushToast("That snack suggestion is not linked yet.");
         return;
       }
 

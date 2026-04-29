@@ -59,7 +59,7 @@ export function saveWeekAsTemplate(id: number, templateName: string) {
 export function swapSlot(
   weekId: number,
   slotId: number,
-  payload: Partial<Pick<WeekMealSlot, "recipeId" | "selectedModifierIngredientIds" | "isEatingOut" | "isSkipped" | "isLocked" | "servingsPlanned">>,
+  payload: Partial<Pick<WeekMealSlot, "recipeId" | "selectedModifierIngredientIds" | "isEatingOut" | "isSkipped" | "isLocked" | "servingsPlanned" | "customSnackName" | "customSnackDescription" | "customSnackItems" | "customFoodGroupServings">>,
 ) {
   return unwrap<WeekMealSlot>(apiClient.put(`/api/weeks/${weekId}/slots/${slotId}`, payload));
 }

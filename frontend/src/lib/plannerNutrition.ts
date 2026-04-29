@@ -18,6 +18,16 @@ export type SnackRecommendation = {
   recipeId?: number | null;
   selectedModifierIngredientIds?: number[];
   items?: SnackRecommendationItem[];
+  customSnackItems?: CustomSnackPlateItem[];
+  customFoodGroupServings?: Partial<Record<MyPlateGroupKey, number>>;
+};
+
+export type CustomSnackPlateItem = {
+  ingredientId: number;
+  ingredientName: string;
+  quantity: number;
+  unit: string;
+  foodGroupServings: Partial<Record<MyPlateGroupKey, number>>;
 };
 
 export type SnackRecommendationItem = {
@@ -41,7 +51,20 @@ type SnackCandidate = SnackRecommendationItem & {
   fridgeOverlap: number;
 };
 
+type SnackPlateOption = {
+  ingredientNames: string[];
+  fallback: string;
+};
+
 const GROUP_ORDER: MyPlateGroupKey[] = ["grains", "protein", "vegetables", "fruit", "dairy"];
+
+const SNACK_PLATE_OPTIONS: Record<MyPlateGroupKey, SnackPlateOption> = {
+  fruit: { ingredientNames: ["Apple", "Mixed Berries", "Banana", "Grapes", "Orange"], fallback: "fruit" },
+  vegetables: { ingredientNames: ["Cherry Tomatoes", "Cucumber", "Baby Carrots", "Snap Peas", "Romaine Lettuce"], fallback: "vegetables" },
+  grains: { ingredientNames: ["Whole Grain Crackers", "Popcorn", "Pita Bread", "Whole Grain Bread"], fallback: "whole-grain crackers" },
+  protein: { ingredientNames: ["Almonds", "Peanut Butter", "Hard-boiled Egg", "Hummus", "Turkey Breast"], fallback: "protein" },
+  dairy: { ingredientNames: ["Cheddar Cheese", "String Cheese", "Greek Yogurt", "Cottage Cheese"], fallback: "dairy" },
+};
 
 const SNACK_CATALOG: SnackCatalogItem[] = [
   { name: "Apple", servingDescription: "1 medium apple", doubleServingDescription: "2 medium apples", myPlateServings: { fruit: 1 } },
@@ -151,7 +174,14 @@ export function calculateSlotFoodGroupServings(
   ingredients: Ingredient[],
 ): Record<MyPlateGroupKey, number> {
   const totals: Record<MyPlateGroupKey, number> = { grains: 0, protein: 0, vegetables: 0, fruit: 0, dairy: 0 };
-  if (!recipe || slot.isSkipped) return totals;
+  if (slot.isSkipped) return totals;
+  if (slot.customFoodGroupServings && Object.keys(slot.customFoodGroupServings).length > 0) {
+    GROUP_ORDER.forEach((group) => {
+      totals[group] = round2(Number(slot.customFoodGroupServings?.[group] ?? 0));
+    });
+    return totals;
+  }
+  if (!recipe) return totals;
 
   const scale = recipe.baseYieldServings > 0 ? (slot.servingsPlanned || 1) / recipe.baseYieldServings : 1;
   const ingredientMap = new Map(ingredients.map((ingredient) => [ingredient.id, ingredient]));
@@ -178,7 +208,14 @@ export function calculateDayFoodGroupProgress(
   const totals: Record<MyPlateGroupKey, number> = { grains: 0, protein: 0, vegetables: 0, fruit: 0, dairy: 0 };
 
   daySlots.forEach((slot) => {
-    if (!slot.recipeId || slot.isSkipped) return;
+    if (slot.isSkipped) return;
+    if (slot.customFoodGroupServings && Object.keys(slot.customFoodGroupServings).length > 0) {
+      GROUP_ORDER.forEach((group) => {
+        totals[group] = round2(totals[group] + Number(slot.customFoodGroupServings?.[group] ?? 0));
+      });
+      return;
+    }
+    if (!slot.recipeId) return;
     const recipe = recipes.find((entry) => entry.id === slot.recipeId);
     const slotTotals = calculateSlotFoodGroupServings(slot, recipe, ingredients);
     GROUP_ORDER.forEach((group) => {
@@ -250,6 +287,67 @@ function reduceRemainingByServings(remaining: Record<MyPlateGroupKey, number>, s
     if (!provided) return;
     remaining[group] = round2(Math.max(0, remaining[group] - provided));
   });
+}
+
+function fitsWithinRemaining(servingsByGroup: Partial<Record<MyPlateGroupKey, number>>, remaining: Record<MyPlateGroupKey, number>) {
+  return GROUP_ORDER.every((group) => (servingsByGroup[group] ?? 0) <= remaining[group] + 0.01);
+}
+
+function scaledCatalogServings(item: SnackCatalogItem, multiplier: number) {
+  return GROUP_ORDER.reduce<Partial<Record<MyPlateGroupKey, number>>>((acc, group) => {
+    const servings = item.myPlateServings[group] ?? 0;
+    if (servings > 0) acc[group] = round2(servings * multiplier);
+    return acc;
+  }, {});
+}
+
+function findPlateIngredient(group: MyPlateGroupKey, ingredients: Ingredient[], fridgeItems: FridgeItem[]) {
+  const option = SNACK_PLATE_OPTIONS[group];
+  const fridgeIds = new Set(fridgeItems.map((item) => item.ingredientId));
+  const candidates = ingredients.filter((ingredient) => option.ingredientNames.some((name) => ingredient.name.toLowerCase() === name.toLowerCase()));
+  return candidates.sort((a, b) => Number(fridgeIds.has(b.id)) - Number(fridgeIds.has(a.id)))[0] ?? null;
+}
+
+function buildSnackPlateSuggestion(progress: DailyFoodGroupProgress, ingredients: Ingredient[], fridgeItems: FridgeItem[]): SnackRecommendation | null {
+  const plateItems = GROUP_ORDER.flatMap((group) => {
+    const needed = progress.remaining[group];
+    if (needed <= 0.01) return [];
+    const ingredient = findPlateIngredient(group, ingredients, fridgeItems);
+    if (!ingredient || ingredient.servingSize <= 0) return [];
+    return [{
+      ingredientId: ingredient.id,
+      ingredientName: ingredient.name,
+      quantity: round2(ingredient.servingSize * needed),
+      unit: ingredient.servingUnit || ingredient.purchaseUnit,
+      foodGroupServings: { [group]: round2(needed) },
+    }];
+  });
+
+  if (plateItems.length === 0) return null;
+
+  const customFoodGroupServings = plateItems.reduce<Partial<Record<MyPlateGroupKey, number>>>((acc, item) => {
+    GROUP_ORDER.forEach((group) => {
+      const servings = item.foodGroupServings[group] ?? 0;
+      if (servings > 0) acc[group] = round2((acc[group] ?? 0) + servings);
+    });
+    return acc;
+  }, {});
+
+  if (!fitsWithinRemaining(customFoodGroupServings, progress.remaining)) return null;
+
+  const fridgeIds = new Set(fridgeItems.map((item) => item.ingredientId));
+  const fridgeOverlap = plateItems.filter((item) => fridgeIds.has(item.ingredientId)).length;
+  const itemText = plateItems.map((item) => `${item.quantity} ${item.unit} ${item.ingredientName.toLowerCase()}`).join(" + ");
+
+  return {
+    id: `snack-plate-${plateItems.map((item) => item.ingredientId).join("-")}`,
+    label: "Snack Plate",
+    description: `A custom snack plate for today: ${itemText}.`,
+    foodGroups: GROUP_ORDER.filter((group) => (customFoodGroupServings[group] ?? 0) > 0),
+    fridgeHint: fridgeOverlap > 0 ? `Uses ${fridgeOverlap} item${fridgeOverlap === 1 ? "" : "s"} already in your kitchen` : null,
+    customSnackItems: plateItems,
+    customFoodGroupServings,
+  };
 }
 
 function addModifierServings(
@@ -355,7 +453,7 @@ export function generateSnackRecommendations(
       const best = recipeCandidates
         .filter((candidate) => candidate.recipeId && !selectedRecipeIds.has(candidate.recipeId))
         .map((candidate) => ({ candidate, score: scoreCandidate(candidate, remaining) }))
-        .filter((entry) => entry.score > 0)
+        .filter((entry) => entry.score > 0 && fitsWithinRemaining(entry.candidate.myPlateServings, remaining))
         .sort((a, b) => b.score - a.score || b.candidate.fridgeOverlap - a.candidate.fridgeOverlap || b.candidate.foodGroups.length - a.candidate.foodGroups.length)[0];
 
       if (!best || !best.candidate.recipeId) break;
@@ -384,7 +482,7 @@ export function generateSnackRecommendations(
       const alternates = recipeCandidates
         .filter((candidate) => !selectedRecipeIds.has(candidate.recipeId ?? 0))
         .map((candidate) => ({ candidate, score: scoreCandidate(candidate, progress.remaining) }))
-        .filter((entry) => entry.score > 0)
+        .filter((entry) => entry.score > 0 && fitsWithinRemaining(entry.candidate.myPlateServings, progress.remaining))
         .sort((a, b) => b.score - a.score || b.candidate.fridgeOverlap - a.candidate.fridgeOverlap)
         .slice(0, Math.max(0, 3 - 1))
         .map(({ candidate }) => ({
@@ -398,19 +496,25 @@ export function generateSnackRecommendations(
           items: [candidate],
         }));
 
-      return [combo, ...alternates].slice(0, 3);
+      const snackPlate = buildSnackPlateSuggestion(progress, ingredients, fridgeItems);
+      return [snackPlate, combo, ...alternates].filter((item): item is SnackRecommendation => Boolean(item)).slice(0, 3);
     }
   }
 
   const remaining = { ...progress.remaining };
   const selected = new Set<string>();
-  const output: SnackRecommendation[] = [];
+  const snackPlate = buildSnackPlateSuggestion(progress, ingredients, fridgeItems);
+  const output: SnackRecommendation[] = snackPlate ? [snackPlate] : [];
 
   while (GROUP_ORDER.some((group) => remaining[group] > 0.01) && output.length < 3) {
     const best = SNACK_CATALOG
       .filter((item) => !selected.has(item.name))
       .map((item) => ({ item, score: scoreSnack(item, remaining) }))
-      .filter((entry) => entry.score > 0)
+      .filter((entry) => {
+        if (entry.score <= 0) return false;
+        const multiplier = selectSnackMultiplier(entry.item, remaining);
+        return fitsWithinRemaining(scaledCatalogServings(entry.item, multiplier), remaining);
+      })
       .sort((a, b) => b.score - a.score || Object.keys(b.item.myPlateServings).length - Object.keys(a.item.myPlateServings).length)[0];
 
     if (!best) break;

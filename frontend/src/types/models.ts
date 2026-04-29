@@ -230,6 +230,18 @@ export interface WeekMealSlot {
   servingsPlanned: number;
   assumedCompleted: boolean;
   markedSkippedAt?: string | null;
+  customSnackName?: string | null;
+  customSnackDescription?: string | null;
+  customSnackItems?: CustomSnackItem[];
+  customFoodGroupServings?: Record<string, number>;
+}
+
+export interface CustomSnackItem {
+  ingredientId: number;
+  ingredientName: string;
+  quantity: number;
+  unit: string;
+  foodGroupServings: Record<string, number>;
 }
 
 export interface SnackSuggestion {

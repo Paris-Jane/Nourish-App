@@ -268,6 +268,13 @@ public static class WeekEndpoints
             {
                 slot.SelectedModifierIngredientIds = new List<int>();
             }
+            if (nextRecipeId.HasValue)
+            {
+                slot.CustomSnackName = null;
+                slot.CustomSnackDescription = null;
+                slot.CustomSnackItems = new List<CustomSnackItem>();
+                slot.CustomFoodGroupServings = new Dictionary<string, decimal>();
+            }
         }
         if (req.SelectedModifierIngredientIds != null)
         {
@@ -277,6 +284,15 @@ public static class WeekEndpoints
         if (req.IsSkipped.HasValue) slot.IsSkipped = req.IsSkipped.Value;
         if (req.IsLocked.HasValue) slot.IsLocked = req.IsLocked.Value;
         if (req.ServingsPlanned.HasValue) slot.ServingsPlanned = req.ServingsPlanned.Value;
+        if (req.CustomSnackName != null)
+        {
+            slot.RecipeId = null;
+            slot.SelectedModifierIngredientIds = new List<int>();
+            slot.CustomSnackName = string.IsNullOrWhiteSpace(req.CustomSnackName) ? null : req.CustomSnackName.Trim();
+            slot.CustomSnackDescription = string.IsNullOrWhiteSpace(req.CustomSnackDescription) ? null : req.CustomSnackDescription.Trim();
+            slot.CustomSnackItems = req.CustomSnackItems ?? new List<CustomSnackItem>();
+            slot.CustomFoodGroupServings = req.CustomFoodGroupServings ?? new Dictionary<string, decimal>();
+        }
         await db.SaveChangesAsync();
 
         await db.Entry(slot).Reference(s => s.Recipe).LoadAsync();
@@ -490,7 +506,8 @@ public static class WeekEndpoints
     private static WeekMealSlotResponse ToSlotDto(WeekMealSlot s) => new(
         s.Id, s.WeekId, s.RecipeId, s.Recipe?.Name, s.SelectedModifierIngredientIds,
         s.DayOfWeek, s.MealType, s.Position, s.IsEatingOut, s.IsSkipped,
-        s.IsLocked, s.ServingsPlanned, s.AssumedCompleted, s.MarkedSkippedAt);
+        s.IsLocked, s.ServingsPlanned, s.AssumedCompleted, s.MarkedSkippedAt,
+        s.CustomSnackName, s.CustomSnackDescription, s.CustomSnackItems, s.CustomFoodGroupServings);
 
     private static SavedWeekTemplateResponse ToSavedTemplateDto(Week week) => new(
         week.Id,

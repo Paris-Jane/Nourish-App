@@ -39,7 +39,11 @@ public record WeekMealSlotResponse(
     bool IsLocked,
     int ServingsPlanned,
     bool AssumedCompleted,
-    DateTime? MarkedSkippedAt
+    DateTime? MarkedSkippedAt,
+    string? CustomSnackName,
+    string? CustomSnackDescription,
+    List<CustomSnackItem> CustomSnackItems,
+    Dictionary<string, decimal> CustomFoodGroupServings
 );
 
 public record CreateWeekMealSlotRequest(
@@ -54,7 +58,11 @@ public record UpdateMealSlotRequest(
     bool? IsEatingOut,
     bool? IsSkipped,
     bool? IsLocked,
-    int? ServingsPlanned
+    int? ServingsPlanned,
+    string? CustomSnackName,
+    string? CustomSnackDescription,
+    List<CustomSnackItem>? CustomSnackItems,
+    Dictionary<string, decimal>? CustomFoodGroupServings
 );
 
 public record SaveAsTemplateRequest(string TemplateName);
