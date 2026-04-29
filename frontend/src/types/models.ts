@@ -70,7 +70,7 @@ export interface MyPlateTargets {
 export const DEFAULT_MY_PLATE_TARGETS: MyPlateTargets = {
   Grains: 6,
   Protein: 5,
-  Vegetables: 5,
+  Vegetables: 2.5,
   Fruit: 2,
   Dairy: 3,
 };
@@ -318,6 +318,12 @@ export interface AuthResponse {
   householdId: number;
   displayName: string;
   email: string;
+  age?: number;
+  sex?: string;
+  activityLevel?: ActivityLevel;
+  heightInches?: number;
+  weightPounds?: number;
+  myPlateTargets?: MyPlateTargets | null;
 }
 
 export interface RecipeCandidate {

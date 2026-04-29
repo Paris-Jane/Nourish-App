@@ -28,14 +28,6 @@ public class MyPlateService : IMyPlateService
             (51, 99, "Male",   6m,   5.5m, 2.5m, 2m,   3m),
         ];
 
-    private static readonly Dictionary<ActivityLevel, decimal> ActivityMultipliers = new()
-    {
-        [ActivityLevel.Sedentary] = 1.0m,
-        [ActivityLevel.Light]     = 1.1m,
-        [ActivityLevel.Moderate]  = 1.2m,
-        [ActivityLevel.Active]    = 1.35m,
-    };
-
     private static readonly (int Calories, decimal Grains, decimal Protein, decimal Vegetables, decimal Fruit, decimal Dairy)[] AdultCalorieBands =
     [
         (1600, 5m, 5m, 2m,   1.5m, 3m),
@@ -46,6 +38,7 @@ public class MyPlateService : IMyPlateService
         (2600, 9m, 6.5m, 3.5m, 2m, 3m),
         (2800, 10m, 7m, 3.5m, 2.5m, 3m),
         (3000, 10m, 7m, 4m,   2.5m, 3m),
+        (3200, 10m, 7m, 4m,   2.5m, 3m),
     ];
 
     public MyPlateTargets Calculate(int age, string sex, ActivityLevel activityLevel, int? heightInches = null, decimal? weightPounds = null)
@@ -69,38 +62,46 @@ public class MyPlateService : IMyPlateService
         if (row == default)
             row = BaseLookup.First(r => r.Sex == "Female" && r.MinAge == 19);
 
-        var mult = ActivityMultipliers.GetValueOrDefault(activityLevel, 1.0m);
-
         return new MyPlateTargets
         {
-            Grains     = Math.Round(row.Grains     * mult, 1),
-            Protein    = Math.Round(row.Protein    * mult, 1),
-            Vegetables = Math.Round(row.Vegetables * mult, 1),
-            Fruit      = Math.Round(row.Fruit      * mult, 1),
-            Dairy      = Math.Round(row.Dairy      * mult, 1),
+            Grains     = row.Grains,
+            Protein    = row.Protein,
+            Vegetables = row.Vegetables,
+            Fruit      = row.Fruit,
+            Dairy      = row.Dairy,
         };
     }
 
     private static int EstimateAdultCalories(int age, string sex, ActivityLevel activityLevel, int heightInches, decimal weightPounds)
     {
         var weightKg = (double)weightPounds * 0.45359237d;
-        var heightCm = heightInches * 2.54d;
+        var heightMeters = heightInches * 0.0254d;
 
-        var bmr = sex == "Male"
-            ? 10d * weightKg + 6.25d * heightCm - 5d * age + 5d
-            : 10d * weightKg + 6.25d * heightCm - 5d * age - 161d;
+        // USDA MyPlate describes adult plans as EER-based. These are the IOM adult EER equations
+        // used by Dietary Guidelines-style calorie estimates, then mapped to MyPlate calorie bands.
+        var physicalActivityCoefficient = sex == "Male"
+            ? activityLevel switch
+            {
+                ActivityLevel.Sedentary => 1.00d,
+                ActivityLevel.Light => 1.11d,
+                ActivityLevel.Moderate => 1.25d,
+                ActivityLevel.Active => 1.48d,
+                _ => 1.00d
+            }
+            : activityLevel switch
+            {
+                ActivityLevel.Sedentary => 1.00d,
+                ActivityLevel.Light => 1.12d,
+                ActivityLevel.Moderate => 1.27d,
+                ActivityLevel.Active => 1.45d,
+                _ => 1.00d
+            };
 
-        var activityFactor = activityLevel switch
-        {
-            ActivityLevel.Sedentary => 1.2d,
-            ActivityLevel.Light => 1.375d,
-            ActivityLevel.Moderate => 1.55d,
-            ActivityLevel.Active => 1.725d,
-            _ => 1.2d
-        };
+        var estimated = sex == "Male"
+            ? 662d - (9.53d * age) + physicalActivityCoefficient * ((15.91d * weightKg) + (539.6d * heightMeters))
+            : 354d - (6.91d * age) + physicalActivityCoefficient * ((9.36d * weightKg) + (726d * heightMeters));
 
-        var estimated = (int)Math.Round(bmr * activityFactor / 50d) * 50;
-        return Math.Max(1600, Math.Min(3000, estimated));
+        return Math.Max(1600, Math.Min(3200, (int)Math.Round(estimated / 200d) * 200));
     }
 
     private static MyPlateTargets TargetsForCalories(int calories)

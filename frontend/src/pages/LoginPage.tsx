@@ -8,7 +8,7 @@ import { login, register } from "api/auth";
 import { useToast } from "hooks/useToast";
 import { useAuthStore } from "store/authStore";
 import { registerSchema, signInSchema, type RegisterFormValues, type SignInFormValues } from "types/forms";
-import type { ActivityLevel, User } from "types/models";
+import type { ActivityLevel, MyPlateTargets, User } from "types/models";
 
 const ACTIVITY_LEVELS: ActivityLevel[] = ["Sedentary", "Light", "Moderate", "Active"];
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -70,15 +70,44 @@ export function LoginPage() {
     navigate("/");
   }
 
-  function completeAuthSession(response: { token: string; userId: number; householdId: number; displayName: string; email: string }) {
+  function completeAuthSession(response: {
+    token: string;
+    userId: number;
+    householdId: number;
+    displayName: string;
+    email: string;
+    age?: number;
+    sex?: string;
+    activityLevel?: ActivityLevel;
+    heightInches?: number;
+    weightPounds?: number;
+    myPlateTargets?: MyPlateTargets | null;
+  }) {
     const user: User = {
       id: response.userId,
       householdId: response.householdId,
       displayName: response.displayName,
       email: response.email,
+      age: response.age,
+      sex: response.sex,
+      activityLevel: response.activityLevel,
+      heightInches: response.heightInches,
+      weightPounds: response.weightPounds,
     };
     disablePreviewMode();
     setSession(response.token, user, response.householdId);
+  }
+
+  function syncAuthMyPlateTargets(response: { householdId: number; myPlateTargets?: MyPlateTargets | null }) {
+    const state = useAuthStore.getState();
+    setHouseholdAndPreferences(
+      { ...state.household, id: response.householdId },
+      {
+        ...state.householdPreferences,
+        householdId: response.householdId,
+        myPlateTargets: response.myPlateTargets ?? state.householdPreferences.myPlateTargets ?? null,
+      },
+    );
   }
 
   async function handleSignIn(values: SignInFormValues) {
@@ -91,6 +120,7 @@ export function LoginPage() {
     try {
       const response = await login(values);
       completeAuthSession(response);
+      syncAuthMyPlateTargets(response);
       pushToast(`Welcome back, ${response.displayName}.`);
       navigate("/");
     } catch (error) {
@@ -144,7 +174,7 @@ export function LoginPage() {
           cuisinePreferences: [],
           defaultCookTime: "NoLimit",
           defaultPrepStyle: "DayOf",
-          myPlateTargets: undefined,
+          myPlateTargets: response.myPlateTargets ?? null,
           updatedAt: new Date().toISOString(),
         },
       );

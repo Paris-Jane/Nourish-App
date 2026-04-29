@@ -71,7 +71,18 @@ public static class AuthEndpoints
 
         var token = jwt.GenerateToken(user.Id, household.Id, user.Email);
         return Results.Created("/api/auth/register",
-            new AuthResponse(token, user.Id, household.Id, user.DisplayName, user.Email));
+            new AuthResponse(
+                token,
+                user.Id,
+                household.Id,
+                user.DisplayName,
+                user.Email,
+                user.Age,
+                user.Sex,
+                user.ActivityLevel,
+                user.HeightInches,
+                user.WeightPounds,
+                targets));
     }
 
     private static async Task<IResult> Login(
@@ -83,7 +94,19 @@ public static class AuthEndpoints
         if (user == null || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
             return Results.Unauthorized();
 
+        var prefs = await db.HouseholdPreferences.FirstOrDefaultAsync(p => p.HouseholdId == user.HouseholdId);
         var token = jwt.GenerateToken(user.Id, user.HouseholdId, user.Email);
-        return Results.Ok(new AuthResponse(token, user.Id, user.HouseholdId, user.DisplayName, user.Email));
+        return Results.Ok(new AuthResponse(
+            token,
+            user.Id,
+            user.HouseholdId,
+            user.DisplayName,
+            user.Email,
+            user.Age,
+            user.Sex,
+            user.ActivityLevel,
+            user.HeightInches,
+            user.WeightPounds,
+            prefs?.MyPlateTargets));
     }
 }

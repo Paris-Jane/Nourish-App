@@ -21,5 +21,11 @@ public record AuthResponse(
     int UserId,
     int HouseholdId,
     string DisplayName,
-    string Email
+    string Email,
+    int Age,
+    string Sex,
+    ActivityLevel ActivityLevel,
+    int HeightInches,
+    decimal WeightPounds,
+    MyPlateTargets? MyPlateTargets
 );
