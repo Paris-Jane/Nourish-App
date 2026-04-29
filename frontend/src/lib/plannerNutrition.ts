@@ -103,6 +103,38 @@ function normalizeGroupKey(group: string | Ingredient["foodGroup"]): MyPlateGrou
   }
 }
 
+function addRecipeIngredientServings(
+  totals: Partial<Record<MyPlateGroupKey, number>>,
+  recipeIngredient: Recipe["ingredients"][number],
+  ingredientMap: Map<number, Ingredient>,
+  scale: number,
+) {
+  const details = ingredientMap.get(recipeIngredient.ingredientId);
+  if (!details || details.isMyPlateCounted === false || details.servingSize <= 0) return;
+  const key = normalizeGroupKey(details.foodGroup);
+  if (!key) return;
+  const servings = (recipeIngredient.quantity / details.servingSize) * scale;
+  if (!Number.isFinite(servings) || servings <= 0) return;
+  totals[key] = round2((totals[key] ?? 0) + servings);
+}
+
+function hasAnyFoodGroupServing(totals: Partial<Record<MyPlateGroupKey, number>>) {
+  return GROUP_ORDER.some((group) => (totals[group] ?? 0) > 0);
+}
+
+function addRecipeSummaryServings(
+  totals: Partial<Record<MyPlateGroupKey, number>>,
+  recipe: Recipe,
+  scale: number,
+) {
+  Object.entries(recipe.foodGroupServings).forEach(([group, servings]) => {
+    const key = normalizeGroupKey(group);
+    const servingCount = Number(servings);
+    if (!key || !Number.isFinite(servingCount) || servingCount <= 0) return;
+    totals[key] = round2((totals[key] ?? 0) + servingCount * scale);
+  });
+}
+
 export function myPlateTargetsToDailyRecord(targets?: MyPlateTargets | null): Record<MyPlateGroupKey, number> {
   return {
     grains: targets?.Grains ?? 0,
@@ -122,27 +154,16 @@ export function calculateSlotFoodGroupServings(
   if (!recipe || slot.isSkipped) return totals;
 
   const scale = recipe.baseYieldServings > 0 ? (slot.servingsPlanned || 1) / recipe.baseYieldServings : 1;
-
-  Object.entries(recipe.foodGroupServings).forEach(([group, servings]) => {
-    const key = normalizeGroupKey(group);
-    if (!key) return;
-    totals[key] = round2(totals[key] + Number(servings) * scale);
-  });
-
   const ingredientMap = new Map(ingredients.map((ingredient) => [ingredient.id, ingredient]));
   const selectedModifierIds = new Set(slot.selectedModifierIngredientIds ?? []);
 
   recipe.ingredients
-    .filter((ingredient) => selectedModifierIds.has(ingredient.ingredientId))
-    .forEach((ingredient) => {
-      const details = ingredientMap.get(ingredient.ingredientId);
-      if (!details || details.isMyPlateCounted === false || details.servingSize <= 0) return;
-      const key = normalizeGroupKey(details.foodGroup);
-      if (!key) return;
-      const servings = (ingredient.quantity / details.servingSize) * scale;
-      if (!Number.isFinite(servings) || servings <= 0) return;
-      totals[key] = round2(totals[key] + servings);
-    });
+    .filter((ingredient) => !(ingredient.isModifier || ingredient.isOptional) || selectedModifierIds.has(ingredient.ingredientId))
+    .forEach((ingredient) => addRecipeIngredientServings(totals, ingredient, ingredientMap, scale));
+
+  if (!hasAnyFoodGroupServing(totals)) {
+    addRecipeSummaryServings(totals, recipe, scale);
+  }
 
   return totals;
 }
@@ -258,20 +279,27 @@ function addModifierServings(
 }
 
 function buildRecipeSnackCandidates(recipes: Recipe[], ingredients: Ingredient[], fridgeItems: FridgeItem[]): SnackCandidate[] {
+  const ingredientMap = new Map(ingredients.map((ingredient) => [ingredient.id, ingredient]));
+
   return recipes
     .filter((recipe) => recipe.mealTypeTags.includes("Snack"))
     .flatMap((recipe) => {
       const scale = recipe.baseYieldServings > 0 ? 1 / recipe.baseYieldServings : 1;
-      const baseServings = Object.entries(recipe.foodGroupServings).reduce<Partial<Record<MyPlateGroupKey, number>>>((acc, [group, servings]) => {
-        const normalized = normalizeGroupKey(group);
-        if (!normalized || Number(servings) <= 0) return acc;
-        acc[normalized] = round2((acc[normalized] ?? 0) + Number(servings) * scale);
-        return acc;
-      }, {});
+      const baseServings = recipe.ingredients
+        .filter((ingredient) => !(ingredient.isModifier || ingredient.isOptional))
+        .reduce<Partial<Record<MyPlateGroupKey, number>>>((acc, ingredient) => {
+          addRecipeIngredientServings(acc, ingredient, ingredientMap, scale);
+          return acc;
+        }, {});
+
+      if (!hasAnyFoodGroupServing(baseServings)) {
+        addRecipeSummaryServings(baseServings, recipe, scale);
+      }
+
       const optionalIngredients = recipe.ingredients.filter((ingredient) => ingredient.isModifier || ingredient.isOptional);
       const helpfulModifierIds = optionalIngredients
         .filter((ingredient) => {
-          const details = ingredients.find((entry) => entry.id === ingredient.ingredientId);
+          const details = ingredientMap.get(ingredient.ingredientId);
           return details && details.isMyPlateCounted !== false && normalizeGroupKey(details.foodGroup);
         })
         .map((ingredient) => ingredient.ingredientId);
