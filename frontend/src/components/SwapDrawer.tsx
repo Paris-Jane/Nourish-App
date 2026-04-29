@@ -167,18 +167,44 @@ export function SwapDrawer({
     });
   }, [matchingRecipeSlotsForCurrent, pendingRecipe, slot, weekSlots]);
 
-  const sortedTargetSlots = useMemo(
-    () =>
-      eligibleTargetSlots
-        .slice()
-        .sort(
-          (a, b) =>
-            targetDayOrder.indexOf(a.dayOfWeek) - targetDayOrder.indexOf(b.dayOfWeek) ||
-            a.position - b.position ||
-            a.mealType.localeCompare(b.mealType),
-        ),
-    [eligibleTargetSlots],
-  );
+  const targetDayCards = useMemo(() => {
+    if (!slot) return [];
+    const eligibleByDay = new Map<WeekDay, WeekMealSlot>();
+    eligibleTargetSlots
+      .slice()
+      .sort((a, b) => a.position - b.position || a.mealType.localeCompare(b.mealType))
+      .forEach((entry) => {
+        if (!eligibleByDay.has(entry.dayOfWeek)) {
+          eligibleByDay.set(entry.dayOfWeek, entry);
+        }
+      });
+
+    return targetDayOrder.map((day) => {
+      const daySlots = weekSlots
+        .filter((entry) => entry.dayOfWeek === day && entry.mealType === slot.mealType)
+        .sort((a, b) => a.position - b.position);
+      const availableSlot = eligibleByDay.get(day);
+      const displaySlot = availableSlot ?? daySlots[0] ?? null;
+      const unavailableLabel = !displaySlot
+        ? "No slot"
+        : displaySlot.isEatingOut
+          ? "Eating out"
+          : displaySlot.isSkipped
+            ? "Skipped"
+            : displaySlot.recipeName
+              ? displaySlot.recipeName
+              : "Unavailable";
+
+      return {
+        day,
+        slot: displaySlot,
+        available: Boolean(availableSlot),
+        unavailableLabel,
+      };
+    });
+  }, [eligibleTargetSlots, slot, weekSlots]);
+
+  const hasAvailableTarget = targetDayCards.some((entry) => entry.available);
 
   const nutrientNeedGroups = useMemo(
     () => Object.entries(dayProgress?.remaining ?? {}).filter(([, value]) => value > 0.01).map(([group]) => group),
@@ -642,32 +668,47 @@ export function SwapDrawer({
                     : `Start with ${slot?.dayOfWeek}. Then decide whether this is just for that day or other ${slot?.mealType.toLowerCase()} slots too.`}
                 </p>
               </div>
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
-                {sortedTargetSlots.map((entry) => {
-                  const checked = selectedTargetIds.includes(entry.id);
-                  const disabled = entry.id === slot?.id;
+              <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                {targetDayCards.map((entry) => {
+                  const targetSlot = entry.slot;
+                  const checked = targetSlot ? selectedTargetIds.includes(targetSlot.id) : false;
+                  const disabled = !entry.available || !targetSlot || targetSlot.id === slot?.id;
                   return (
                     <button
-                      key={entry.id}
+                      key={entry.day}
                       type="button"
                       disabled={disabled}
-                      onClick={() => toggleTargetSlot(entry.id)}
+                      onClick={() => {
+                        if (!targetSlot || !entry.available) return;
+                        toggleTargetSlot(targetSlot.id);
+                      }}
                       className={cn(
-                        "min-h-[4.25rem] rounded-2xl border px-2 py-2 text-center transition",
-                        checked ? "border-nourish-sage bg-white text-nourish-ink shadow-sm" : "border-nourish-border bg-white/70 text-nourish-muted hover:border-nourish-sage/50 hover:bg-white",
-                        disabled && "cursor-default opacity-80",
+                        "min-h-[4.25rem] rounded-2xl border px-1.5 py-2 text-center transition sm:px-2",
+                        entry.available && !checked && "border-nourish-border bg-white text-nourish-muted hover:border-nourish-sage/50",
+                        checked && "border-nourish-sage bg-white text-nourish-ink shadow-sm",
+                        !entry.available && "cursor-not-allowed border-nourish-border/70 bg-stone-200/70 text-nourish-muted opacity-70",
+                        targetSlot?.id === slot?.id && "cursor-default",
                       )}
                       aria-pressed={checked}
-                      aria-label={`${checked ? "Remove" : "Add"} ${pendingRecipe.name} ${entry.dayOfWeek} ${entry.mealType}`}
+                      aria-label={
+                        targetSlot && entry.available
+                          ? `${checked ? "Remove" : "Add"} ${pendingRecipe.name} ${entry.day} ${targetSlot.mealType}`
+                          : `${entry.day} unavailable for ${pendingRecipe.name}`
+                      }
                     >
-                      <span className="block text-lg font-semibold">{targetDayLabels[entry.dayOfWeek]}</span>
-                      <span className="mt-1 block truncate text-[11px] leading-tight">{entry.mealType}</span>
-                      {entry.recipeName && entry.id !== slot?.id ? <span className="mt-1 block truncate text-[10px] leading-tight text-nourish-muted">{entry.recipeName}</span> : null}
+                      <span className="block text-lg font-semibold">{targetDayLabels[entry.day]}</span>
+                      <span className="mt-1 block truncate text-[10px] leading-tight sm:text-[11px]">
+                        {targetSlot?.mealType ? `${targetSlot.mealType.slice(0, 3)}...` : "No..."}
+                      </span>
+                      {!entry.available ? <span className="mt-1 block truncate text-[9px] leading-tight">{entry.unavailableLabel}</span> : null}
                       {checked ? <span className="mt-1 inline-flex h-4 w-4 items-center justify-center rounded border border-nourish-sage bg-nourish-sage text-[10px] text-white">✓</span> : null}
                     </button>
                   );
                 })}
               </div>
+              {!hasAvailableTarget ? (
+                <p className="mt-3 text-sm text-nourish-muted">No empty {slot?.mealType.toLowerCase()} slots are available this week.</p>
+              ) : null}
               {pendingModifiers.length > 0 ? (
                 <div className="mt-4 rounded-2xl border border-nourish-border bg-white/80 p-3">
                   <div className="mb-3">
