@@ -221,6 +221,15 @@ export function calculateSlotFoodGroupServings(
     addRecipeSummaryServings(totals, recipe, scale);
   }
 
+  const hasIngredientTotals = GROUP_ORDER.some((group) => totals[group] > 0);
+  if (!hasIngredientTotals) {
+    Object.entries(recipe.foodGroupServings).forEach(([group, servings]) => {
+      const key = normalizeGroupKey(group);
+      if (!key) return;
+      totals[key] = round2(totals[key] + Number(servings) * scale);
+    });
+  }
+
   return totals;
 }
 
@@ -423,7 +432,6 @@ function buildRecipeSnackCandidates(recipes: Recipe[], ingredients: Ingredient[]
       if (!hasAnyFoodGroupServing(baseServings)) {
         addRecipeSummaryServings(baseServings, recipe, scale);
       }
-
       const optionalIngredients = recipe.ingredients.filter((ingredient) => ingredient.isModifier || ingredient.isOptional);
       const helpfulModifierIds = optionalIngredients
         .filter((ingredient) => {
