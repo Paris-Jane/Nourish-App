@@ -77,7 +77,7 @@ export function MealCard({
   }, [nutritionOpen]);
 
   const filled = !empty && !skipped;
-  const showActions = planningMode && Boolean(onDidntHappen || onRemoveMeal || onCopyMeal || onDeleteSlot);
+  const showActions = Boolean(onDidntHappen || onRemoveMeal || onCopyMeal || onDeleteSlot);
   const selectedFoodGroups = customSnackName
     ? Object.keys(slot.customFoodGroupServings ?? {})
         .filter((group) => Number(slot.customFoodGroupServings?.[group] ?? 0) > 0)
@@ -92,7 +92,7 @@ export function MealCard({
   return (
     <div
       onContextMenu={(event) => {
-        if (!planningMode || !showActions || !isDesktop) return;
+        if (!showActions || !isDesktop) return;
         event.preventDefault();
         const rect = event.currentTarget.getBoundingClientRect();
         setMenuPosition({

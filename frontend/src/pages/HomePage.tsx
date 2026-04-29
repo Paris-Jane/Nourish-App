@@ -187,7 +187,7 @@ export function HomePage() {
       await Promise.all(
         slotIds.map((slotId) =>
           swapSlot(week.id, slotId, {
-            recipeId: null,
+            recipeId: 0,
             selectedModifierIngredientIds: [],
             isSkipped: false,
             isEatingOut: false,
@@ -205,7 +205,14 @@ export function HomePage() {
       const targetIds = new Set(slotIds);
       const next = slots.map((s) =>
         targetIds.has(s.id)
-          ? { ...s, recipeId: null, recipeName: null, selectedModifierIngredientIds: [], isSkipped: false, isEatingOut: false }
+          ? {
+              ...s,
+              recipeId: null,
+              recipeName: null,
+              selectedModifierIngredientIds: [],
+              isSkipped: false,
+              isEatingOut: false,
+            }
           : s,
       );
       setSlotOverrides(next);
